@@ -1,5 +1,3 @@
-<div align="center">
-  <img width="1200" height="475" alt="HevyAnalytics Banner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
   
   # HevyAnalytics 🏋️
   
@@ -15,16 +13,27 @@
 
 ## 📋 Table of Contents
 
-- [Features](#-features)
-- [Quick Start](#-quick-start)
-- [Installation](#-installation)
-- [Usage](#-usage)
-- [Deployment](#-deployment)
-- [Project Structure](#-project-structure)
-- [Technologies](#-technologies)
-- [Contributing](#-contributing)
-- [License](#-license)
-- [Support](#-support)
+- [HevyAnalytics 🏋️](#hevyanalytics-️)
+  - [📋 Table of Contents](#-table-of-contents)
+  - [✨ Features](#-features)
+  - [🚀 Quick Start](#-quick-start)
+    - [Prerequisites](#prerequisites)
+    - [Installation](#installation)
+  - [📖 Usage](#-usage)
+    - [Getting Your Hevy Data](#getting-your-hevy-data)
+    - [Dashboard Tab](#dashboard-tab)
+    - [Exercises Tab](#exercises-tab)
+    - [History Tab](#history-tab)
+    - [Set-by-Set Wisdom](#set-by-set-wisdom)
+  - [🌐 Deployment](#-deployment)
+    - [Deploy to Vercel (Recommended)](#deploy-to-vercel-recommended)
+    - [Deploy to Netlify](#deploy-to-netlify)
+    - [Deploy to GitHub Pages](#deploy-to-github-pages)
+  - [📁 Project Structure](#-project-structure)
+  - [🛠️ Technologies](#️-technologies)
+  - [🤝 Contributing](#-contributing)
+  - [📄 License](#-license)
+  - [💬 Support](#-support)
 
 ---
 
