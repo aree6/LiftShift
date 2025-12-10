@@ -181,7 +181,7 @@ const App: React.FC = () => {
       <aside className="w-20 lg:w-64 bg-slate-900 border-r border-slate-800 flex-shrink-0 flex flex-col justify-between">
         <div>
           <div className="h-16 flex items-center justify-center lg:justify-start lg:px-6 border-b border-slate-800 bg-slate-900">
-             <BarChart3 className="w-8 h-8 text-blue-500" />
+             <img src="/HevyAnalytics.png" alt="HevyAnalytics Logo" className="w-8 h-8 lg:w-10 lg:h-10" />
              <span className="hidden lg:block ml-3 font-bold text-xl tracking-tight text-white">HevyAnalytics</span>
           </div>
           
