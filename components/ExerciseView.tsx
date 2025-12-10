@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { ExerciseStats } from '../types';
 import { 
-  AreaChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine 
+  AreaChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer 
 } from 'recharts';
 import { 
   Search, 
@@ -12,8 +12,7 @@ import {
   Activity,
   Dumbbell,
   Layers,
-  Scale,
-  Calendar
+  Scale
 } from 'lucide-react';
 
 // --- TYPES & LOGIC ---
@@ -119,16 +118,16 @@ const analyzeExerciseTrend = (stats: ExerciseStats): StatusResult => {
 // --- SUB-COMPONENTS ---
 
 const StatCard = ({ label, value, unit, icon: Icon }: any) => (
-  <div className="bg-slate-900/50 backdrop-blur-sm border border-slate-800 p-3 sm:p-4 rounded-xl flex items-center justify-between group hover:border-slate-700 transition-all duration-300">
+  <div className="bg-slate-900/50 backdrop-blur-sm border border-slate-800 p-2.5 sm:p-3 rounded-lg flex items-center justify-between group hover:border-slate-700 transition-all duration-300 h-full">
     <div>
-      <p className="text-xs text-slate-500 uppercase font-bold tracking-wider mb-1">{label}</p>
+      <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider mb-0.5">{label}</p>
       <div className="flex items-baseline gap-1">
-        <span className="text-xl sm:text-2xl font-bold text-white tracking-tight">{value}</span>
-        {unit && <span className="text-xs sm:text-sm font-medium text-slate-500">{unit}</span>}
+        <span className="text-lg sm:text-xl font-bold text-white tracking-tight">{value}</span>
+        {unit && <span className="text-xs font-medium text-slate-500">{unit}</span>}
       </div>
     </div>
-    <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-lg bg-slate-800 flex items-center justify-center text-slate-400 group-hover:text-blue-400 group-hover:bg-blue-500/10 transition-colors flex-shrink-0">
-      <Icon size={18} className="sm:w-5 sm:h-5" />
+    <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-md bg-slate-800 flex items-center justify-center text-slate-400 group-hover:text-blue-400 group-hover:bg-blue-500/10 transition-colors flex-shrink-0">
+      <Icon size={16} className="sm:w-4 sm:h-4" />
     </div>
   </div>
 );
@@ -196,189 +195,194 @@ export const ExerciseView: React.FC<ExerciseViewProps> = ({ stats }) => {
   const currentStatus = selectedStats ? statusMap[selectedStats.name] : null;
 
   return (
-    <div className="flex flex-col lg:flex-row gap-4 sm:gap-6 h-auto lg:h-[calc(100vh-100px)] lg:max-h-[900px] text-slate-200 pb-10 lg:pb-0">
+    <div className="flex flex-col gap-6 w-full text-slate-200 pb-10">
       
-      {/* --- SIDEBAR --- */}
-      <div className="w-full lg:w-80 flex flex-col gap-4">
-        {/* Search Header */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
-          <input
-            type="text"
-            placeholder="Filter exercises..."
-            className="w-full bg-slate-900/50 border border-slate-800 rounded-xl pl-10 pr-4 py-2 sm:py-3 text-xs sm:text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent transition-all"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-
-        {/* List */}
-        <div className="flex-1 bg-slate-900/50 border border-slate-800 rounded-xl overflow-hidden flex flex-col max-h-64 lg:max-h-none">
-          <div className="overflow-y-auto p-2 space-y-1 custom-scrollbar">
-            {filteredExercises.map((ex) => {
-              const status = statusMap[ex.name];
-              const isSelected = selectedExerciseName === ex.name;
-              
-              // Status Indicator Logic
-              let IndicatorIcon = Activity;
-              let indicatorColor = "text-slate-500";
-              if (status.status === 'overload') { IndicatorIcon = TrendingUp; indicatorColor = "text-emerald-400"; }
-              if (status.status === 'regression') { IndicatorIcon = TrendingDown; indicatorColor = "text-rose-400"; }
-              if (status.status === 'stagnant') { IndicatorIcon = AlertTriangle; indicatorColor = "text-amber-400"; }
-
-              return (
-                <button
-                  key={ex.name}
-                  onClick={() => setSelectedExerciseName(ex.name)}
-                  className={`w-full text-left px-2 sm:px-3 py-2 sm:py-3 rounded-lg transition-all duration-200 flex items-center justify-between group border border-transparent ${
-                    isSelected 
-                      ? 'bg-blue-600/10 border-blue-500/30' 
-                      : 'hover:bg-slate-800 hover:border-slate-700'
-                  }`}
-                >
-                  <div className="flex flex-col min-w-0 pr-2">
-                    <span className={`truncate font-medium text-xs sm:text-sm ${isSelected ? 'text-blue-100' : 'text-slate-300 group-hover:text-white'}`}>
-                      {ex.name}
-                    </span>
-                    <span className="text-[10px] text-slate-500 truncate">
-                      Last: {new Date(ex.history[0].date).toLocaleDateString()}
-                    </span>
-                  </div>
-                  
-                  {isSelected ? (
-                     <div className={`p-1.5 rounded-md ${status.bgColor}`}>
-                        <IndicatorIcon className={`w-3.5 h-3.5 ${status.color}`} />
-                     </div>
-                  ) : (
-                    <div className={`w-2 h-2 rounded-full ${indicatorColor.replace('text-', 'bg-')} opacity-40 group-hover:opacity-100`} />
-                  )}
-                </button>
-              );
-            })}
+      {/* 
+          TOP SECTION: GRID LAYOUT
+      */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        {/* --- LEFT: SIDEBAR --- */}
+        <div className="lg:col-span-1 flex flex-col gap-3 max-h-[30vh]">
+          {/* Search Header */}
+          <div className="relative shrink-0">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+            <input
+              type="text"
+              placeholder="Filter exercises..."
+              className="w-full bg-slate-900/50 border border-slate-800 rounded-lg pl-9 pr-3 py-1.5 sm:py-2 text-xs text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent transition-all"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
           </div>
-        </div>
-      </div>
 
-      {/* --- MAIN DASHBOARD --- */}
-      <div className="flex-1 flex flex-col gap-4 sm:gap-6 overflow-y-auto lg:overflow-hidden pr-1">
-        {selectedStats && currentStatus ? (
-          <>
-            {/* 1. Header & Insight */}
-            <div className="flex flex-col xl:flex-row gap-4 sm:gap-6">
-              {/* Title Section */}
-              <div className="flex-1">
-                <h2 className="text-2xl sm:text-3xl font-bold text-white mb-2 tracking-tight">{selectedStats.name}</h2>
-              </div>
+          {/* 
+             LIST WRAPPER
+             Using flex-1 to match the height of Header & Insight section
+          */}
+          <div className="flex-1 bg-slate-900/50 border border-slate-800 rounded-lg overflow-hidden flex flex-col">
+            <div className="overflow-y-auto p-1.5 space-y-0.5 custom-scrollbar flex-1">
+              {filteredExercises.map((ex) => {
+                const status = statusMap[ex.name];
+                const isSelected = selectedExerciseName === ex.name;
+                
+                let IndicatorIcon = Activity;
+                let indicatorColor = "text-slate-500";
+                if (status.status === 'overload') { IndicatorIcon = TrendingUp; indicatorColor = "text-emerald-400"; }
+                if (status.status === 'regression') { IndicatorIcon = TrendingDown; indicatorColor = "text-rose-400"; }
+                if (status.status === 'stagnant') { IndicatorIcon = AlertTriangle; indicatorColor = "text-amber-400"; }
 
-              {/* Insight Card */}
-              <div className={`flex-1 xl:max-w-md rounded-xl p-3 sm:p-4 border ${currentStatus.borderColor} ${currentStatus.bgColor} relative overflow-hidden group`}>
-                <div className="relative z-10 flex gap-3 sm:gap-4">
-                  <div className={`p-2 sm:p-3 rounded-lg bg-slate-950/40 h-fit ${currentStatus.color} flex-shrink-0`}>
-                    <currentStatus.icon size={20} className="sm:w-6 sm:h-6" />
-                  </div>
-                  <div>
-                    <h4 className={`font-bold text-sm sm:text-base ${currentStatus.color}`}>{currentStatus.title}</h4>
-                    <p className="text-slate-300 text-xs sm:text-sm mt-1 leading-snug">{currentStatus.description}</p>
-                    {currentStatus.subtext && (
-                       <div className="mt-2 text-[11px] sm:text-xs font-mono opacity-80 flex items-center gap-1.5">
-                         <span className="w-1 h-1 bg-current rounded-full" />
-                         {currentStatus.subtext}
+                return (
+                  <button
+                    key={ex.name}
+                    onClick={() => setSelectedExerciseName(ex.name)}
+                    className={`w-full text-left px-2 py-1.5 rounded-md transition-all duration-200 flex items-center justify-between group border border-transparent ${
+                      isSelected 
+                        ? 'bg-blue-600/10 border-blue-500/30' 
+                        : 'hover:bg-slate-800 hover:border-slate-700'
+                    }`}
+                  >
+                    <div className="flex flex-col min-w-0 pr-2">
+                      <span className={`truncate font-medium text-xs ${isSelected ? 'text-blue-100' : 'text-slate-300 group-hover:text-white'}`}>
+                        {ex.name}
+                      </span>
+                      <span className="text-[10px] text-slate-500 truncate">
+                        Last: {new Date(ex.history[0].date).toLocaleDateString()}
+                      </span>
+                    </div>
+                    
+                    {isSelected ? (
+                       <div className={`p-1 rounded-md ${status.bgColor}`}>
+                          <IndicatorIcon className={`w-3 h-3 ${status.color}`} />
                        </div>
+                    ) : (
+                      <div className={`w-2 h-2 rounded-full ${indicatorColor.replace('text-', 'bg-')} opacity-40 group-hover:opacity-100`} />
                     )}
-                  </div>
-                </div>
-                {/* Decorative Glow */}
-                <div className={`absolute -right-10 -top-10 w-32 h-32 rounded-full blur-3xl opacity-20 ${currentStatus.color.replace('text', 'bg')}`} />
-              </div>
+                  </button>
+                );
+              })}
             </div>
-
-            {/* 2. Key Metrics Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
-              <StatCard label="Personal Record" value={selectedStats.maxWeight} unit="kg" icon={Dumbbell} />
-              <StatCard label="Total Volume" value={(selectedStats.totalVolume / 1000).toFixed(1)} unit="k" icon={Scale} />
-              <StatCard label="Sessions" value={selectedStats.totalSets} unit="" icon={Layers} />
-            </div>
-
-            {/* 3. The Chart */}
-            <div className="flex-1 min-h-[300px] sm:min-h-[350px] bg-slate-900/50 backdrop-blur-sm border border-slate-800 rounded-xl p-3 sm:p-6 relative flex flex-col">
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-4 sm:mb-6 gap-2">
-                 <div>
-                    <h3 className="text-base sm:text-lg font-semibold text-white">Strength Progression</h3>
-                    <p className="text-[11px] sm:text-xs text-slate-500">Estimated 1RM vs Actual Lift Weight</p>
-                 </div>
-                 {/* Legend */}
-                 <div className="flex gap-3 sm:gap-4 text-[10px] sm:text-xs font-medium">
-                    <div className="flex items-center gap-2 text-blue-400">
-                       <span className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded bg-blue-500/20 border border-blue-500"></span> Est. 1RM
-                    </div>
-                    <div className="flex items-center gap-2 text-slate-500">
-                       <span className="w-2.5 h-0.5 sm:w-3 bg-slate-500 border-t border-dashed border-slate-500"></span> Lift Weight
-                    </div>
-                 </div>
-              </div>
-
-              <div className="w-full flex-1 min-h-[250px]">
-                <ResponsiveContainer width="100%" height={300}>
-                  <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="color1RM" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
-                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
-                    <XAxis 
-                      dataKey="date" 
-                      stroke="#64748b" 
-                      fontSize={10} 
-                      tickLine={false} 
-                      axisLine={false}
-                      dy={10}
-                    />
-                    <YAxis 
-                      stroke="#64748b" 
-                      fontSize={10} 
-                      tickLine={false} 
-                      axisLine={false}
-                      tickFormatter={(val) => `${val}kg`}
-                    />
-                    <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#334155', strokeWidth: 1, strokeDasharray: '4 4' }} />
-                    
-                    {/* The 1RM Area (The main visual) */}
-                    <Area 
-                      type="monotone" 
-                      dataKey="oneRepMax" 
-                      stroke="#3b82f6" 
-                      strokeWidth={3}
-                      fillOpacity={1} 
-                      fill="url(#color1RM)" 
-                      activeDot={{ r: 5, strokeWidth: 0, fill: '#60a5fa' }}
-                    />
-                    
-                    {/* The Actual Weight Line (Context) */}
-                    <Line 
-                      type="stepAfter" 
-                      dataKey="weight" 
-                      stroke="#64748b" 
-                      strokeWidth={1}
-                      strokeDasharray="4 4" 
-                      dot={false}
-                      activeDot={false}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          </>
-        ) : (
-          <div className="flex-1 flex flex-col items-center justify-center text-slate-600 gap-4 border border-dashed border-slate-800 rounded-xl bg-slate-900/20 min-h-[300px]">
-            <div className="p-4 bg-slate-900 rounded-full">
-              <Activity className="w-10 h-10 sm:w-12 sm:h-12 opacity-50" />
-            </div>
-            <p className="font-medium text-sm sm:text-base text-center px-4">Select an exercise to analyze performance</p>
           </div>
-        )}
+        </div>
+
+        {/* --- RIGHT: HEADER & METRICS --- */}
+        <div className="lg:col-span-2 flex flex-col gap-6">
+          {selectedStats && currentStatus ? (
+            <>
+              {/* 1. Header & Insight */}
+              <div className="flex flex-col xl:flex-row gap-2 sm:gap-3">
+                <div className="flex-1">
+                  <h2 className="text-2xl sm:text-2xl font-bold text-white mb-1 tracking-tight">{selectedStats.name}</h2>
+                </div>
+                <div className={`flex-1 xl:max-w-md rounded-lg p-2.5 sm:p-3 border ${currentStatus.borderColor} ${currentStatus.bgColor} relative overflow-hidden group`}>
+                  <div className="relative z-10 flex gap-2 sm:gap-2.5">
+                    <div className={`p-1.5 sm:p-2 rounded-lg bg-slate-950/40 h-fit ${currentStatus.color} flex-shrink-0`}>
+                      <currentStatus.icon size={18} className="sm:w-5 sm:h-5" />
+                    </div>
+                    <div>
+                      <h4 className={`font-bold text-xs sm:text-sm ${currentStatus.color}`}>{currentStatus.title}</h4>
+                      <p className="text-slate-300 text-xs leading-tight mt-0.5">{currentStatus.description}</p>
+                      {currentStatus.subtext && (
+                         <div className="mt-0.5 mb-1 text-[10px] sm:text-xs font-mono opacity-80 flex items-center gap-1">
+                           <span className="w-1 h-1 bg-current rounded-full" />
+                           {currentStatus.subtext}
+                         </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className={`absolute -right-10 -top-10 w-32 h-32 rounded-full blur-3xl opacity-20 ${currentStatus.color.replace('text', 'bg')}`} />
+                </div>
+              </div>
+
+              {/* 2. Key Metrics Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 sm:gap-3 flex-1">
+                <StatCard label="Personal Record" value={selectedStats.maxWeight} unit="kg" icon={Dumbbell} />
+                <StatCard label="Total Volume" value={(selectedStats.totalVolume / 1000).toFixed(1)} unit="k" icon={Scale} />
+                <StatCard label="Sessions" value={selectedStats.totalSets} unit="" icon={Layers} />
+              </div>
+            </>
+          ) : (
+            <div className="flex-1 flex flex-col items-center justify-center text-slate-600 gap-4 border border-dashed border-slate-800 rounded-xl bg-slate-900/20 min-h-[300px]">
+              <div className="p-4 bg-slate-900 rounded-full">
+                <Activity className="w-10 h-10 sm:w-12 sm:h-12 opacity-50" />
+              </div>
+              <p className="font-medium text-sm sm:text-base text-center px-4">Select an exercise to analyze performance</p>
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* 
+          BOTTOM SECTION: CHART 
+      */}
+      {selectedStats && (
+        <div className="w-full bg-slate-900/50 backdrop-blur-sm border border-slate-800 rounded-xl p-3 sm:p-6 relative flex flex-col h-[400px]">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-4 sm:mb-6 gap-2">
+             <div>
+                <h3 className="text-base sm:text-lg font-semibold text-white">Strength Progression</h3>
+                <p className="text-[11px] sm:text-xs text-slate-500">Estimated 1RM vs Actual Lift Weight</p>
+             </div>
+             <div className="flex gap-3 sm:gap-4 text-[10px] sm:text-xs font-medium">
+                <div className="flex items-center gap-2 text-blue-400">
+                   <span className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded bg-blue-500/20 border border-blue-500"></span> Est. 1RM
+                </div>
+                <div className="flex items-center gap-2 text-slate-500">
+                   <span className="w-2.5 h-0.5 sm:w-3 bg-slate-500 border-t border-dashed border-slate-500"></span> Lift Weight
+                </div>
+             </div>
+          </div>
+
+          <div className="w-full flex-1 min-h-0">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="color1RM" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+                <XAxis 
+                  dataKey="date" 
+                  stroke="#64748b" 
+                  fontSize={10} 
+                  tickLine={false} 
+                  axisLine={false}
+                  dy={10}
+                />
+                <YAxis 
+                  stroke="#64748b" 
+                  fontSize={10} 
+                  tickLine={false} 
+                  axisLine={false}
+                  tickFormatter={(val) => `${val}kg`}
+                />
+                <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#334155', strokeWidth: 1, strokeDasharray: '4 4' }} />
+                
+                <Area 
+                  type="monotone" 
+                  dataKey="oneRepMax" 
+                  stroke="#3b82f6" 
+                  strokeWidth={3}
+                  fillOpacity={1} 
+                  fill="url(#color1RM)" 
+                  activeDot={{ r: 5, strokeWidth: 0, fill: '#60a5fa' }}
+                />
+                
+                <Line 
+                  type="stepAfter" 
+                  dataKey="weight" 
+                  stroke="#64748b" 
+                  strokeWidth={1}
+                  strokeDasharray="4 4" 
+                  dot={false}
+                  activeDot={false}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
