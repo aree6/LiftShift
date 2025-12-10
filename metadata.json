@@ -1,0 +1,5 @@
+{
+  "name": "HevyAnalytics",
+  "description": "A comprehensive workout visualizer that parses workout CSV data to visualize progress, volume metrics, and exercise trends over time.",
+  "requestFramePermissions": []
+}

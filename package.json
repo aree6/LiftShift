@@ -1,0 +1,42 @@
+{
+  "name": "hevyanalytics",
+  "version": "1.0.0",
+  "description": "A comprehensive workout visualizer that transforms Hevy app CSV exports into powerful insights with analytics, personal records tracking, and training performance analysis.",
+  "author": "Areeb <mohammadar336@gmail.com>",
+  "license": "MIT",
+  "homepage": "https://github.com/aree6/HevyAnalytics",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/aree6/HevyAnalytics.git"
+  },
+  "keywords": [
+    "fitness",
+    "workout",
+    "analytics",
+    "hevy",
+    "training",
+    "visualization",
+    "personal-records",
+    "react",
+    "typescript"
+  ],
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "date-fns": "^4.1.0",
+    "recharts": "^3.5.1",
+    "lucide-react": "^0.556.0",
+    "react": "^19.2.1",
+    "react-dom": "^19.2.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "typescript": "~5.8.2",
+    "vite": "^6.2.0"
+  }
+}
