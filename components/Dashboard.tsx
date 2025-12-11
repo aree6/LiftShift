@@ -8,6 +8,8 @@ import {
   getPrsOverTime,
   getTopExercisesOverTime
 } from '../utils/analytics';
+import { getMuscleVolumeTimeSeries } from '../utils/muscleAnalytics';
+import { MUSCLE_COLORS } from '../utils/categories';
 import { saveChartModes, getChartModes } from '../utils/localStorage';
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
@@ -30,7 +32,7 @@ interface DashboardProps {
   onDayClick?: (date: Date) => void; 
 }
 
-type ChartKey = 'heatmap' | 'prTrend' | 'volumeVsDuration' | 'intensityEvo' | 'weekShape' | 'topExercises';
+type ChartKey = 'heatmap' | 'prTrend' | 'volumeVsDuration' | 'intensityEvo' | 'weekShape' | 'topExercises' | 'muscleTrend' | 'muscleComposition';
 
 const CHART_LABELS: Record<ChartKey, string> = {
   heatmap: 'Consistency Heatmap',
@@ -38,7 +40,9 @@ const CHART_LABELS: Record<ChartKey, string> = {
   volumeVsDuration: 'Volume Density',
   intensityEvo: 'Training Style Evolution',
   weekShape: 'Weekly Rhythm',
-  topExercises: 'Most Frequent Exercises'
+  topExercises: 'Most Frequent Exercises',
+  muscleTrend: 'Muscle Volume Trend',
+  muscleComposition: 'Muscle Volume Composition'
 };
 
 // --- SUB-COMPONENTS ---
@@ -146,6 +150,8 @@ const ChartHeader = ({
           ))}
         </div>
       )}
+
+      
       {/* Daily/Monthly Toggle */}
     {mode && onToggle && (
       <div className="bg-slate-950 p-1 rounded-lg flex gap-1 border border-slate-800 transition-all duration-200 hover:border-slate-700">
@@ -301,7 +307,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
     volumeVsDuration: true,
     intensityEvo: true,
     weekShape: true,
-    topExercises: true
+    topExercises: true,
+    muscleTrend: true,
+    muscleComposition: true
   });
   
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -314,6 +322,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
   const [volumeView, setVolumeView] = useState<'area' | 'bar'>('area');
   const [intensityView, setIntensityView] = useState<'area' | 'stackedBar'>('area');
   const [weekShapeView, setWeekShapeView] = useState<'radar' | 'bar'>('radar');
+  const [muscleTrendView, setMuscleTrendView] = useState<'area' | 'stackedBar'>('stackedBar');
+  const [musclePeriod, setMusclePeriod] = useState<'weekly' | 'monthly'>('weekly');
+  const [muscleCompView, setMuscleCompView] = useState<'bar' | 'radar'>('bar');
   const [assetsMap, setAssetsMap] = useState<Map<string, ExerciseAsset> | null>(null);
 
   useEffect(() => {
@@ -387,6 +398,26 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
     const topExerciseNames = topExercisesData.map(ex => ex.name);
     return getTopExercisesOverTime(fullData, topExerciseNames, topExerciseMode);
   }, [fullData, topExercisesData, topExerciseMode]);
+
+  // 6. Muscle Volume Time Series (primary=1, secondary=0.5)
+  const muscleVolume = useMemo(() => {
+    if (!assetsMap) return { data: [], keys: [] as string[] } as { data: any[]; keys: string[] };
+    return getMuscleVolumeTimeSeries(fullData, assetsMap, musclePeriod);
+  }, [fullData, assetsMap, musclePeriod]);
+
+  const topMuscleKeys = useMemo(() => {
+    const totals: Record<string, number> = {};
+    muscleVolume.data.forEach(row => {
+      muscleVolume.keys.forEach(k => { totals[k] = (totals[k] || 0) + (row[k] || 0); });
+    });
+    return [...muscleVolume.keys].sort((a,b) => (totals[b]||0) - (totals[a]||0)).slice(0, 6);
+  }, [muscleVolume]);
+
+  const latestMuscleComposition = useMemo(() => {
+    if (!muscleVolume.data.length) return [] as { subject: string; value: number }[];
+    const last = muscleVolume.data[muscleVolume.data.length - 1];
+    return topMuscleKeys.map(k => ({ subject: k, value: last[k] || 0 }));
+  }, [muscleVolume, topMuscleKeys]);
 
 
   // Shared Recharts Styles
@@ -646,6 +677,121 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
           </ChartDescription>
         </div>
       )}
+
+      {/* MUSCLE VOLUME TREND + COMPOSITION */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+        {/* Muscle Volume Trend */}
+        {visibleCharts.muscleTrend && (
+          <div className="bg-slate-900 border border-slate-800 p-4 sm:p-6 rounded-xl shadow-lg min-h-[400px] sm:min-h-[520px] flex flex-col transition-all duration-300 hover:shadow-xl">
+            <ChartHeader 
+              title="Muscle Volume Trend" 
+              icon={Dumbbell} 
+              color="text-emerald-500"
+              viewType={muscleTrendView}
+              onViewToggle={setMuscleTrendView}
+              viewOptions={[{ value: 'stackedBar', label: 'Stacked' }, { value: 'area', label: 'Area' }]}
+              isMounted={isMounted}
+            />
+            {/* Period toggle */}
+            <div className="mb-3">
+              <div className="bg-slate-950 p-1 rounded-lg inline-flex gap-1 border border-slate-800">
+                <button onClick={() => setMusclePeriod('weekly')} className={`px-2 py-1 text-[10px] font-bold uppercase rounded ${musclePeriod==='weekly'?'bg-emerald-600 text-white':'text-slate-500 hover:text-slate-300 hover:bg-slate-800'}`}>Weekly</button>
+                <button onClick={() => setMusclePeriod('monthly')} className={`px-2 py-1 text-[10px] font-bold uppercase rounded ${musclePeriod==='monthly'?'bg-emerald-600 text-white':'text-slate-500 hover:text-slate-300 hover:bg-slate-800'}`}>Monthly</button>
+              </div>
+            </div>
+            <div className={`flex-1 w-full min-h-[250px] sm:min-h-[320px] transition-all duration-700 delay-100 ${isMounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+              <ResponsiveContainer width="100%" height="100%">
+                <div key={`${muscleTrendView}-${musclePeriod}`} className="h-full w-full">
+                  {muscleTrendView === 'area' ? (
+                    <AreaChart data={muscleVolume.data} margin={{ left: -20, right: 10, top: 10, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
+                      <XAxis dataKey="dateFormatted" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
+                      <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
+                      <Tooltip contentStyle={TooltipStyle} />
+                      <Legend wrapperStyle={{fontSize: '11px'}} />
+                      {topMuscleKeys.map((k) => (
+                        <Area key={k} type="monotone" dataKey={k} name={k} stackId="1" stroke={MUSCLE_COLORS[k] || '#94a3b8'} fill={MUSCLE_COLORS[k] || '#94a3b8'} fillOpacity={0.25} animationDuration={1200} />
+                      ))}
+                    </AreaChart>
+                  ) : (
+                    <BarChart data={muscleVolume.data} margin={{ left: -20, right: 10, top: 10, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
+                      <XAxis dataKey="dateFormatted" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
+                      <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
+                      <Tooltip contentStyle={TooltipStyle} />
+                      <Legend wrapperStyle={{fontSize: '11px'}} />
+                      {topMuscleKeys.map((k, idx) => (
+                        <Bar key={k} dataKey={k} name={k} stackId="1" fill={MUSCLE_COLORS[k] || '#94a3b8'} radius={idx===topMuscleKeys.length-1?[6,6,0,0]:[0,0,0,0]} animationDuration={1200} />
+                      ))}
+                    </BarChart>
+                  )}
+                </div>
+              </ResponsiveContainer>
+            </div>
+            <ChartDescription isMounted={isMounted}>
+              <p>
+                <span className="font-semibold text-slate-300">Weighted by muscle involvement.</span> Primary muscles get volume weight 1.0; secondary muscles get 0.5 per set.
+              </p>
+              <p className="text-slate-500 italic">Use Weekly/Monthly to see macro trends. Stacks show distribution across muscle groups.</p>
+            </ChartDescription>
+          </div>
+        )}
+
+        {/* Muscle Volume Composition */}
+        {visibleCharts.muscleComposition && (
+          <div className="bg-slate-900 border border-slate-800 p-4 sm:p-6 rounded-xl shadow-lg min-h-[400px] sm:min-h-[520px] flex flex-col transition-all duration-300 hover:shadow-xl">
+            <ChartHeader 
+              title="Muscle Volume Composition (Latest)" 
+              icon={Layers} 
+              color="text-cyan-500"
+              viewType={muscleCompView}
+              onViewToggle={setMuscleCompView}
+              viewOptions={[{ value: 'bar', label: 'Bar' }, { value: 'radar', label: 'Radar' }]}
+              isMounted={isMounted}
+            />
+            {/* Reuse period toggle */}
+            <div className="mb-3">
+              <div className="bg-slate-950 p-1 rounded-lg inline-flex gap-1 border border-slate-800">
+                <button onClick={() => setMusclePeriod('weekly')} className={`px-2 py-1 text-[10px] font-bold uppercase rounded ${musclePeriod==='weekly'?'bg-cyan-600 text-white':'text-slate-500 hover:text-slate-300 hover:bg-slate-800'}`}>Weekly</button>
+                <button onClick={() => setMusclePeriod('monthly')} className={`px-2 py-1 text-[10px] font-bold uppercase rounded ${musclePeriod==='monthly'?'bg-cyan-600 text-white':'text-slate-500 hover:text-slate-300 hover:bg-slate-800'}`}>Monthly</button>
+              </div>
+            </div>
+            <div className={`flex-1 w-full min-h-[250px] sm:min-h-[320px] transition-all duration-700 delay-100 ${isMounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+              <ResponsiveContainer width="100%" height="100%">
+                <div key={`${muscleCompView}-${musclePeriod}`} className="h-full w-full">
+                  {muscleCompView === 'bar' ? (
+                    <BarChart data={latestMuscleComposition} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
+                      <XAxis dataKey="subject" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
+                      <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
+                      <Tooltip contentStyle={TooltipStyle} formatter={(val: number, name) => [`${val} vol`, 'Volume']} />
+                      <Bar dataKey="value" name="Volume">
+                        {latestMuscleComposition.map((entry: any, index: number) => (
+                          <Cell key={`cell-${index}`} fill={MUSCLE_COLORS[entry.subject] || '#94a3b8'} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  ) : (
+                    <RadarChart cx="50%" cy="50%" outerRadius="70%" data={latestMuscleComposition}>
+                      <PolarGrid stroke="#334155" />
+                      <PolarAngleAxis dataKey="subject" tick={{ fill: '#94a3b8', fontSize: 11 }} />
+                      <PolarRadiusAxis angle={30} domain={[0, 'auto']} tick={false} axisLine={false} />
+                      <Radar name="Volume" dataKey="value" stroke="#06b6d4" strokeWidth={3} fill="#06b6d4" fillOpacity={0.35} animationDuration={1500} />
+                      <Tooltip contentStyle={TooltipStyle} />
+                    </RadarChart>
+                  )}
+                </div>
+              </ResponsiveContainer>
+            </div>
+            <ChartDescription isMounted={isMounted}>
+              <p>
+                <span className="font-semibold text-slate-300">Where your work goes.</span> Shows latest {musclePeriod} distribution of volume across muscle groups.
+              </p>
+              <p className="text-slate-500 italic">Primary = 1.0, Secondary = 0.5. Switch Bar/Radar to compare or visualize balance.</p>
+            </ChartDescription>
+          </div>
+        )}
+      </div>
 
       {/* 5. RADAR & PIE */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">

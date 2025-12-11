@@ -112,7 +112,7 @@ const analyzeExerciseTrend = (stats: ExerciseStats): StatusResult => {
 // --- SUB-COMPONENTS ---
 
 const StatCard = ({ label, value, unit, icon: Icon }: any) => (
-  <div className="bg-slate-900/50 backdrop-blur-sm border border-slate-800 p-3 rounded-lg flex items-center justify-between group hover:border-slate-700 transition-colors duration-300 h-full">
+  <div className="bg-slate-900/50 backdrop-blur-sm border border-slate-800 p-4 md:p-5 rounded-lg flex items-center justify-between group hover:border-slate-700 transition-colors duration-300 h-full">
     <div>
       <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider mb-0.5">{label}</p>
       <div className="flex items-baseline gap-1">
@@ -310,9 +310,10 @@ export const ExerciseView: React.FC<ExerciseViewProps> = ({ stats }) => {
                       <img src={imgSrc} alt={selectedStats.name} className="w-24 h-24 rounded-lg object-cover border border-slate-800" loading="lazy" decoding="async" />
                     ) : null;
                   })()}
-                  <div className="grid grid-cols-2 gap-3 flex-1">
+                  <div className="grid grid-cols-3 gap-3 flex-1 h-24">
                     <StatCard label="Personal Record" value={selectedStats.maxWeight} unit="kg" icon={Dumbbell} />
                     <StatCard label="Total Volume" value={(selectedStats.totalVolume / 1000).toFixed(1)} unit="k" icon={Scale} />
+                    <StatCard label="Analyzing" value={selectedStats.history.length} unit={selectedStats.history.length === 1 ? 'session' : 'sessions'} icon={Activity} />
                   </div>
                 </div>
               </div>
