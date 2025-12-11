@@ -20,7 +20,7 @@
 
 **Step 1: Export Your Data**
 
-![Export data from Hevy app](./Step1.png)
+![Export data from Hevy app](./Step1.png){width=200}
 
 - Open the Hevy app on your phone
 - Go to Settings → Export Data
@@ -28,7 +28,7 @@
 
 **Step 2: Upload to HevyAnalytics**
 
-![Upload CSV to HevyAnalytics](./Step2.png)
+![Upload CSV to HevyAnalytics](./Step2.png){width=200}
 
 - Open HevyAnalytics (run `npm run dev` locally or visit the deployed site)
 - Click the **Upload CSV** button at the top
@@ -37,7 +37,7 @@
 
 **Step 3: Explore Your Analytics**
 
-![Explore analytics dashboard](./Step3.png)
+![Explore analytics dashboard](./Step3.png){width=200}
 
 - **Dashboard** - See your training volume, workout frequency, and key metrics at a glance
 - **Exercises** - Check personal records, 1RM estimates, and performance trends for each lift
@@ -45,7 +45,7 @@
 
 **Step 4: Get Insights & Filter**
 
-![Get real-time feedback and filter data](./Step4.png)
+![Get real-time feedback and filter data](./Step4.png){width=200}
 
 🎯 **Filter by Month** - Use the date dropdown to focus on specific training periods
 
