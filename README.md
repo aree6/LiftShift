@@ -19,10 +19,10 @@
 ### Getting Started in 4 Steps
 
 <div align="center">
-  <img src="./Step1.png" alt="Export data from Hevy app" width="150" />
-  <img src="./Step2.png" alt="Upload CSV to HevyAnalytics" width="150" />
-  <img src="./Step3.png" alt="Explore analytics dashboard" width="150" />
-  <img src="./Step4.png" alt="Get real-time feedback and filter data" width="150" />
+  <img src="./Step1.png" alt="Export data from Hevy app" width="200" />
+  <img src="./Step2.png" alt="Upload CSV to HevyAnalytics" width="200" />
+  <img src="./Step3.png" alt="Explore analytics dashboard" width="200" />
+  <img src="./Step4.png" alt="Get real-time feedback and filter data" width="200" />
 </div>
 
 **Step 1: Export Your Data**
@@ -54,6 +54,8 @@
 ## 📋 Table of Contents
 
 - [HevyAnalytics 🏋️](#hevyanalytics-️)
+  - [🎬 Quick Tutorial](#-quick-tutorial)
+    - [Getting Started in 4 Steps](#getting-started-in-4-steps)
   - [📋 Table of Contents](#-table-of-contents)
   - [✨ Features](#-features)
   - [🚀 Quick Start](#-quick-start)
