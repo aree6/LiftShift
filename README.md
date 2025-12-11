@@ -80,81 +80,10 @@ Build: `npm run build`
 
 ---
 
-## 🌐 Deploy
-
-### Vercel (Recommended)
-1. Push to GitHub
-2. Go to [vercel.com](https://vercel.com) → New Project
-3. Select your repo, configure:
-   - Framework: **Vite**
-   - Build: `npm run build`
-   - Output: `dist`
-4. Deploy
-
-### Netlify
-1. Push to GitHub
-2. Go to [netlify.com](https://netlify.com) → New site
-3. Select your repo, set:
-   - Build: `npm run build`
-   - Publish: `dist`
-4. Deploy
-
-### GitHub Pages
-```bash
-npm install --save-dev gh-pages
-# Update package.json:
-# "homepage": "https://aree6.github.io/HevyAnalytics/"
-# Add to scripts: "deploy": "gh-pages -d dist"
-npm run deploy
-```
-
----
-
-## 📁 Project Structure
-
-```
-HevyAnalytics/
-├── components/
-│   ├── Dashboard.tsx
-│   ├── ExerciseView.tsx
-│   ├── HistoryView.tsx
-│   └── CSVImportModal.tsx
-├── utils/
-│   ├── analytics.ts
-│   ├── csvParser.ts
-│   ├── localStorage.ts
-│   ├── categories.ts
-│   └── masterAlgorithm.ts
-├── App.tsx
-├── types.ts
-├── constants.ts
-└── index.tsx
-```
-
----
-
-## 🛠️ Tech Stack
-
-React 19 • TypeScript • Vite • Recharts • Tailwind CSS • Lucide React • date-fns
-
----
 
 ## 🤝 Contributing
 
-1. Fork the repo
-2. Create a feature branch: `git checkout -b feature/amazing-feature`
-3. Make your changes
-4. Test: `npm run dev`
-5. Commit and push
-6. Open a Pull Request
-
 See [CONTRIBUTING.md](./CONTRIBUTING.md) for details.
-
----
-
-## 📄 License
-
-MIT License - see [LICENSE](./LICENSE)
 
 ---
 
