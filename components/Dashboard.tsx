@@ -21,6 +21,7 @@ import {
   Clock, Dumbbell, Trophy, Timer, Info
 } from 'lucide-react';
 import { format, startOfMonth } from 'date-fns';
+import { getExerciseAssets, ExerciseAsset } from '../utils/exerciseAssets';
 
 interface DashboardProps {
   dailyData: DailySummary[];
@@ -313,6 +314,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
   const [volumeView, setVolumeView] = useState<'area' | 'bar'>('area');
   const [intensityView, setIntensityView] = useState<'area' | 'stackedBar'>('area');
   const [weekShapeView, setWeekShapeView] = useState<'radar' | 'bar'>('radar');
+  const [assetsMap, setAssetsMap] = useState<Map<string, ExerciseAsset> | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    getExerciseAssets().then(m => { if (mounted) setAssetsMap(m); }).catch(() => setAssetsMap(new Map()));
+    return () => { mounted = false; };
+  }, []);
 
   const toggleChart = (key: ChartKey) => {
     setVisibleCharts(prev => ({ ...prev, [key]: !prev[key] }));

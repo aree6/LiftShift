@@ -5,6 +5,7 @@ import {
   AlertTriangle, Info, TrendingUp, TrendingDown, Calendar, Clock
 } from 'lucide-react';
 import { analyzeSetProgression, analyzeSession, getStatusColor, analyzeProgression, getWisdomColor } from '../utils/masterAlgorithm';
+import { getExerciseAssets, ExerciseAsset } from '../utils/exerciseAssets';
 
 // --- STYLES ---
 const FANCY_FONT: React.CSSProperties = {
@@ -98,8 +99,17 @@ const TooltipPortal: React.FC<{ data: TooltipState }> = ({ data }) => {
 export const HistoryView: React.FC<HistoryViewProps> = ({ data }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
+  const [assetsMap, setAssetsMap] = useState<Map<string, ExerciseAsset> | null>(null);
 
   useEffect(() => setCurrentPage(1), [data]);
+
+  useEffect(() => {
+    let mounted = true;
+    getExerciseAssets()
+      .then(m => { if (mounted) setAssetsMap(m); })
+      .catch(() => setAssetsMap(new Map()));
+    return () => { mounted = false; };
+  }, []);
 
   // Data Grouping Logic
   const sessions: Session[] = useMemo(() => {
@@ -249,15 +259,28 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ data }) => {
                   return (
                     <div key={idx} className="bg-slate-900/40 border border-slate-800/60 rounded-2xl p-4 sm:p-5 hover:border-slate-700 transition-all flex flex-col h-full hover:shadow-lg hover:shadow-black/20">
                       
-                      {/* Exercise Title */}
+                      {/* Exercise Title with thumbnail */}
                       <div className="flex justify-between items-start mb-4">
-                        <h4 
-                          className="text-slate-200 text-sm sm:text-lg line-clamp-1"
-                          style={FANCY_FONT}
-                          title={group.exerciseName}
-                        >
-                          {group.exerciseName}
-                        </h4>
+                        <div className="flex items-center gap-2 min-w-0">
+                          {(() => {
+                            const asset = assetsMap?.get(group.exerciseName);
+                            if (asset && (asset.thumbnail || asset.source)) {
+                              return (
+                                <img src={asset.thumbnail || asset.source} alt="" className="w-10 h-10 rounded object-cover border border-slate-800 flex-shrink-0" loading="lazy" decoding="async" />
+                              );
+                            }
+                            return (
+                              <div className="w-10 h-10 rounded bg-slate-800 border border-slate-700" />
+                            );
+                          })()}
+                          <h4 
+                            className="text-slate-200 text-sm sm:text-lg line-clamp-1"
+                            style={FANCY_FONT}
+                            title={group.exerciseName}
+                          >
+                            {group.exerciseName}
+                          </h4>
+                        </div>
                         {/* Macro Badge (Promotion) */}
                         {macroInsight && (
                           <div 

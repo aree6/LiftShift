@@ -10,6 +10,7 @@ import { CSVImportModal } from './components/CSVImportModal';
 import { saveCSVData, getCSVData, hasCSVData, clearCSVData } from './utils/localStorage';
 import { LayoutDashboard, Dumbbell, History, Upload, BarChart3, Filter, Loader2, CheckCircle2, X, Trash2, Menu } from 'lucide-react';
 import { format, isSameDay } from 'date-fns';
+import { trackPageView } from './utils/ga';
 
 enum Tab {
   DASHBOARD = 'dashboard',
@@ -95,6 +96,20 @@ const App: React.FC = () => {
       setParsedData(enriched);
     }
   }, []);
+
+  // Prefetch heavy views to avoid first-time lag when navigating
+  useEffect(() => {
+    const idle = (cb: () => void) => (('requestIdleCallback' in window) ? (window as any).requestIdleCallback(cb) : setTimeout(cb, 300));
+    idle(() => {
+      import('./components/ExerciseView');
+      import('./components/HistoryView');
+    });
+  }, []);
+
+  // Track "page" views when switching tabs (simple SPA routing)
+  useEffect(() => {
+    trackPageView(`/${activeTab}`);
+  }, [activeTab]);
 
   // Derive unique months for filter
   const availableMonths = useMemo(() => {
