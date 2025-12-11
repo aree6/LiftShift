@@ -18,10 +18,10 @@
 ## 🎬 Quick Start
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/aree6/HevyAnalytics/main/public/Step1.png" alt="Export data from Hevy app" width="200" />
-  <img src="https://raw.githubusercontent.com/aree6/HevyAnalytics/main/public/Step2.png" alt="Upload CSV to HevyAnalytics" width="200" />
-  <img src="https://raw.githubusercontent.com/aree6/HevyAnalytics/main/public/Step3.png" alt="Explore analytics dashboard" width="200" />
-  <img src="https://raw.githubusercontent.com/aree6/HevyAnalytics/main/public/Step4.png" alt="Get real-time feedback and filter data" width="200" />
+  <img src="https://raw.githubusercontent.com/aree6/HevyAnalytics/main/public/Step1.png" alt="Export data from Hevy app" width="250" />
+  <img src="https://raw.githubusercontent.com/aree6/HevyAnalytics/main/public/Step2.png" alt="Upload CSV to HevyAnalytics" width="250" />
+  <img src="https://raw.githubusercontent.com/aree6/HevyAnalytics/main/public/Step3.png" alt="Explore analytics dashboard" width="250" />
+  <img src="https://raw.githubusercontent.com/aree6/HevyAnalytics/main/public/Step4.png" alt="Get real-time feedback and filter data" width="250" />
 </div>
 
 
