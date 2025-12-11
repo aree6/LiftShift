@@ -14,6 +14,54 @@
 
 ---
 
+## 🎬 Quick Tutorial
+
+### Getting Started in 4 Steps
+
+**Step 1: Export Your Data**
+<div align="center">
+  <img src="./Step1.png" alt="Export data from Hevy app" width="400" />
+</div>
+
+- Open the Hevy app on your phone
+- Go to Settings → Export Data
+- Download your workout CSV file
+
+**Step 2: Upload to HevyAnalytics**
+<div align="center">
+  <img src="./Step2.png" alt="Upload CSV to HevyAnalytics" width="400" />
+</div>
+
+- Open HevyAnalytics (run `npm run dev` locally or visit the deployed site)
+- Click the **Upload CSV** button at the top
+- Select your downloaded CSV file
+- Watch as your data loads instantly into the app
+
+**Step 3: Explore Your Analytics**
+<div align="center">
+  <img src="./Step3.png" alt="Explore analytics dashboard" width="400" />
+</div>
+
+- **Dashboard** - See your training volume, workout frequency, and key metrics at a glance
+- **Exercises** - Check personal records, 1RM estimates, and performance trends for each lift
+- **History** - Review detailed logs of every workout session with filtering options
+
+**Step 4: Get Insights & Filter**
+<div align="center">
+  <img src="./Step4.png" alt="Get real-time feedback and filter data" width="400" />
+</div>
+
+🎯 **Filter by Month** - Use the date dropdown to focus on specific training periods
+
+📊 **Real-Time Feedback** - Get set-by-set wisdom indicators while browsing your data:
+- ✅ Green (Success) - You're hitting your targets
+- ⚠️ Yellow (Warning) - Performance is changing
+- 🔥 Red (Danger) - Significant drop-off detected
+
+💾 **Your Data Stays Private** - Everything is saved locally in your browser—nothing is sent to servers
+
+---
+
 ## 📋 Table of Contents
 
 - [HevyAnalytics 🏋️](#hevyanalytics-️)
