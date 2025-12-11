@@ -205,6 +205,58 @@ export const getTopExercisesRadial = (stats: ExerciseStats[]) => {
   }));
 };
 
+export const getTopExercisesOverTime = (data: WorkoutSet[], topExerciseNames: string[], mode: 'daily' | 'monthly' = 'monthly') => {
+  // Group data by date and exercise
+  const exerciseData: Record<string, Record<string, number>> = {};
+  
+  // Initialize structure for each top exercise
+  topExerciseNames.forEach(name => {
+    exerciseData[name] = {};
+  });
+
+  // Process each workout set
+  data.forEach(set => {
+    if (!set.parsedDate || !topExerciseNames.includes(set.exercise_title)) return;
+    
+    const key = mode === 'monthly' 
+      ? format(set.parsedDate, "yyyy-MM") 
+      : format(set.parsedDate, "yyyy-MM-dd");
+
+    if (!exerciseData[set.exercise_title][key]) {
+      exerciseData[set.exercise_title][key] = 0;
+    }
+    exerciseData[set.exercise_title][key] += 1; // Count sets
+  });
+
+  // Get all unique dates
+  const allDates = new Set<string>();
+  Object.values(exerciseData).forEach(exData => {
+    Object.keys(exData).forEach(date => allDates.add(date));
+  });
+
+  // Convert to array format for Recharts
+  const sortedDates = Array.from(allDates).sort();
+  
+  return sortedDates.map(dateKey => {
+    const dateObj = mode === 'monthly' 
+      ? parse(dateKey, "yyyy-MM", new Date())
+      : parse(dateKey, "yyyy-MM-dd", new Date());
+    
+    const entry: Record<string, any> = {
+      date: mode === 'monthly' ? format(dateObj, 'MMM yyyy') : format(dateObj, 'MMM d'),
+      dateFormatted: mode === 'monthly' ? format(dateObj, 'MMMM yyyy') : format(dateObj, 'MMM d, yyyy'),
+      timestamp: startOfDay(dateObj).getTime(),
+    };
+
+    // Add count for each exercise (0 if no data)
+    topExerciseNames.forEach(name => {
+      entry[name] = exerciseData[name][dateKey] || 0;
+    });
+
+    return entry;
+  });
+};
+
 export const getPrsOverTime = (data: WorkoutSet[], mode: 'daily' | 'monthly' = 'monthly') => {
   const prsData: Record<string, { count: number, timestamp: number, dateFormatted: string }> = {};
 

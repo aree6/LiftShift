@@ -5,7 +5,8 @@ import {
   getIntensityEvolution, 
   getDayOfWeekShape, 
   getTopExercisesRadial,
-  getPrsOverTime 
+  getPrsOverTime,
+  getTopExercisesOverTime
 } from '../utils/analytics';
 import { saveChartModes, getChartModes } from '../utils/localStorage';
 import { 
@@ -248,7 +249,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
   });
   
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [topExerciseLimit, setTopExerciseLimit] = useState(5);
+  const [topExerciseLimit, setTopExerciseLimit] = useState(3);
+  const [topExerciseView, setTopExerciseView] = useState<'pie' | 'line'>('line');
+  const [topExerciseMode, setTopExerciseMode] = useState<'daily' | 'monthly'>('monthly');
 
   const toggleChart = (key: ChartKey) => {
     setVisibleCharts(prev => ({ ...prev, [key]: !prev[key] }));
@@ -310,6 +313,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
   // Static Data
   const weekShapeData = useMemo(() => getDayOfWeekShape(dailyData), [dailyData]);
   const topExercisesData = useMemo(() => getTopExercisesRadial(exerciseStats).slice(0, topExerciseLimit), [exerciseStats, topExerciseLimit]);
+  
+  // Top Exercises Over Time Data (for line graph)
+  const topExercisesOverTimeData = useMemo(() => {
+    const topExerciseNames = topExercisesData.map(ex => ex.name);
+    return getTopExercisesOverTime(fullData, topExerciseNames, topExerciseMode);
+  }, [fullData, topExercisesData, topExerciseMode]);
 
 
   // Shared Recharts Styles
@@ -503,61 +512,171 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
           </div>
         )}
 
-        {/* Donut Chart: Top Exercises */}
+        {/* Top Exercises: Pie Chart or Line Graph */}
         {visibleCharts.topExercises && (
           <div className="bg-slate-900 border border-slate-800 p-4 sm:p-6 rounded-xl shadow-lg min-h-[400px] sm:min-h-[520px] flex flex-col">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2 sm:gap-0">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3 sm:gap-0">
               <h3 className="text-base sm:text-lg font-semibold text-white flex items-center gap-2">
                 <Zap className="w-5 h-5 text-amber-500" />
                 Most Frequent Exercises
               </h3>
-              <div className="flex items-center gap-2 bg-slate-950 p-1.5 rounded-lg border border-slate-800">
-                <span className="text-xs text-slate-400 font-medium">Show: {topExerciseLimit}</span>
-                <input 
-                  type="range" 
-                  min="3" 
-                  max="8" 
-                  value={topExerciseLimit} 
-                  onChange={(e) => setTopExerciseLimit(parseInt(e.target.value))}
-                  className="w-16 h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                />
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* View Toggle: Pie vs Line */}
+                <div className="bg-slate-950 p-1 rounded-lg flex gap-1 border border-slate-800">
+                  <button 
+                    onClick={() => setTopExerciseView('pie')} 
+                    className={`px-2 py-1 text-[10px] font-bold uppercase rounded transition-colors ${topExerciseView === 'pie' ? 'bg-blue-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}
+                  >
+                    Pie
+                  </button>
+                  <button 
+                    onClick={() => setTopExerciseView('line')} 
+                    className={`px-2 py-1 text-[10px] font-bold uppercase rounded transition-colors ${topExerciseView === 'line' ? 'bg-blue-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}
+                  >
+                    Line
+                  </button>
+                </div>
+                {/* Daily/Monthly Toggle (available for both pie and line) */}
+                <div className="bg-slate-950 p-1 rounded-lg flex gap-1 border border-slate-800">
+                  <button 
+                    onClick={() => setTopExerciseMode('monthly')} 
+                    className={`px-2 py-1 text-[10px] font-bold uppercase rounded transition-colors ${topExerciseMode === 'monthly' ? 'bg-blue-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}
+                  >
+                    Avg
+                  </button>
+                  <button 
+                    onClick={() => setTopExerciseMode('daily')} 
+                    className={`px-2 py-1 text-[10px] font-bold uppercase rounded transition-colors ${topExerciseMode === 'daily' ? 'bg-blue-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}
+                  >
+                    Day
+                  </button>
+                </div>
+                {/* Exercise Count Dropdown */}
+                <div className="flex items-center gap-2 bg-slate-950 p-1.5 rounded-lg border border-slate-800">
+                  <span className="text-xs text-slate-400 font-medium">Show:</span>
+                  <select 
+                    value={topExerciseLimit} 
+                    onChange={(e) => setTopExerciseLimit(parseInt(e.target.value))}
+                    className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                  >
+                    {[3, 4, 5, 6, 7, 8].map(num => (
+                      <option key={num} value={num}>{num}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
             
-            <div className="flex-1 w-full min-h-[250px] sm:min-h-[300px] relative">
-               <ResponsiveContainer width="100%" height="100%">
-                 <PieChart>
-                   <Pie 
-                     data={topExercisesData} 
-                     cx="50%" 
-                     cy="50%" 
-                     innerRadius={50} 
-                     outerRadius={85} 
-                     paddingAngle={4} 
-                     dataKey="count"
-                     cornerRadius={6}
-                   >
+            {topExerciseView === 'pie' ? (
+              <div className="flex-1 w-full flex flex-col">
+                 {/* Pie Chart Container - Fixed height, stays in place */}
+                 <div className="flex-1 w-full min-h-[250px] sm:min-h-[300px] relative flex-shrink-0">
+                   <ResponsiveContainer width="100%" height="100%">
+                     <PieChart>
+                       <Pie 
+                         data={topExercisesData} 
+                         cx="50%" 
+                         cy="50%" 
+                         innerRadius={50} 
+                         outerRadius={85} 
+                         paddingAngle={4} 
+                         dataKey="count"
+                         cornerRadius={6}
+                       >
+                         {topExercisesData.map((entry, index) => (
+                           <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} stroke="none" />
+                         ))}
+                       </Pie>
+                       <Tooltip contentStyle={TooltipStyle} formatter={(val, name) => [`${val} sets`, name]} />
+                     </PieChart>
+                   </ResponsiveContainer>
+                   {/* Center Text for Donut (truly centered vertically and horizontally) */}
+                   <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                      <span className="text-1xl sm:text-2xl font-bold text-white">{topExercisesData.reduce((a,b) => a + b.count, 0)}</span>
+                      <span className="text-[7px] font-medium text-slate-400 uppercase tracking-widest opacity-60">Total Sets</span>
+                   </div>
+                 </div>
+                 {/* Legend Container - Expands below chart, doesn't push chart up */}
+                 <div className="w-full pt-4 mt-auto border-t border-slate-800/50">
+                   <div className="flex flex-wrap justify-center gap-x-4 gap-y-2">
                      {topExercisesData.map((entry, index) => (
-                       <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} stroke="none" />
+                       <div key={entry.name} className="flex items-center gap-1.5">
+                         <div 
+                           className="w-3 h-3 rounded-sm flex-shrink-0" 
+                           style={{ backgroundColor: PIE_COLORS[index % PIE_COLORS.length] }}
+                         />
+                         <span className="text-[10px] text-slate-400">{entry.name}</span>
+                       </div>
                      ))}
-                   </Pie>
-                   <Tooltip contentStyle={TooltipStyle} formatter={(val, name) => [`${val} sets`, name]} />
-                   <Legend 
-                     layout="horizontal" 
-                     verticalAlign="bottom" 
-                     align="center"
-                     wrapperStyle={{ fontSize: '10px', color: '#94a3b8', paddingTop: '12px' }}
-                   />
-                 </PieChart>
-               </ResponsiveContainer>
-               {/* Center Text for Donut */}
-               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none pb-8 sm:pb-12">
-                  <span className="text-2xl sm:text-3xl font-bold text-white">{topExercisesData.reduce((a,b) => a + b.count, 0)}</span>
-                  <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">Total Sets</span>
-               </div>
-            </div>
+                   </div>
+                 </div>
+              </div>
+            ) : (
+              <div className="flex-1 w-full flex flex-col">
+                {/* Line Chart Container */}
+                <div className="flex-1 w-full min-h-[300px] sm:min-h-[350px] relative flex-shrink-0">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={topExercisesOverTimeData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.3} />
+                      <XAxis 
+                        dataKey="date" 
+                        stroke="#64748b" 
+                        style={{ fontSize: '11px' }}
+                        tick={{ fill: '#94a3b8' }}
+                      />
+                      <YAxis 
+                        stroke="#64748b" 
+                        style={{ fontSize: '11px' }}
+                        tick={{ fill: '#94a3b8' }}
+                        label={{ value: 'Sets', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fill: '#94a3b8', fontSize: '11px' } }}
+                      />
+                      <Tooltip 
+                        contentStyle={TooltipStyle}
+                        labelFormatter={(label, payload) => {
+                          if (payload && payload[0]) {
+                            return payload[0].payload.dateFormatted;
+                          }
+                          return label;
+                        }}
+                        formatter={(value: number) => [`${value} sets`, '']}
+                      />
+                      {topExercisesData.map((entry, index) => (
+                        <Line 
+                          key={entry.name}
+                          type="monotone" 
+                          dataKey={entry.name} 
+                          stroke={PIE_COLORS[index % PIE_COLORS.length]}
+                          strokeWidth={2.5}
+                          dot={{ fill: PIE_COLORS[index % PIE_COLORS.length], r: 3 }}
+                          activeDot={{ r: 5 }}
+                          name={entry.name}
+                        />
+                      ))}
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+                {/* Legend Container - Same style as pie chart, expands below chart */}
+                <div className="w-full pt-4 mt-auto border-t border-slate-800/50">
+                  <div className="flex flex-wrap justify-center gap-x-4 gap-y-2">
+                    {topExercisesData.map((entry, index) => (
+                      <div key={entry.name} className="flex items-center gap-1.5">
+                        <div 
+                          className="w-3 h-3 rounded-sm flex-shrink-0" 
+                          style={{ backgroundColor: PIE_COLORS[index % PIE_COLORS.length] }}
+                        />
+                        <span className="text-[10px] text-slate-400">{entry.name}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
             <ChartDescription>
-              <span className="font-semibold text-slate-300"> </span> Highlights your most practiced movements by total set count. Ideally, your "Big 3" compounds should be the largest slices here.
+              <span className="font-semibold text-slate-300"> </span> 
+              {topExerciseView === 'pie' 
+                ? "Highlights your most practiced movements by total set count. Ideally, your \"Big 3\" compounds should be the largest slices here."
+                : `Shows how your favorite exercises have been changing over time. Track consistency and trends in your ${topExerciseMode === 'monthly' ? 'monthly averages' : 'daily' } training patterns.`
+              }
             </ChartDescription>
           </div>
         )}
