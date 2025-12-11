@@ -164,6 +164,7 @@ export const ExerciseView: React.FC<ExerciseViewProps> = ({ stats }) => {
   const [selectedExerciseName, setSelectedExerciseName] = useState<string>(stats[0]?.name || "");
   const [searchTerm, setSearchTerm] = useState("");
   const [assetsMap, setAssetsMap] = useState<Map<string, ExerciseAsset> | null>(null);
+  const [viewMode, setViewMode] = useState<'avg'|'day'>('avg');
 
   useEffect(() => {
     let mounted = true;
@@ -192,14 +193,35 @@ export const ExerciseView: React.FC<ExerciseViewProps> = ({ stats }) => {
 
   const chartData = useMemo(() => {
     if (!selectedStats) return [];
-    const sortedHistory = [...selectedStats.history].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-    return sortedHistory.map(h => ({
-      date: h.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
-      weight: h.weight,
-      oneRepMax: h.oneRepMax,
-      volume: h.volume
-    }));
-  }, [selectedStats]);
+    const history = [...selectedStats.history].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    if (viewMode === 'day') {
+      return history.map(h => ({
+        date: h.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+        weight: h.weight,
+        oneRepMax: h.oneRepMax,
+        volume: h.volume
+      }));
+    }
+    // avg: monthly averages
+    const buckets: Record<string, { ts: number; label: string; oneRmSum: number; oneRmCount: number; weightSum: number; weightCount: number } > = {};
+    history.forEach(h => {
+      const d = new Date(h.date);
+      const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+      const ts = new Date(d.getFullYear(), d.getMonth(), 1).getTime();
+      if (!buckets[key]) buckets[key] = { ts, label: d.toLocaleDateString(undefined, { month: 'short', year: 'numeric' }), oneRmSum: 0, oneRmCount: 0, weightSum: 0, weightCount: 0 };
+      buckets[key].oneRmSum += h.oneRepMax;
+      buckets[key].oneRmCount += 1;
+      buckets[key].weightSum += h.weight;
+      buckets[key].weightCount += 1;
+    });
+    return Object.values(buckets)
+      .sort((a,b) => a.ts - b.ts)
+      .map(b => ({
+        date: b.label,
+        oneRepMax: Number((b.oneRmSum / Math.max(1,b.oneRmCount)).toFixed(1)),
+        weight: Number((b.weightSum / Math.max(1,b.weightCount)).toFixed(1)),
+      }));
+  }, [selectedStats, viewMode]);
 
   const currentStatus = selectedStats ? statusMap[selectedStats.name] : null;
 
@@ -377,17 +399,26 @@ export const ExerciseView: React.FC<ExerciseViewProps> = ({ stats }) => {
                 <h3 className="text-base sm:text-lg font-semibold text-white">Strength Progression</h3>
                 <p className="text-[11px] sm:text-xs text-slate-500">Estimated 1RM vs Actual Lift Weight</p>
              </div>
-             <div className="flex gap-4 text-[10px] sm:text-xs font-medium">
+             <div className="flex items-center gap-3 sm:gap-4 text-[10px] sm:text-xs font-medium">
                 <div className="flex items-center gap-2 text-blue-400">
                    <span className="w-2.5 h-2.5 rounded bg-blue-500/20 border border-blue-500"></span> Est. 1RM
                 </div>
                 <div className="flex items-center gap-2 text-slate-500">
                    <span className="w-2.5 h-0.5 bg-slate-500 border-t border-dashed border-slate-500"></span> Lift Weight
                 </div>
+                <div className="bg-slate-950 p-1 rounded-lg flex gap-1 border border-slate-800">
+                  <button onClick={() => setViewMode('avg')} className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${viewMode==='avg'?'bg-blue-600 text-white':'text-slate-500 hover:text-slate-300 hover:bg-slate-800'}`}>Avg</button>
+                  <button onClick={() => setViewMode('day')} className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${viewMode==='day'?'bg-blue-600 text-white':'text-slate-500 hover:text-slate-300 hover:bg-slate-800'}`}>Day</button>
+                </div>
              </div>
           </div>
 
           <div className="w-full flex-1 min-h-0">
+            {chartData.length === 0 ? (
+              <div className="w-full h-full min-h-[260px] flex items-center justify-center text-slate-500 text-xs border border-dashed border-slate-800 rounded-lg">
+                Not enough data to render Strength Progression.
+              </div>
+            ) : (
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <defs>
@@ -439,6 +470,7 @@ export const ExerciseView: React.FC<ExerciseViewProps> = ({ stats }) => {
                 />
               </AreaChart>
             </ResponsiveContainer>
+            )}
           </div>
         </div>
       )}

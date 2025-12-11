@@ -1,6 +1,6 @@
 import { WorkoutSet, ExerciseStats, DailySummary } from "../types";
 import { 
-  format, startOfDay, subDays, eachDayOfInterval, isSameDay, getDay, parse, differenceInMinutes 
+  format, startOfDay, subDays, eachDayOfInterval, isSameDay, getDay, parse, differenceInMinutes, isValid 
 } from "date-fns";
 
 // --- CORE ANALYTICS ---
@@ -59,14 +59,16 @@ export const getDailySummaries = (data: WorkoutSet[]): DailySummary[] => {
     if (!acc[dateKey].sessions.has(sessionKey)) {
         acc[dateKey].sessions.add(sessionKey);
         try {
-            const start = curr.parsedDate;
+            const start = curr.parsedDate as Date | undefined;
             const end = parse(curr.end_time, "d MMM yyyy, HH:mm", new Date());
-            const duration = differenceInMinutes(end, start);
-            if (duration > 0 && duration < 1440) {
-                acc[dateKey].durationMinutes += duration;
+            if (start && isValid(start) && isValid(end)) {
+              const duration = differenceInMinutes(end, start);
+              if (duration > 0 && duration < 1440) {
+                  acc[dateKey].durationMinutes += duration;
+              }
             }
         } catch (e) {
-            console.warn("Could not calculate duration", e);
+            // ignore invalid dates
         }
     }
 

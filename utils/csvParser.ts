@@ -1,5 +1,5 @@
 import { WorkoutSet } from "../types";
-import { parse } from "date-fns";
+import { parse, isValid } from "date-fns";
 import Papa from "papaparse";
 
 export const parseWorkoutCSV = (csvContent: string): WorkoutSet[] => {
@@ -45,9 +45,10 @@ export const parseWorkoutCSV = (csvContent: string): WorkoutSet[] => {
     // Parse Date: "9 Dec 2025, 12:42" -> Date object
     let parsedDate: Date | undefined;
     try {
-      parsedDate = parse(start_time, "d MMM yyyy, HH:mm", new Date());
+      const d = parse(start_time, "d MMM yyyy, HH:mm", new Date());
+      parsedDate = isValid(d) ? d : undefined;
     } catch (e) {
-      console.warn("Date parse error for", start_time);
+      // keep undefined if invalid
     }
 
     result.push({
@@ -107,7 +108,8 @@ export const parseWorkoutCSVAsync = (csvContent: string): Promise<WorkoutSet[]> 
               : null;
             let parsedDate: Date | undefined;
             try {
-              parsedDate = parse(start_time, "d MMM yyyy, HH:mm", new Date());
+              const d = parse(start_time, "d MMM yyyy, HH:mm", new Date());
+              parsedDate = isValid(d) ? d : undefined;
             } catch {}
             return {
               title,
