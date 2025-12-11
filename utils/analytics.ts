@@ -176,7 +176,6 @@ export const getIntensityEvolution = (data: WorkoutSet[], mode: 'daily' | 'month
   });
 
   const result = Object.values(groupedData).sort((a, b) => a.timestamp - b.timestamp);
-  console.log('getIntensityEvolution - Input data count:', data.length, 'Mode:', mode, 'Output:', result);
   return result;
 };
 

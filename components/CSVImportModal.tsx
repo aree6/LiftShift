@@ -76,16 +76,16 @@ export const CSVImportModal: React.FC<CSVImportModalProps> = ({ onFileSelect, is
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="flex flex-col items-center gap-2">
               {/* ✅ FIXED: Use string paths pointing to root (files are in public/) */}
-              <img src="/Step1.png" className="w-full h-auto rounded-lg border border-slate-700" alt="Step 1" />
+              <img src="/Step1.png" className="w-full h-auto rounded-lg border border-slate-700" alt="Step 1" loading="lazy" decoding="async" />
             </div>
             <div className="flex flex-col items-center gap-2">
-              <img src="/Step2.png" className="w-full h-auto rounded-lg border border-slate-700" alt="Step 2" />
+              <img src="/Step2.png" className="w-full h-auto rounded-lg border border-slate-700" alt="Step 2" loading="lazy" decoding="async" />
             </div>
             <div className="flex flex-col items-center gap-2">
-              <img src="/Step3.png" className="w-full h-auto rounded-lg border border-slate-700" alt="Step 3" />
+              <img src="/Step3.png" className="w-full h-auto rounded-lg border border-slate-700" alt="Step 3" loading="lazy" decoding="async" />
             </div>
             <div className="flex flex-col items-center gap-2">
-              <img src="/Step4.png" className="w-full h-auto rounded-lg border border-slate-700" alt="Step 4" />
+              <img src="/Step4.png" className="w-full h-auto rounded-lg border border-slate-700" alt="Step 4" loading="lazy" decoding="async" />
             </div>
           </div>
         </div>

@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { parseWorkoutCSV } from './utils/csvParser';
+import React, { useState, useEffect, useMemo, Suspense, useRef } from 'react';
+import { parseWorkoutCSV, parseWorkoutCSVAsync } from './utils/csvParser';
 import { getDailySummaries, getExerciseStats, identifyPersonalRecords } from './utils/analytics';
 import { WorkoutSet } from './types';
 import { DEFAULT_CSV_DATA } from './constants';
-import { Dashboard } from './components/Dashboard';
-import { ExerciseView } from './components/ExerciseView';
-import { HistoryView } from './components/HistoryView';
+const Dashboard = React.lazy(() => import('./components/Dashboard').then(m => ({ default: m.Dashboard })));
+const ExerciseView = React.lazy(() => import('./components/ExerciseView').then(m => ({ default: m.ExerciseView })));
+const HistoryView = React.lazy(() => import('./components/HistoryView').then(m => ({ default: m.HistoryView })));
 import { CSVImportModal } from './components/CSVImportModal';
 import { saveCSVData, getCSVData, hasCSVData, clearCSVData } from './utils/localStorage';
 import { LayoutDashboard, Dumbbell, History, Upload, BarChart3, Filter, Loader2, CheckCircle2, X, Trash2, Menu } from 'lucide-react';
@@ -27,6 +27,36 @@ const App: React.FC = () => {
   // Loading State
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [loadingStep, setLoadingStep] = useState(0); // 0: Parse, 1: Analyze, 2: Visualize
+  const [progress, setProgress] = useState(0);
+  const progressTimerRef = useRef<number | null>(null);
+
+  const startProgress = () => {
+    setProgress(0);
+    if (progressTimerRef.current) window.clearInterval(progressTimerRef.current);
+    const start = Date.now();
+    const t = window.setInterval(() => {
+      setProgress(prev => Math.min(90, Math.round(prev + Math.max(1, (90 - prev) * 0.05))));
+    }, 100);
+    progressTimerRef.current = t;
+    return start;
+  };
+
+  const finishProgress = (startedAt: number) => {
+    const MIN_MS = 1200;
+    const elapsed = Date.now() - startedAt;
+    const remaining = Math.max(0, MIN_MS - elapsed);
+    window.setTimeout(() => {
+      if (progressTimerRef.current) {
+        window.clearInterval(progressTimerRef.current);
+        progressTimerRef.current = null;
+      }
+      setProgress(100);
+      setTimeout(() => {
+        setIsAnalyzing(false);
+        setProgress(0);
+      }, 200);
+    }, remaining);
+  };
   
   // Filter States
   const [selectedMonth, setSelectedMonth] = useState<string>('all');
@@ -35,17 +65,31 @@ const App: React.FC = () => {
   // Initial Load: Check local storage, otherwise show modal
   useEffect(() => {
     const storedCSV = getCSVData();
-    
     if (storedCSV) {
-      // Load from local storage
-      const result = parseWorkoutCSV(storedCSV);
-      const enriched = identifyPersonalRecords(result);
-      setParsedData(enriched);
       setRawData(storedCSV);
+      setIsAnalyzing(true);
+      setLoadingStep(0);
+      const startedAt = startProgress();
+      // Defer heavy parsing to next tick and run in worker to avoid blocking LCP
+      setTimeout(() => {
+        setLoadingStep(1);
+        parseWorkoutCSVAsync(storedCSV)
+          .then(result => {
+            setLoadingStep(2);
+            return identifyPersonalRecords(result);
+          })
+          .then(enriched => setParsedData(enriched))
+          .catch(() => {
+            // Fallback to sync parser if worker parsing fails
+            const fallback = identifyPersonalRecords(parseWorkoutCSV(storedCSV));
+            setParsedData(fallback);
+          })
+          .finally(() => {
+            finishProgress(startedAt);
+          });
+      }, 0);
     } else {
-      // Show CSV import modal if no data in storage
       setShowCSVModal(true);
-      // Still load default data for fallback
       const result = parseWorkoutCSV(DEFAULT_CSV_DATA);
       const enriched = identifyPersonalRecords(result);
       setParsedData(enriched);
@@ -120,25 +164,27 @@ const App: React.FC = () => {
     // Start Loading Sequence
     setIsAnalyzing(true);
     setLoadingStep(0);
+    const startedAt = startProgress();
 
     const reader = new FileReader();
     reader.onload = (e) => {
       const text = e.target?.result;
       if (typeof text === 'string') {
-        // Save to local storage
         saveCSVData(text);
-
         setRawData(text);
-        const result = parseWorkoutCSV(text);
-        // Identify PRs on the full dataset before setting it
-        const enriched = identifyPersonalRecords(result);
-        setParsedData(enriched);
-        
-        // Reset filters on new upload
-        setSelectedMonth('all');
-        setSelectedDay(null);
-        
-        setIsAnalyzing(false);
+        setLoadingStep(1);
+        parseWorkoutCSVAsync(text)
+          .then(result => {
+            setLoadingStep(2);
+            const enriched = identifyPersonalRecords(result);
+            setParsedData(enriched);
+          })
+          .finally(() => {
+            // Reset filters on new upload
+            setSelectedMonth('all');
+            setSelectedDay(null);
+            finishProgress(startedAt);
+          });
       }
     };
     reader.readAsText(file);
@@ -173,6 +219,14 @@ const App: React.FC = () => {
                   {loadingStep >= 2 ? <CheckCircle2 className="w-5 h-5 text-emerald-500" /> : <div className="w-5 h-5 rounded-full border-2 border-slate-700"></div>}
                   <span className={loadingStep >= 2 ? "text-slate-200" : "text-slate-600"}>Generating visualizations...</span>
                </div>
+
+               {/* Progress bar */}
+               <div className="mt-4">
+                 <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden border border-slate-700">
+                   <div className="h-full bg-blue-600 transition-all duration-200" style={{ width: `${progress}%` }} />
+                 </div>
+                 <div className="text-right text-[10px] text-slate-500 mt-1">{progress}%</div>
+               </div>
             </div>
           </div>
         </div>
@@ -184,7 +238,7 @@ const App: React.FC = () => {
           {/* Top Row: Logo and Nav Buttons */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3 sm:gap-4">
-              <img src="/HevyAnalytics.png" alt="HevyAnalytics Logo" className="w-7 h-7 sm:w-8 sm:h-8" />
+              <img src="/HevyAnalytics.png" alt="HevyAnalytics Logo" className="w-7 h-7 sm:w-8 sm:h-8" decoding="async" />
               <span className="font-bold text-lg sm:text-xl tracking-tight text-white">HevyAnalytics</span>
             </div>
             
@@ -355,16 +409,18 @@ const App: React.FC = () => {
       {/* Main Content Area */}
       <main className="flex-1 overflow-x-hidden overflow-y-auto bg-slate-950 p-3 sm:p-4 md:p-6 lg:p-8">
 
-        {activeTab === Tab.DASHBOARD && (
-          <Dashboard 
-            dailyData={dailySummaries} 
-            exerciseStats={exerciseStats} 
-            fullData={filteredData} 
-            onDayClick={handleDayClick} // Pass handler
-          />
-        )}
-        {activeTab === Tab.EXERCISES && <ExerciseView stats={exerciseStats} />}
-        {activeTab === Tab.HISTORY && <HistoryView data={filteredData} />}
+        <Suspense fallback={<div className="text-slate-400 p-4">Loading...</div>}>
+          {activeTab === Tab.DASHBOARD && (
+            <Dashboard 
+              dailyData={dailySummaries} 
+              exerciseStats={exerciseStats} 
+              fullData={filteredData} 
+              onDayClick={handleDayClick}
+            />
+          )}
+          {activeTab === Tab.EXERCISES && <ExerciseView stats={exerciseStats} />}
+          {activeTab === Tab.HISTORY && <HistoryView data={filteredData} />}
+        </Suspense>
       </main>
     </div>
   );

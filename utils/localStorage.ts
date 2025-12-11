@@ -1,3 +1,4 @@
+import LZString from 'lz-string';
 const STORAGE_KEY = 'hevy_analytics_csv_data';
 
 /**
@@ -5,7 +6,8 @@ const STORAGE_KEY = 'hevy_analytics_csv_data';
  */
 export const saveCSVData = (csvData: string): void => {
   try {
-    localStorage.setItem(STORAGE_KEY, csvData);
+    const compressed = LZString.compressToUTF16(csvData);
+    localStorage.setItem(STORAGE_KEY, compressed);
   } catch (error) {
     console.error('Failed to save CSV data to local storage:', error);
   }
@@ -16,7 +18,10 @@ export const saveCSVData = (csvData: string): void => {
  */
 export const getCSVData = (): string | null => {
   try {
-    return localStorage.getItem(STORAGE_KEY);
+    const data = localStorage.getItem(STORAGE_KEY);
+    if (data === null) return null;
+    const decompressed = LZString.decompressFromUTF16(data);
+    return decompressed !== null ? decompressed : data;
   } catch (error) {
     console.error('Failed to retrieve CSV data from local storage:', error);
     return null;

@@ -1,5 +1,6 @@
 import { WorkoutSet } from "../types";
 import { parse } from "date-fns";
+import Papa from "papaparse";
 
 export const parseWorkoutCSV = (csvContent: string): WorkoutSet[] => {
   const lines = csvContent.split('\n');
@@ -74,5 +75,70 @@ export const parseWorkoutCSV = (csvContent: string): WorkoutSet[] => {
       return b.parsedDate.getTime() - a.parsedDate.getTime();
     }
     return 0;
+  });
+};
+
+export const parseWorkoutCSVAsync = (csvContent: string): Promise<WorkoutSet[]> => {
+  return new Promise((resolve, reject) => {
+    Papa.parse(csvContent, {
+      header: true,
+      skipEmptyLines: true,
+      dynamicTyping: true,
+      worker: true,
+      complete: (results) => {
+        try {
+          const rows = (results.data as any[]) || [];
+          const mapped: WorkoutSet[] = rows.map((row: any) => {
+            const title = row.title ?? '';
+            const start_time = row.start_time ?? '';
+            const end_time = row.end_time ?? '';
+            const description = row.description ?? '';
+            const exercise_title = row.exercise_title ?? '';
+            const superset_id = row.superset_id ?? '';
+            const exercise_notes = row.exercise_notes ?? '';
+            const set_index = typeof row.set_index === 'number' ? row.set_index : parseInt(row.set_index || '0', 10);
+            const set_type = row.set_type ?? '';
+            const weight_kg = typeof row.weight_kg === 'number' ? row.weight_kg : parseFloat(row.weight_kg || '0');
+            const reps = typeof row.reps === 'number' ? row.reps : parseFloat(row.reps || '0');
+            const distance_km = typeof row.distance_km === 'number' ? row.distance_km : parseFloat(row.distance_km || '0');
+            const duration_seconds = typeof row.duration_seconds === 'number' ? row.duration_seconds : parseFloat(row.duration_seconds || '0');
+            const rpe = row.rpe !== undefined && row.rpe !== null && row.rpe !== ''
+              ? (typeof row.rpe === 'number' ? row.rpe : parseFloat(row.rpe))
+              : null;
+            let parsedDate: Date | undefined;
+            try {
+              parsedDate = parse(start_time, "d MMM yyyy, HH:mm", new Date());
+            } catch {}
+            return {
+              title,
+              start_time,
+              end_time,
+              description,
+              exercise_title,
+              superset_id,
+              exercise_notes,
+              set_index,
+              set_type,
+              weight_kg,
+              reps,
+              distance_km,
+              duration_seconds,
+              rpe,
+              parsedDate,
+            } as WorkoutSet;
+          });
+          const sorted = mapped.sort((a, b) => {
+            if (a.parsedDate && b.parsedDate) {
+              return b.parsedDate.getTime() - a.parsedDate.getTime();
+            }
+            return 0;
+          });
+          resolve(sorted);
+        } catch (err) {
+          reject(err);
+        }
+      },
+      error: (error) => reject(error),
+    });
   });
 };
