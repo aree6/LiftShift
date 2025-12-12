@@ -11,7 +11,7 @@ import { FANCY_FONT } from '../utils/uiConstants';
 import { getExerciseAssets, ExerciseAsset } from '../utils/exerciseAssets';
 import { getDateKey, TimePeriod } from '../utils/dateUtils';
 import { ViewHeader } from './ViewHeader';
-import { BodyMap } from './BodyMap';
+import { BodyMap, BodyMapGender } from './BodyMap';
 import { SupportLinks } from './SupportLinks';
 import { 
   loadExerciseMuscleData, 
@@ -20,6 +20,8 @@ import {
   getVolumeColor,
   SVG_MUSCLE_NAMES
 } from '../utils/muscleMapping';
+import { WeightUnit } from '../utils/localStorage';
+import { convertWeight } from '../utils/units';
 
 // --- TYPES & LOGIC ---
 type ExerciseStatus = 'overload' | 'stagnant' | 'regression' | 'neutral' | 'new';
@@ -240,20 +242,21 @@ const StatCard = ({ label, value, unit, icon: Icon, delta, deltaSuffix }: {
   </div>
 );
 
-const CustomTooltip = ({ active, payload, label }: any) => {
+const CustomTooltip = ({ active, payload, label, weightUnit }: any) => {
   if (active && payload && payload.length) {
+    const unit = weightUnit || 'kg';
     return (
       <div className="bg-black/70 border border-slate-700/50 p-3 rounded-lg shadow-2xl shadow-black/50">
         <p className="text-slate-400 text-xs mb-2 font-mono">{label}</p>
         <div className="space-y-1">
           <p className="text-sm font-bold text-blue-400 flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-blue-500"></span>
-            1RM: <span style={FANCY_FONT}>{payload[0].value} kg</span>
+            1RM: <span style={FANCY_FONT}>{payload[0].value} {unit}</span>
           </p>
           {payload[1] && (
             <p className="text-xs text-slate-500 flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-slate-600"></span>
-              Lifted: {payload[1].value} kg
+              Lifted: {payload[1].value} {unit}
             </p>
           )}
         </div>
@@ -269,9 +272,11 @@ interface ExerciseViewProps {
   stats: ExerciseStats[];
   filtersSlot?: React.ReactNode;
   highlightedExercise?: string | null;
+  weightUnit?: WeightUnit;
+  bodyMapGender?: BodyMapGender;
 }
 
-export const ExerciseView: React.FC<ExerciseViewProps> = ({ stats, filtersSlot, highlightedExercise }) => {
+export const ExerciseView: React.FC<ExerciseViewProps> = ({ stats, filtersSlot, highlightedExercise, weightUnit = 'kg', bodyMapGender = 'male' }) => {
   const [selectedExerciseName, setSelectedExerciseName] = useState<string>(highlightedExercise || stats[0]?.name || "");
   
   // Update selection when highlightedExercise changes
@@ -351,8 +356,8 @@ export const ExerciseView: React.FC<ExerciseViewProps> = ({ stats, filtersSlot, 
     if (viewMode === 'all') {
       return history.map(h => ({
         date: h.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
-        weight: h.weight,
-        oneRepMax: h.oneRepMax,
+        weight: convertWeight(h.weight, weightUnit),
+        oneRepMax: convertWeight(h.oneRepMax, weightUnit),
         volume: h.volume
       }));
     }
@@ -377,10 +382,10 @@ export const ExerciseView: React.FC<ExerciseViewProps> = ({ stats, filtersSlot, 
       .sort((a, b) => a.ts - b.ts)
       .map(b => ({
         date: b.label,
-        oneRepMax: Number((b.oneRmSum / Math.max(1, b.oneRmCount)).toFixed(1)),
-        weight: Number((b.weightSum / Math.max(1, b.weightCount)).toFixed(1)),
+        oneRepMax: convertWeight(Number((b.oneRmSum / Math.max(1, b.oneRmCount)).toFixed(1)), weightUnit),
+        weight: convertWeight(Number((b.weightSum / Math.max(1, b.weightCount)).toFixed(1)), weightUnit),
       }));
-  }, [selectedStats, viewMode]);
+  }, [selectedStats, viewMode, weightUnit]);
 
   const currentStatus = selectedStats ? statusMap[selectedStats.name] : null;
 
@@ -409,10 +414,10 @@ export const ExerciseView: React.FC<ExerciseViewProps> = ({ stats, filtersSlot, 
             <Scale className="w-4 h-4 text-slate-400" />
             <div className="text-xs">
               <div className="flex items-center gap-1">
-                <span className="text-white font-bold leading-4">{selectedStats.maxWeight}</span>
-                <span className="text-slate-500">kg</span>
+                <span className="text-white font-bold leading-4">{convertWeight(selectedStats.maxWeight, weightUnit)}</span>
+                <span className="text-slate-500">{weightUnit}</span>
                 {exerciseDeltas && exerciseDeltas.bestImprovement > 0 && (
-                  <DeltaBadge delta={exerciseDeltas.bestImprovement} suffix=" kg" />
+                  <DeltaBadge delta={convertWeight(exerciseDeltas.bestImprovement, weightUnit)} suffix={` ${weightUnit}`} />
                 )}
               </div>
               <div className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider">
@@ -425,10 +430,10 @@ export const ExerciseView: React.FC<ExerciseViewProps> = ({ stats, filtersSlot, 
               <TrendingUp className="w-4 h-4 text-slate-400" />
               <div className="text-xs">
                 <div className="flex items-center gap-1">
-                  <span className="text-white font-bold leading-4">{exerciseDeltas.avgWeightLast3}</span>
-                  <span className="text-slate-500">kg</span>
+                  <span className="text-white font-bold leading-4">{convertWeight(exerciseDeltas.avgWeightLast3, weightUnit)}</span>
+                  <span className="text-slate-500">{weightUnit}</span>
                   {exerciseDeltas.weightDelta !== 0 && (
-                    <DeltaBadge delta={exerciseDeltas.weightDelta} suffix=" kg" />
+                    <DeltaBadge delta={convertWeight(exerciseDeltas.weightDelta, weightUnit)} suffix={` ${weightUnit}`} />
                   )}
                 </div>
                 <div className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider">Last Session</div>
@@ -572,6 +577,7 @@ export const ExerciseView: React.FC<ExerciseViewProps> = ({ stats, filtersSlot, 
                       muscleVolumes={selectedExerciseMuscleInfo.volumes}
                       maxVolume={selectedExerciseMuscleInfo.maxVolume}
                       compact
+                      gender={bodyMapGender}
                     />
                   </div>
 
@@ -723,9 +729,9 @@ export const ExerciseView: React.FC<ExerciseViewProps> = ({ stats, filtersSlot, 
                   fontSize={10} 
                   tickLine={false} 
                   axisLine={false}
-                  tickFormatter={(val) => `${val}kg`}
+                  tickFormatter={(val) => `${val}${weightUnit}`}
                 />
-                <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#334155', strokeWidth: 1, strokeDasharray: '4 4' }} />
+                <Tooltip content={<CustomTooltip weightUnit={weightUnit} />} cursor={{ stroke: '#334155', strokeWidth: 1, strokeDasharray: '4 4' }} />
                 
                 <Area 
                   type="monotone" 

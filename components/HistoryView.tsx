@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { analyzeSetProgression, analyzeSession, getStatusColor, analyzeProgression, getWisdomColor } from '../utils/masterAlgorithm';
 import { getExerciseAssets, ExerciseAsset } from '../utils/exerciseAssets';
-import { BodyMap } from './BodyMap';
+import { BodyMap, BodyMapGender } from './BodyMap';
 import { 
   loadExerciseMuscleData, 
   ExerciseMuscleData, 
@@ -18,10 +18,14 @@ import { ViewHeader } from './ViewHeader';
 import { FANCY_FONT, TOOLTIP_THEMES, calculateTooltipPosition } from '../utils/uiConstants';
 import { SupportLinks } from './SupportLinks';
 import { format } from 'date-fns';
+import { WeightUnit } from '../utils/localStorage';
+import { convertWeight, convertVolume } from '../utils/units';
 
 interface HistoryViewProps {
   data: WorkoutSet[];
   filtersSlot?: React.ReactNode;
+  weightUnit?: WeightUnit;
+  bodyMapGender?: BodyMapGender;
 }
 
 interface GroupedExercise {
@@ -152,7 +156,7 @@ const useExerciseVolumeHistory = (data: WorkoutSet[]) => {
   }, [data]);
 };
 
-export const HistoryView: React.FC<HistoryViewProps> = ({ data, filtersSlot }) => {
+export const HistoryView: React.FC<HistoryViewProps> = ({ data, filtersSlot, weightUnit = 'kg', bodyMapGender = 'male' }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
   const [assetsMap, setAssetsMap] = useState<Map<string, ExerciseAsset> | null>(null);
@@ -327,7 +331,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ data, filtersSlot }) =
                     <span className="w-1 h-1 bg-slate-700 rounded-full"></span>
                     <span className="whitespace-nowrap">{session.totalSets} Sets</span>
                     <span className="w-1 h-1 bg-slate-700 rounded-full"></span>
-                    <span className="whitespace-nowrap">{Math.round(session.totalVolume).toLocaleString()} kg</span>
+                    <span className="whitespace-nowrap">{Math.round(convertVolume(session.totalVolume, weightUnit)).toLocaleString()} {weightUnit}</span>
                     {prevSession && (
                       <SessionDeltaBadge 
                         current={session.totalVolume} 
@@ -399,7 +403,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ data, filtersSlot }) =
                             </h4>
                             {/* Exercise volume with delta */}
                             <div className="flex items-center gap-2 text-[10px] text-slate-500">
-                              <span>{Math.round(exerciseVolume).toLocaleString()} kg</span>
+                              <span>{Math.round(convertVolume(exerciseVolume, weightUnit)).toLocaleString()} {weightUnit}</span>
                               {volumeDelta && volumeDelta.pct !== 0 && (
                                 <span className={`inline-flex items-center gap-0.5 px-1 py-0.5 rounded font-bold ${
                                   volumeDelta.pct > 0 ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'
@@ -465,9 +469,9 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ data, filtersSlot }) =
                               <div className="flex-1 flex justify-between items-center">
                                 <div className="flex items-center gap-1">
                                   <span className="text-xl font-bold text-white tabular-nums tracking-tight">
-                                    {set.weight_kg}
+                                    {convertWeight(set.weight_kg, weightUnit)}
                                   </span>
-                                  <span className="text-xs text-slate-500 font-medium">kg</span>
+                                  <span className="text-xs text-slate-500 font-medium">{weightUnit}</span>
                                   <span className="text-slate-700 mx-1">×</span>
                                   <span className="text-xl font-bold text-slate-200 tabular-nums tracking-tight">
                                     {set.reps}
@@ -546,6 +550,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ data, filtersSlot }) =
                                   muscleVolumes={volumes}
                                   maxVolume={maxVolume}
                                   compact
+                                  gender={bodyMapGender}
                                 />
                               </div>
                              

@@ -88,3 +88,31 @@ export const getChartModes = (): Record<string, TimeFilterMode> | null => {
     return null;
   }
 };
+
+// Weight Unit Preference Storage
+export type WeightUnit = 'kg' | 'lbs';
+const WEIGHT_UNIT_KEY = 'hevy_analytics_weight_unit';
+
+/**
+ * Save weight unit preference to local storage
+ */
+export const saveWeightUnit = (unit: WeightUnit): void => {
+  try {
+    localStorage.setItem(WEIGHT_UNIT_KEY, unit);
+  } catch (error) {
+    console.error('Failed to save weight unit to local storage:', error);
+  }
+};
+
+/**
+ * Retrieve weight unit preference from local storage
+ */
+export const getWeightUnit = (): WeightUnit => {
+  try {
+    const unit = localStorage.getItem(WEIGHT_UNIT_KEY);
+    return (unit === 'kg' || unit === 'lbs') ? unit : 'kg';
+  } catch (error) {
+    console.error('Failed to retrieve weight unit from local storage:', error);
+    return 'kg';
+  }
+};

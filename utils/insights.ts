@@ -493,6 +493,53 @@ export const getPRSparkline = (data: WorkoutSet[], weeks: number = 8): Sparkline
   return result;
 };
 
+export const getSetsSparkline = (data: WorkoutSet[], weeks: number = 8): SparklinePoint[] => {
+  const now = new Date();
+  const result: SparklinePoint[] = [];
+  
+  for (let i = weeks - 1; i >= 0; i--) {
+    const weekStart = subWeeks(startOfWeek(now, { weekStartsOn: 1 }), i);
+    const weekEnd = subDays(subWeeks(weekStart, -1), 1);
+    
+    const setsCount = data.filter(s => 
+      s.parsedDate && 
+      isWithinInterval(s.parsedDate, { start: weekStart, end: weekEnd })
+    ).length;
+    
+    result.push({
+      value: setsCount,
+      label: format(weekStart, 'MMM d'),
+    });
+  }
+  
+  return result;
+};
+
+export const getConsistencySparkline = (data: WorkoutSet[], weeks: number = 8): SparklinePoint[] => {
+  const now = new Date();
+  const result: SparklinePoint[] = [];
+  
+  for (let i = weeks - 1; i >= 0; i--) {
+    const weekStart = subWeeks(startOfWeek(now, { weekStartsOn: 1 }), i);
+    const weekEnd = subDays(subWeeks(weekStart, -1), 1);
+    
+    const sessions = new Set<string>();
+    for (const set of data) {
+      if (set.parsedDate && set.start_time && 
+          isWithinInterval(set.parsedDate, { start: weekStart, end: weekEnd })) {
+        sessions.add(set.start_time);
+      }
+    }
+    
+    result.push({
+      value: sessions.size,
+      label: format(weekStart, 'MMM d'),
+    });
+  }
+  
+  return result;
+};
+
 // ============================================================================
 // SUMMARY INSIGHTS - High-level actionable info
 // ============================================================================
@@ -504,6 +551,8 @@ export interface DashboardInsights {
   volumeSparkline: SparklinePoint[];
   workoutSparkline: SparklinePoint[];
   prSparkline: SparklinePoint[];
+  setsSparkline: SparklinePoint[];
+  consistencySparkline: SparklinePoint[];
 }
 
 export const calculateDashboardInsights = (
@@ -517,5 +566,7 @@ export const calculateDashboardInsights = (
     volumeSparkline: getVolumeSparkline(dailyData),
     workoutSparkline: getWorkoutSparkline(data),
     prSparkline: getPRSparkline(data),
+    setsSparkline: getSetsSparkline(data),
+    consistencySparkline: getConsistencySparkline(data),
   };
 };

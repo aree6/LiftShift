@@ -3,15 +3,17 @@ import { Upload, Check } from 'lucide-react';
 import MaleFrontBodyMapGroup from './MaleFrontBodyMapGroup';
 import FemaleFrontBodyMapGroup from './FemaleFrontBodyMapGroup';
 import type { BodyMapGender } from './BodyMap';
+import type { WeightUnit } from '../utils/localStorage';
 
 interface CSVImportModalProps {
-  onFileSelect: (file: File, gender: BodyMapGender) => void;
+  onFileSelect: (file: File, gender: BodyMapGender, unit: WeightUnit) => void;
   isLoading?: boolean;
 }
 
 export const CSVImportModal: React.FC<CSVImportModalProps> = ({ onFileSelect, isLoading = false }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedGender, setSelectedGender] = useState<BodyMapGender | null>(null);
+  const [selectedUnit, setSelectedUnit] = useState<WeightUnit | null>(null);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -19,8 +21,12 @@ export const CSVImportModal: React.FC<CSVImportModalProps> = ({ onFileSelect, is
       alert('Please select your body type first');
       return;
     }
+    if (!selectedUnit) {
+      alert('Please select your preferred weight unit first');
+      return;
+    }
     if (file && (file.type === 'text/csv' || file.name.endsWith('.csv'))) {
-      onFileSelect(file, selectedGender);
+      onFileSelect(file, selectedGender, selectedUnit);
     } else {
       alert('Please select a valid CSV file');
     }
@@ -39,10 +45,14 @@ export const CSVImportModal: React.FC<CSVImportModalProps> = ({ onFileSelect, is
       alert('Please select your body type first');
       return;
     }
+    if (!selectedUnit) {
+      alert('Please select your preferred weight unit first');
+      return;
+    }
     
     const file = e.dataTransfer.files?.[0];
     if (file && (file.type === 'text/csv' || file.name.endsWith('.csv'))) {
-      onFileSelect(file, selectedGender);
+      onFileSelect(file, selectedGender, selectedUnit);
     } else {
       alert('Please drop a valid CSV file');
     }
@@ -115,23 +125,81 @@ export const CSVImportModal: React.FC<CSVImportModalProps> = ({ onFileSelect, is
           </div>
         </div>
 
-        {/* Drag and Drop Area - Only enabled after gender selection */}
+        {/* Weight Unit Selection */}
+        <div className="w-full mb-6">
+          <p className="text-sm font-semibold text-slate-300 mb-3 text-center">Select Your Preferred Weight Unit</p>
+          <div className="grid grid-cols-2 gap-3">
+            {/* KG Option */}
+            <button
+              onClick={() => setSelectedUnit('kg')}
+              className={`relative p-4 rounded-xl border-2 transition-all duration-200 flex flex-col items-center ${
+                selectedUnit === 'kg'
+                  ? 'border-emerald-500 bg-emerald-500/10 shadow-lg shadow-emerald-500/20'
+                  : 'border-slate-700/50 hover:border-slate-500/70 hover:bg-black/60'
+              }`}
+            >
+              {selectedUnit === 'kg' && (
+                <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center">
+                  <Check className="w-3 h-3 text-white" />
+                </div>
+              )}
+              <span className={`text-2xl font-bold ${
+                selectedUnit === 'kg' ? 'text-emerald-400' : 'text-slate-400'
+              }`}>
+                KG
+              </span>
+              <span className={`mt-1 text-xs ${
+                selectedUnit === 'kg' ? 'text-emerald-400/70' : 'text-slate-500'
+              }`}>
+                Kilograms
+              </span>
+            </button>
+
+            {/* LBS Option */}
+            <button
+              onClick={() => setSelectedUnit('lbs')}
+              className={`relative p-4 rounded-xl border-2 transition-all duration-200 flex flex-col items-center ${
+                selectedUnit === 'lbs'
+                  ? 'border-orange-500 bg-orange-500/10 shadow-lg shadow-orange-500/20'
+                  : 'border-slate-700/50 hover:border-slate-500/70 hover:bg-black/60'
+              }`}
+            >
+              {selectedUnit === 'lbs' && (
+                <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-orange-500 flex items-center justify-center">
+                  <Check className="w-3 h-3 text-white" />
+                </div>
+              )}
+              <span className={`text-2xl font-bold ${
+                selectedUnit === 'lbs' ? 'text-orange-400' : 'text-slate-400'
+              }`}>
+                LBS
+              </span>
+              <span className={`mt-1 text-xs ${
+                selectedUnit === 'lbs' ? 'text-orange-400/70' : 'text-slate-500'
+              }`}>
+                Pounds
+              </span>
+            </button>
+          </div>
+        </div>
+
+        {/* Drag and Drop Area - Only enabled after gender and unit selection */}
         <div
-          onDragOver={selectedGender ? handleDragOver : undefined}
-          onDrop={selectedGender ? handleDrop : undefined}
-          onClick={() => selectedGender && fileInputRef.current?.click()}
+          onDragOver={(selectedGender && selectedUnit) ? handleDragOver : undefined}
+          onDrop={(selectedGender && selectedUnit) ? handleDrop : undefined}
+          onClick={() => (selectedGender && selectedUnit) && fileInputRef.current?.click()}
           className={`w-full p-6 mb-6 border-2 border-dashed rounded-xl transition-all flex flex-col items-center justify-center ${
-            selectedGender
+            (selectedGender && selectedUnit)
               ? 'border-slate-600 hover:border-slate-400 hover:bg-black/60 cursor-pointer'
               : 'border-slate-800 bg-black/40 cursor-not-allowed opacity-50'
           }`}
         >
-          <Upload className={`w-6 h-6 sm:w-8 sm:h-8 mb-3 ${selectedGender ? 'text-slate-500' : 'text-slate-600'}`} />
-          <p className={`font-medium text-center text-sm sm:text-base ${selectedGender ? 'text-slate-300' : 'text-slate-500'}`}>
-            {selectedGender ? 'Drag and drop your CSV here' : 'Select body type first'}
+          <Upload className={`w-6 h-6 sm:w-8 sm:h-8 mb-3 ${(selectedGender && selectedUnit) ? 'text-slate-500' : 'text-slate-600'}`} />
+          <p className={`font-medium text-center text-sm sm:text-base ${(selectedGender && selectedUnit) ? 'text-slate-300' : 'text-slate-500'}`}>
+            {(selectedGender && selectedUnit) ? 'Drag and drop your CSV here' : 'Complete selections above first'}
           </p>
           <p className="text-slate-500 text-xs sm:text-sm mt-1">
-            {selectedGender ? 'or click to browse' : 'Then you can upload your CSV'}
+            {(selectedGender && selectedUnit) ? 'or click to browse' : 'Then you can upload your CSV'}
           </p>
         </div>
 
@@ -141,7 +209,7 @@ export const CSVImportModal: React.FC<CSVImportModalProps> = ({ onFileSelect, is
           accept=".csv"
           onChange={handleFileChange}
           className="hidden"
-          disabled={isLoading || !selectedGender}
+          disabled={isLoading || !selectedGender || !selectedUnit}
         />
 
         {/* Welcome Steps */}

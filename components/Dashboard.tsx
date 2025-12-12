@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useCallback, memo } from 'react';
 import { DailySummary, ExerciseStats, WorkoutSet } from '../types';
 import { 
   getHeatmapData, 
@@ -12,7 +12,8 @@ import { getMuscleVolumeTimeSeries, getDetailedMuscleCompositionLatest, normaliz
 import { CSV_TO_SVG_MUSCLE_MAP } from '../utils/muscleMapping';
 import { BodyMap, BodyMapGender } from './BodyMap';
 import { MUSCLE_COLORS } from '../utils/categories';
-import { saveChartModes, getChartModes, TimeFilterMode } from '../utils/localStorage';
+import { saveChartModes, getChartModes, TimeFilterMode, WeightUnit } from '../utils/localStorage';
+import { convertVolume } from '../utils/units';
 import { CHART_TOOLTIP_STYLE, CHART_COLORS, ANIMATION_KEYFRAMES } from '../utils/uiConstants';
 import {
   SVG_TO_MUSCLE_GROUP,
@@ -35,6 +36,7 @@ import { getExerciseAssets, ExerciseAsset } from '../utils/exerciseAssets';
 import { SupportLinks } from './SupportLinks';
 import { calculateDashboardInsights, detectPlateaus, DashboardInsights, PlateauAnalysis } from '../utils/insights';
 import { InsightsPanel, PlateauAlert, RecentPRsPanel } from './InsightCards';
+import { computationCache } from '../utils/computationCache';
 
 interface DashboardProps {
   dailyData: DailySummary[];
@@ -44,6 +46,7 @@ interface DashboardProps {
   onMuscleClick?: (muscleId: string, viewMode: 'muscle' | 'group') => void;
   filtersSlot?: React.ReactNode;
   bodyMapGender?: BodyMapGender;
+  weightUnit?: WeightUnit;
 }
 
 type ChartKey = 'heatmap' | 'prTrend' | 'volumeVsDuration' | 'intensityEvo' | 'weekShape' | 'topExercises' | 'muscleVolume';
@@ -217,9 +220,17 @@ const ChartHeader = ({
   </div>
 );
 
-// 4. Heatmap Component
-const Heatmap = ({ dailyData, totalPrs, onDayClick }: { dailyData: DailySummary[], totalPrs: number, onDayClick?: (date: Date) => void }) => {
-  const heatmapData = useMemo(() => getHeatmapData(dailyData), [dailyData]);
+// 4. Heatmap Component - Memoized to prevent unnecessary re-renders
+const Heatmap = memo(({ dailyData, totalPrs, onDayClick }: { dailyData: DailySummary[], totalPrs: number, onDayClick?: (date: Date) => void }) => {
+  // Cache heatmap data across tab switches
+  const heatmapData = useMemo(() => {
+    return computationCache.getOrCompute(
+      'heatmapData',
+      dailyData,
+      () => getHeatmapData(dailyData),
+      { ttl: 10 * 60 * 1000 }
+    );
+  }, [dailyData]);
   const [tooltip, setTooltip] = useState<any | null>(null);
   const scrollContainerRef = React.useRef<HTMLDivElement>(null);
 
@@ -299,12 +310,12 @@ const Heatmap = ({ dailyData, totalPrs, onDayClick }: { dailyData: DailySummary[
       {tooltip && <DashboardTooltip data={tooltip} />}
     </div>
   );
-};
+});
 
 
 // --- MAIN DASHBOARD ---
 
-export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, fullData, onDayClick, onMuscleClick, filtersSlot, bodyMapGender = 'male' }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, fullData, onDayClick, onMuscleClick, filtersSlot, bodyMapGender = 'male', weightUnit = 'kg' }) => {
   const DEFAULT_CHART_MODES: Record<string, TimeFilterMode> = {
     volumeVsDuration: 'monthly',
     intensityEvo: 'monthly',
@@ -480,17 +491,25 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
     return sessions.size;
   }, [fullData]);
 
-  // Dashboard Insights (deltas, streaks, PR info, sparklines)
-  const dashboardInsights = useMemo(() => 
-    calculateDashboardInsights(fullData, dailyData), 
-    [fullData, dailyData]
-  );
+  // Dashboard Insights (deltas, streaks, PR info, sparklines) - cached across tab switches
+  const dashboardInsights = useMemo(() => {
+    return computationCache.getOrCompute(
+      'dashboardInsights',
+      fullData,
+      () => calculateDashboardInsights(fullData, dailyData),
+      { ttl: 10 * 60 * 1000 }
+    );
+  }, [fullData, dailyData]);
 
-  // Plateau Detection
-  const plateauAnalysis = useMemo(() => 
-    detectPlateaus(fullData, exerciseStats), 
-    [fullData, exerciseStats]
-  );
+  // Plateau Detection - cached across tab switches
+  const plateauAnalysis = useMemo(() => {
+    return computationCache.getOrCompute(
+      'plateauAnalysis',
+      fullData,
+      () => detectPlateaus(fullData, exerciseStats),
+      { ttl: 10 * 60 * 1000 }
+    );
+  }, [fullData, exerciseStats]);
   
   // 1. PRs Over Time Data
   const prsData = useMemo(() => {
@@ -514,7 +533,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
         ...d,
         dateFormatted: format(new Date(d.timestamp), 'MMM d'),
         tooltipLabel: format(new Date(d.timestamp), 'MMM d, yyyy'),
-        volumePerSet: d.sets > 0 ? Math.round(d.totalVolume / d.sets) : 0
+        volumePerSet: d.sets > 0 ? convertVolume(Math.round(d.totalVolume / d.sets), weightUnit) : 0
       }));
     }
 
@@ -536,9 +555,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
         return {
           dateFormatted: `Wk of ${format(new Date(w.timestamp), 'MMM d')}`,
           tooltipLabel: `Week of ${format(new Date(w.timestamp), 'MMM d, yyyy')}`,
-          totalVolume: avgVol,
+          totalVolume: convertVolume(avgVol, weightUnit),
           sets: avgSets,
-          volumePerSet: avgSets > 0 ? Math.round(avgVol / avgSets) : 0
+          volumePerSet: avgSets > 0 ? convertVolume(Math.round(avgVol / avgSets), weightUnit) : 0
         };
       });
     }
@@ -561,13 +580,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
         return {
           dateFormatted: format(new Date(m.timestamp), 'MMM yyyy'),
           tooltipLabel: format(new Date(m.timestamp), 'MMMM yyyy'),
-          totalVolume: avgVol,
+          totalVolume: convertVolume(avgVol, weightUnit),
           sets: avgSets,
-          volumePerSet: avgSets > 0 ? Math.round(avgVol / avgSets) : 0
+          volumePerSet: avgSets > 0 ? convertVolume(Math.round(avgVol / avgSets), weightUnit) : 0
         };
       });
     }
-  }, [dailyData, chartModes.volumeVsDuration]);
+  }, [dailyData, chartModes.volumeVsDuration, weightUnit]);
 
   // Static Data
   const weekShapeData = useMemo(() => getDayOfWeekShape(dailyData), [dailyData]);
@@ -604,15 +623,25 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
   // Keys for area stacking in Most Frequent Exercises
   const topExerciseNames = useMemo(() => (topExercisesBarData.length > 0 ? topExercisesBarData : topExercisesData).map(e => e.name), [topExercisesBarData, topExercisesData]);
 
-  // 6. Muscle Volume (sets-based) unified data
+  // 6. Muscle Volume (sets-based) unified data - cached for performance
   const muscleSeriesGroups = useMemo(() => {
     if (!assetsMap) return { data: [], keys: [] as string[] } as { data: any[]; keys: string[] };
-    return getMuscleVolumeTimeSeries(fullData, assetsMap, musclePeriod);
+    return computationCache.getOrCompute(
+      `muscleSeriesGroups:${musclePeriod}`,
+      fullData,
+      () => getMuscleVolumeTimeSeries(fullData, assetsMap, musclePeriod),
+      { ttl: 10 * 60 * 1000 }
+    );
   }, [fullData, assetsMap, musclePeriod]);
 
   const muscleSeriesMuscles = useMemo(() => {
     if (!assetsMap) return { data: [], keys: [] as string[] } as { data: any[]; keys: string[] };
-    return getMuscleVolumeTimeSeriesDetailed(fullData, assetsMap, musclePeriod);
+    return computationCache.getOrCompute(
+      `muscleSeriesMuscles:${musclePeriod}`,
+      fullData,
+      () => getMuscleVolumeTimeSeriesDetailed(fullData, assetsMap, musclePeriod),
+      { ttl: 10 * 60 * 1000 }
+    );
   }, [fullData, assetsMap, musclePeriod]);
 
   const trendData = muscleGrouping === 'groups' ? muscleSeriesGroups.data : muscleSeriesMuscles.data;
@@ -689,9 +718,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
     return arr.slice(0, 16);
   }, [assetsMap, fullData, muscleCompQuick, compositionGrouping]);
 
-  // Heat map muscle volumes - maps SVG muscle IDs to weekly sets values
+  // Heat map muscle volumes - maps SVG muscle IDs to weekly sets values (cached)
   const heatmapMuscleVolumes = useMemo(() => {
     if (!assetsMap) return { volumes: new Map<string, number>(), maxVolume: 1, totalSets: 0 };
+    const cacheKey = `heatmapMuscleVolumes:${muscleCompQuick}:${compositionGrouping}`;
+    return computationCache.getOrCompute(cacheKey, fullData, () => {
     const now = new Date();
     let windowStart: Date | null = null;
     if (muscleCompQuick === '7d') windowStart = subDays(now, 7);
@@ -797,6 +828,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
     }
     
     return { volumes, maxVolume: Math.max(maxVol, 1), totalSets: totalSetsRaw };
+    }, { ttl: 10 * 60 * 1000 });
   }, [assetsMap, fullData, muscleCompQuick, compositionGrouping]);
 
   // Compute hovered muscle IDs for group highlighting in heatmap
@@ -897,16 +929,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
       />
 
       {/* RECENT PRs TIMELINE */}
-      <RecentPRsPanel prInsights={dashboardInsights.prInsights} />
+      <RecentPRsPanel prInsights={dashboardInsights.prInsights} weightUnit={weightUnit} />
 
       {/* PLATEAU ALERTS */}
       {plateauAnalysis.plateauedExercises.length > 0 && (
         <div className="bg-black/70 border border-amber-500/20 rounded-xl p-4">
           <div className="flex items-center gap-2 mb-3">
             <span className="text-sm font-semibold text-amber-400">⚠️ Potential Plateaus Detected</span>
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400">
-              {plateauAnalysis.plateauedExercises.length} exercise{plateauAnalysis.plateauedExercises.length !== 1 ? 's' : ''}
-            </span>
+           
           </div>
           <div className="overflow-x-auto -mx-2 px-2 pb-2">
             <div className="flex gap-2" style={{ minWidth: 'min-content' }}>
@@ -1329,34 +1359,34 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
                   <XAxis dataKey="dateFormatted" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
-                  <YAxis stroke="#8b5cf6" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(val) => `${val}kg`} />
+                  <YAxis stroke="#8b5cf6" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(val) => `${val}${weightUnit}`} />
                   <Tooltip 
                     contentStyle={TooltipStyle} 
                     labelFormatter={(l, p) => p[0]?.payload?.tooltipLabel || l} 
                     formatter={(val: number, name) => {
-                        if (name === 'Volume per Set (kg)') return [`${val} kg`, name];
+                        if (name === `Volume per Set (${weightUnit})`) return [`${val} ${weightUnit}`, name];
                         return [val, name];
                     }}
                   />
                   <Legend />
-                    <Area type="monotone" dataKey="volumePerSet" name="Volume per Set (kg)" stroke="#8b5cf6" strokeWidth={3} fill="url(#gDensityArea)" dot={{r:3, fill:'#8b5cf6'}} activeDot={{r:5, strokeWidth: 0}} animationDuration={1500} />
+                    <Area type="monotone" dataKey="volumePerSet" name={`Volume per Set (${weightUnit})`} stroke="#8b5cf6" strokeWidth={3} fill="url(#gDensityArea)" dot={{r:3, fill:'#8b5cf6'}} activeDot={{r:5, strokeWidth: 0}} animationDuration={1500} />
                   </AreaChart>
                 ) : (
                   <BarChart data={volumeDurationData} margin={{ left: -20, right: 10, top: 10, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
                     <XAxis dataKey="dateFormatted" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
-                    <YAxis stroke="#8b5cf6" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(val) => `${val}kg`} />
+                    <YAxis stroke="#8b5cf6" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(val) => `${val}${weightUnit}`} />
                     <Tooltip 
                       contentStyle={TooltipStyle} 
                       cursor={{ fill: 'rgba(0,0,0,0.35)' }}
                       labelFormatter={(l, p) => p[0]?.payload?.tooltipLabel || l} 
                       formatter={(val: number, name) => {
-                          if (name === 'Volume per Set (kg)') return [`${val} kg`, name];
+                          if (name === `Volume per Set (${weightUnit})`) return [`${val} ${weightUnit}`, name];
                           return [val, name];
                       }}
                     />
                     <Legend />
-                    <Bar dataKey="volumePerSet" name="Volume per Set (kg)" fill="#8b5cf6" radius={[8, 8, 0, 0]} animationDuration={1500} />
+                    <Bar dataKey="volumePerSet" name={`Volume per Set (${weightUnit})`} fill="#8b5cf6" radius={[8, 8, 0, 0]} animationDuration={1500} />
                   </BarChart>
                 )}
                 </div>

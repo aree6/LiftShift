@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, memo } from 'react';
 import { 
   TrendingUp, TrendingDown, Minus, Flame, Zap, Trophy, 
   Calendar, Target, AlertTriangle, Activity, Clock, Dumbbell
@@ -13,6 +13,8 @@ import {
 } from '../utils/insights';
 import { format } from 'date-fns';
 import { getExerciseAssets, ExerciseAsset } from '../utils/exerciseAssets';
+import { WeightUnit } from '../utils/localStorage';
+import { convertWeight } from '../utils/units';
 
 // Mini Sparkline Component
 const Sparkline: React.FC<{ data: SparklinePoint[]; color?: string; height?: number }> = ({ 
@@ -202,11 +204,13 @@ export const KPICard: React.FC<KPICardProps> = ({
           <div className="text-2xl font-bold text-white tracking-tight">{value}</div>
           {subtitle && <div className="text-[10px] text-slate-500">{subtitle}</div>}
         </div>
-        {delta && <DeltaBadge delta={delta} context={deltaContext} />}
       </div>
 
-      {/* Badge */}
-      {badge && <div className="mt-1">{badge}</div>}
+      {/* Badge and Delta */}
+      <div className="flex items-center justify-between">
+        {delta && <DeltaBadge delta={delta} context={deltaContext} />}
+        {badge && <div className={delta ? '' : 'w-full'}>{badge}</div>}
+      </div>
     </div>
   );
 };
@@ -264,13 +268,9 @@ interface InsightsPanelProps {
   totalPRs: number;
 }
 
-export const InsightsPanel: React.FC<InsightsPanelProps> = ({ 
-  insights, 
-  totalWorkouts, 
-  totalSets,
-  totalPRs 
-}) => {
-  const { weekComparison, streakInfo, prInsights, volumeSparkline, workoutSparkline, prSparkline } = insights;
+export const InsightsPanel: React.FC<InsightsPanelProps> = memo(function InsightsPanel(props) {
+  const { insights, totalWorkouts, totalSets, totalPRs } = props;
+  const { weekComparison, streakInfo, prInsights, volumeSparkline, workoutSparkline, prSparkline, setsSparkline, consistencySparkline } = insights;
 
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -296,6 +296,7 @@ export const InsightsPanel: React.FC<InsightsPanelProps> = ({
         iconColor="text-purple-400"
         delta={weekComparison.sets}
         deltaContext="vs last wk"
+        sparkline={setsSparkline}
         sparklineColor="#a855f7"
       />
 
@@ -312,27 +313,19 @@ export const InsightsPanel: React.FC<InsightsPanelProps> = ({
       />
 
       {/* Consistency */}
-      <div className="bg-black/70 border border-slate-700/50 rounded-xl p-4 flex flex-col gap-2 hover:border-slate-600/50 transition-all">
-        <div className="flex items-center gap-2">
-          <div className="p-1.5 rounded-lg bg-black/50 text-emerald-400">
-            <Target className="w-4 h-4" />
-          </div>
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Consistency</span>
-        </div>
-        
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="text-lg font-bold text-white">{streakInfo.avgWorkoutsPerWeek}/wk</div>
-            <div className="text-[10px] text-slate-500">avg workouts</div>
-          </div>
-          <ConsistencyRing score={streakInfo.consistencyScore} />
-        </div>
-        
-        <StreakBadge streak={streakInfo} />
-      </div>
+      <KPICard
+        title="Consistency"
+        value={`${streakInfo.consistencyScore}%`}
+        subtitle={`${streakInfo.avgWorkoutsPerWeek}/wk avg`}
+        icon={Target}
+        iconColor="text-emerald-400"
+        sparkline={consistencySparkline}
+        sparklineColor="#10b981"
+        badge={<StreakBadge streak={streakInfo} />}
+      />
     </div>
   );
-};
+});
 
 // Compact Alert Card for Plateaus
 interface PlateauAlertProps {
@@ -372,9 +365,10 @@ interface RecentPRCardProps {
   pr: RecentPR;
   isLatest?: boolean;
   asset?: ExerciseAsset;
+  weightUnit?: WeightUnit;
 }
 
-export const RecentPRCard: React.FC<RecentPRCardProps> = ({ pr, isLatest, asset }) => {
+export const RecentPRCard: React.FC<RecentPRCardProps> = ({ pr, isLatest, asset, weightUnit = 'kg' }) => {
   const { exercise, weight, reps, date, improvement } = pr;
   const imgSrc = asset?.sourceType === 'video' ? asset.thumbnail : (asset?.thumbnail || asset?.source);
   
@@ -392,10 +386,10 @@ export const RecentPRCard: React.FC<RecentPRCardProps> = ({ pr, isLatest, asset 
         <div className="text-[10px] text-slate-500">{format(date, 'MMM d, yyyy')}</div>
       </div>
       <div className="text-right">
-        <div className="text-sm font-bold text-white">{weight}kg</div>
+        <div className="text-sm font-bold text-white">{convertWeight(weight, weightUnit)}{weightUnit}</div>
         {improvement > 0 ? (
           <div className="text-[10px] font-bold text-emerald-400 flex items-center justify-end gap-0.5">
-            <TrendingUp className="w-3 h-3" />+{improvement}kg
+            <TrendingUp className="w-3 h-3" />+{convertWeight(improvement, weightUnit)}{weightUnit}
           </div>
         ) : (
           <div className="text-[10px] text-slate-500">×{reps}</div>
@@ -408,9 +402,10 @@ export const RecentPRCard: React.FC<RecentPRCardProps> = ({ pr, isLatest, asset 
 // Recent PRs Timeline Panel
 interface RecentPRsPanelProps {
   prInsights: PRInsights;
+  weightUnit?: WeightUnit;
 }
 
-export const RecentPRsPanel: React.FC<RecentPRsPanelProps> = ({ prInsights }) => {
+export const RecentPRsPanel: React.FC<RecentPRsPanelProps> = memo(function RecentPRsPanel({ prInsights, weightUnit = 'kg' }) {
   const { recentPRs, daysSinceLastPR, prDrought, prFrequency } = prInsights;
   const [assetsMap, setAssetsMap] = useState<Map<string, ExerciseAsset> | null>(null);
 
@@ -453,6 +448,7 @@ export const RecentPRsPanel: React.FC<RecentPRsPanelProps> = ({ prInsights }) =>
                 pr={pr}
                 isLatest={idx === 0}
                 asset={assetsMap?.get(pr.exercise)}
+                weightUnit={weightUnit}
               />
             </div>
           ))}
@@ -460,4 +456,4 @@ export const RecentPRsPanel: React.FC<RecentPRsPanelProps> = ({ prInsights }) =>
       </div>
     </div>
   );
-};
+});

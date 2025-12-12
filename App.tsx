@@ -1,6 +1,8 @@
-import React, { useState, useEffect, useMemo, Suspense, useRef } from 'react';
+import React, { useState, useEffect, useMemo, Suspense, useRef, useCallback } from 'react';
 import { parseWorkoutCSV, parseWorkoutCSVAsync } from './utils/csvParser';
 import { getDailySummaries, getExerciseStats, identifyPersonalRecords } from './utils/analytics';
+import { computationCache, getFilteredCacheKey } from './utils/computationCache';
+import { getExerciseAssets } from './utils/exerciseAssets';
 import { WorkoutSet } from './types';
 import { DEFAULT_CSV_DATA } from './constants';
 import { BodyMapGender } from './components/BodyMap';
@@ -9,7 +11,7 @@ const ExerciseView = React.lazy(() => import('./components/ExerciseView').then(m
 const HistoryView = React.lazy(() => import('./components/HistoryView').then(m => ({ default: m.HistoryView })));
 const MuscleAnalysis = React.lazy(() => import('./components/MuscleAnalysis').then(m => ({ default: m.MuscleAnalysis })));
 import { CSVImportModal } from './components/CSVImportModal';
-import { saveCSVData, getCSVData, clearCSVData } from './utils/localStorage';
+import { saveCSVData, getCSVData, clearCSVData, saveWeightUnit, getWeightUnit, WeightUnit } from './utils/localStorage';
 import { LayoutDashboard, Dumbbell, History, Upload, Filter, Loader2, CheckCircle2, X, Trash2, Menu, Calendar, Activity } from 'lucide-react';
 import { format, isSameDay, isWithinInterval } from 'date-fns';
 import { CalendarSelector } from './components/CalendarSelector';
@@ -42,6 +44,14 @@ const App: React.FC = () => {
   useEffect(() => {
     sessionStorage.setItem('bodyMapGender', bodyMapGender);
   }, [bodyMapGender]);
+  
+  // Weight unit state with localStorage persistence
+  const [weightUnit, setWeightUnit] = useState<WeightUnit>(() => getWeightUnit());
+  
+  // Persist weight unit to localStorage when it changes
+  useEffect(() => {
+    saveWeightUnit(weightUnit);
+  }, [weightUnit]);
   
   // Handler for navigating to ExerciseView from MuscleAnalysis
   const handleExerciseClick = (exerciseName: string) => {
@@ -130,13 +140,16 @@ const App: React.FC = () => {
     }
   }, []);
 
-  // Prefetch heavy views to avoid first-time lag when navigating
+  // Prefetch heavy views and preload exercise assets to avoid first-time lag
   useEffect(() => {
     const idle = (cb: () => void) => (('requestIdleCallback' in window) ? (window as any).requestIdleCallback(cb) : setTimeout(cb, 300));
     idle(() => {
+      // Preload components
       import('./components/ExerciseView');
       import('./components/HistoryView');
       import('./components/MuscleAnalysis');
+      // Preload exercise assets (cached globally)
+      getExerciseAssets().catch(() => {});
     });
   }, []);
 
@@ -187,8 +200,34 @@ const App: React.FC = () => {
     return { minDate, maxDate, availableDatesSet: set };
   }, [parsedData]);
 
-  const dailySummaries = useMemo(() => getDailySummaries(filteredData), [filteredData]);
-  const exerciseStats = useMemo(() => getExerciseStats(filteredData), [filteredData]);
+  // Cache key for filter-dependent computations
+  const filterCacheKey = useMemo(() => getFilteredCacheKey('filter', {
+    month: selectedMonth,
+    day: selectedDay,
+    range: selectedRange,
+    weeks: selectedWeeks,
+  }), [selectedMonth, selectedDay, selectedRange, selectedWeeks]);
+
+  // Use computation cache for expensive analytics - persists across tab switches
+  const dailySummaries = useMemo(() => {
+    const cacheKey = `dailySummaries:${filterCacheKey}`;
+    return computationCache.getOrCompute(
+      cacheKey,
+      filteredData,
+      () => getDailySummaries(filteredData),
+      { ttl: 10 * 60 * 1000 } // 10 minute TTL
+    );
+  }, [filteredData, filterCacheKey]);
+
+  const exerciseStats = useMemo(() => {
+    const cacheKey = `exerciseStats:${filterCacheKey}`;
+    return computationCache.getOrCompute(
+      cacheKey,
+      filteredData,
+      () => getExerciseStats(filteredData),
+      { ttl: 10 * 60 * 1000 }
+    );
+  }, [filteredData, filterCacheKey]);
 
   const filterControls = (
     <div className={`relative flex flex-col sm:flex-row sm:flex-nowrap gap-2 sm:gap-3 p-2 rounded-xl shadow-sm items-start sm:items-center transition-all duration-300 ${
@@ -281,8 +320,9 @@ const App: React.FC = () => {
     }
   };
 
-  const handleModalFileSelect = (file: File, gender: BodyMapGender) => {
+  const handleModalFileSelect = (file: File, gender: BodyMapGender, unit: WeightUnit) => {
     setBodyMapGender(gender);
+    setWeightUnit(unit);
     processFile(file);
     setShowCSVModal(false);
   };
@@ -381,7 +421,14 @@ const App: React.FC = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3 sm:gap-4">
               <img src="/HevyAnalytics.png" alt="HevyAnalytics Logo" className="w-7 h-7 sm:w-8 sm:h-8" decoding="async" />
-              <span className="font-bold text-lg sm:text-xl tracking-tight text-white">HevyAnalytics</span>
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-lg sm:text-xl tracking-tight text-white inline-flex items-start whitespace-nowrap">
+                  <span>HevyAnalytics</span>
+                  <sup className="ml-1 inline-block rounded-full border border-amber-500/30 bg-amber-500/15 px-1.5 py-0.5 text-[9px] sm:text-[10px] font-semibold leading-none tracking-wide text-amber-200 align-super -translate-y-0.5 -translate-x-2">
+                    BETA
+                  </sup>
+                </span>
+              </div>
             </div>
             
             {/* Desktop Navigation */}
@@ -438,17 +485,16 @@ const App: React.FC = () => {
 
             {/* Action Buttons - Desktop */}
             <div className="hidden md:flex items-center gap-3">
-              <label className="cursor-pointer group flex items-center gap-2 px-4 py-2 rounded-lg border border-dashed border-slate-600 hover:border-slate-400 hover:bg-black/60 transition-all">
-                <Upload className="w-4 h-4 text-slate-400 group-hover:text-white" />
-                <span className="text-sm text-slate-400 group-hover:text-white">Import</span>
+              <label className="cursor-pointer group flex items-center gap-2 px-3 py-1.5 rounded-lg border border-dashed border-slate-600 hover:border-slate-400 hover:bg-black/60 transition-all">
+                <Upload className="w-3.5 h-3.5 text-slate-400 group-hover:text-white" />
                 <input type="file" accept=".csv" onChange={handleFileUpload} className="hidden" />
               </label>
               <button
                 onClick={handleClearCSV}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg border border-dashed border-slate-600 hover:border-red-500 hover:bg-red-950/30 transition-all group"
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-dashed border-slate-600 hover:border-red-500 hover:bg-red-950/30 transition-all group"
               >
-                <Trash2 className="w-4 h-4 text-slate-400 group-hover:text-red-400" />
-                <span className="text-sm text-slate-400 group-hover:text-red-400">Remove</span>
+                <Trash2 className="w-3.5 h-3.5 text-slate-400 group-hover:text-red-400" />
+
               </button>
             </div>
           </div>
@@ -499,17 +545,17 @@ const App: React.FC = () => {
 
               {/* Mobile Action Buttons */}
               <div className="flex flex-col gap-2 pt-2 border-t border-slate-800 mt-2">
-                <label className="cursor-pointer group flex items-center gap-2 px-4 py-2 rounded-lg border border-dashed border-slate-600 hover:border-slate-400 hover:bg-black/60 transition-all">
-                  <Upload className="w-4 h-4 text-slate-400 group-hover:text-white" />
-                  <span className="text-sm text-slate-400 group-hover:text-white">Import</span>
+                <label className="cursor-pointer group flex items-center gap-2 px-3 py-1.5 rounded-lg border border-dashed border-slate-600 hover:border-slate-400 hover:bg-black/60 transition-all">
+                  <Upload className="w-3.5 h-3.5 text-slate-400 group-hover:text-white" />
+                  <span className="text-xs text-slate-400 group-hover:text-white">Import</span>
                   <input type="file" accept=".csv" onChange={handleFileUpload} className="hidden" />
                 </label>
                 <button
                   onClick={handleClearCSV}
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg border border-dashed border-slate-600 hover:border-red-500 hover:bg-red-950/30 transition-all group"
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-dashed border-slate-600 hover:border-red-500 hover:bg-red-950/30 transition-all group"
                 >
-                  <Trash2 className="w-4 h-4 text-slate-400 group-hover:text-red-400" />
-                  <span className="text-sm text-slate-400 group-hover:text-red-400">Remove</span>
+                  <Trash2 className="w-3.5 h-3.5 text-slate-400 group-hover:text-red-400" />
+                  <span className="text-xs text-slate-400 group-hover:text-red-400">Remove</span>
                 </button>
               </div>
             </nav>
@@ -530,10 +576,11 @@ const App: React.FC = () => {
               onDayClick={handleDayClick}
               onMuscleClick={handleMuscleClick}
               bodyMapGender={bodyMapGender}
+              weightUnit={weightUnit}
             />
           )}
-          {activeTab === Tab.EXERCISES && <ExerciseView stats={exerciseStats} filtersSlot={filterControls} highlightedExercise={highlightedExercise} />}
-          {activeTab === Tab.HISTORY && <HistoryView data={filteredData} filtersSlot={filterControls} />}
+          {activeTab === Tab.EXERCISES && <ExerciseView stats={exerciseStats} filtersSlot={filterControls} highlightedExercise={highlightedExercise} weightUnit={weightUnit} bodyMapGender={bodyMapGender} />}
+          {activeTab === Tab.HISTORY && <HistoryView data={filteredData} filtersSlot={filterControls} weightUnit={weightUnit} bodyMapGender={bodyMapGender} />}
           {activeTab === Tab.MUSCLE_ANALYSIS && (
             <MuscleAnalysis
               data={filteredData}
