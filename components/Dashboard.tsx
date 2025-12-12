@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { DailySummary, ExerciseStats } from '../types';
+import { DailySummary, ExerciseStats, WorkoutSet } from '../types';
 import { 
   getHeatmapData, 
   getIntensityEvolution, 
@@ -29,7 +29,7 @@ import { getExerciseAssets, ExerciseAsset } from '../utils/exerciseAssets';
 interface DashboardProps {
   dailyData: DailySummary[];
   exerciseStats: ExerciseStats[];
-  fullData: any[]; // The raw set data
+  fullData: WorkoutSet[]; // The raw set data
   onDayClick?: (date: Date) => void; 
 }
 

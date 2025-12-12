@@ -137,8 +137,14 @@ export const getHeatmapData = (dailyData: DailySummary[]) => {
   const firstDate = subDays(lastDate, 364);
   const days = eachDayOfInterval({ start: firstDate, end: lastDate });
 
+  const byDayKey = new Map<string, DailySummary>();
+  for (const d of dailyData) {
+    byDayKey.set(format(new Date(d.timestamp), 'yyyy-MM-dd'), d);
+  }
+
   return days.map(day => {
-    const activity = dailyData.find(d => isSameDay(new Date(d.timestamp), day));
+    const key = format(day, 'yyyy-MM-dd');
+    const activity = byDayKey.get(key);
     return {
       date: day,
       count: activity ? activity.sets : 0,
@@ -200,7 +206,7 @@ export const getDayOfWeekShape = (dailyData: DailySummary[]) => {
 };
 
 export const getTopExercisesRadial = (stats: ExerciseStats[]) => {
-  return stats.sort((a,b) => b.totalSets - a.totalSets).map(s => ({
+  return [...stats].sort((a,b) => b.totalSets - a.totalSets).map(s => ({
     name: s.name,
     count: s.totalSets,
   }));
