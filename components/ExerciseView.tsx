@@ -4,11 +4,12 @@ import {
 } from 'recharts';
 import { 
   Search, TrendingUp, TrendingDown, AlertTriangle, Minus, Activity,
-  Dumbbell, Scale
+  Dumbbell, Scale, Trophy
 } from 'lucide-react';
 import { ExerciseStats } from '../types';
 import { getExerciseAssets, ExerciseAsset } from '../utils/exerciseAssets';
 import { getDateKey, TimePeriod } from '../utils/dateUtils';
+import { ViewHeader } from './ViewHeader';
 
 // --- STYLES ---
 const FANCY_FONT: React.CSSProperties = {
@@ -159,9 +160,10 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 
 interface ExerciseViewProps {
   stats: ExerciseStats[];
+  filtersSlot?: React.ReactNode;
 }
 
-export const ExerciseView: React.FC<ExerciseViewProps> = ({ stats }) => {
+export const ExerciseView: React.FC<ExerciseViewProps> = ({ stats, filtersSlot }) => {
   const [selectedExerciseName, setSelectedExerciseName] = useState<string>(stats[0]?.name || "");
   const [searchTerm, setSearchTerm] = useState("");
   const [assetsMap, setAssetsMap] = useState<Map<string, ExerciseAsset> | null>(null);
@@ -231,8 +233,20 @@ export const ExerciseView: React.FC<ExerciseViewProps> = ({ stats }) => {
 
   const currentStatus = selectedStats ? statusMap[selectedStats.name] : null;
 
+  // Stats for header
+  const totalExercises = stats.length;
+  const totalPRs = useMemo(() => stats.reduce((sum, s) => sum + s.prCount, 0), [stats]);
+
   return (
     <div className="flex flex-col gap-6 w-full text-slate-200 pb-10">
+      {/* Header - consistent with Dashboard */}
+      <ViewHeader
+        stats={[
+          { icon: Dumbbell, value: totalExercises, label: 'Exercises' },
+          { icon: Trophy, value: totalPRs, label: 'PRs' },
+        ]}
+        filtersSlot={filtersSlot}
+      />
       
       {/* 
           TOP SECTION: GRID LAYOUT 

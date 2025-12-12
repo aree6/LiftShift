@@ -6,9 +6,10 @@ import { DEFAULT_CSV_DATA } from './constants';
 const Dashboard = React.lazy(() => import('./components/Dashboard').then(m => ({ default: m.Dashboard })));
 const ExerciseView = React.lazy(() => import('./components/ExerciseView').then(m => ({ default: m.ExerciseView })));
 const HistoryView = React.lazy(() => import('./components/HistoryView').then(m => ({ default: m.HistoryView })));
+const MuscleAnalysis = React.lazy(() => import('./components/MuscleAnalysis').then(m => ({ default: m.MuscleAnalysis })));
 import { CSVImportModal } from './components/CSVImportModal';
 import { saveCSVData, getCSVData, hasCSVData, clearCSVData } from './utils/localStorage';
-import { LayoutDashboard, Dumbbell, History, Upload, BarChart3, Filter, Loader2, CheckCircle2, X, Trash2, Menu, Calendar } from 'lucide-react';
+import { LayoutDashboard, Dumbbell, History, Upload, BarChart3, Filter, Loader2, CheckCircle2, X, Trash2, Menu, Calendar, Activity } from 'lucide-react';
 import { format, isSameDay, isWithinInterval } from 'date-fns';
 import { CalendarSelector } from './components/CalendarSelector';
 import { trackPageView } from './utils/ga';
@@ -16,7 +17,8 @@ import { trackPageView } from './utils/ga';
 enum Tab {
   DASHBOARD = 'dashboard',
   EXERCISES = 'exercises',
-  HISTORY = 'history'
+  HISTORY = 'history',
+  MUSCLE_ANALYSIS = 'muscle-analysis'
 }
 
 const App: React.FC = () => {
@@ -107,6 +109,7 @@ const App: React.FC = () => {
     idle(() => {
       import('./components/ExerciseView');
       import('./components/HistoryView');
+      import('./components/MuscleAnalysis');
     });
   }, []);
 
@@ -384,6 +387,16 @@ const App: React.FC = () => {
                 <History className="w-5 h-5" />
                 <span className="font-medium">History</span>
               </button>
+              <button 
+                onClick={() => {
+                  setActiveTab(Tab.MUSCLE_ANALYSIS);
+                  setIsMobileMenuOpen(false);
+                }}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-200 ${activeTab === Tab.MUSCLE_ANALYSIS ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/50' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
+              >
+                <Activity className="w-5 h-5" />
+                <span className="font-medium">Muscle Analysis</span>
+              </button>
             </nav>
 
             {/* Mobile Menu Button */}
@@ -444,6 +457,16 @@ const App: React.FC = () => {
                 <History className="w-5 h-5" />
                 <span className="font-medium">History</span>
               </button>
+              <button 
+                onClick={() => {
+                  setActiveTab(Tab.MUSCLE_ANALYSIS);
+                  setIsMobileMenuOpen(false);
+                }}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-200 w-full text-left ${activeTab === Tab.MUSCLE_ANALYSIS ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
+              >
+                <Activity className="w-5 h-5" />
+                <span className="font-medium">Muscle Analysis</span>
+              </button>
 
               {/* Mobile Action Buttons */}
               <div className="flex flex-col gap-2 pt-2 border-t border-slate-800 mt-2">
@@ -462,24 +485,6 @@ const App: React.FC = () => {
               </div>
             </nav>
           )}
-
-          {/* Filter Controls Row */}
-          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-            {activeTab !== Tab.DASHBOARD && (
-              <div>
-                <h1 className="text-xl sm:text-2xl font-bold text-white">
-                  {activeTab === Tab.EXERCISES && 'Exercise Analytics'}
-                  {activeTab === Tab.HISTORY && 'Workout History'}
-                </h1>
-                <p className="text-slate-400 text-xs sm:text-sm">
-                  {filteredData.length > 0 ? `Analyzing ${filteredData.length} sets based on filters.` : 'No data available for current filters.'}
-                </p>
-              </div>
-            )}
-
-            {/* Filter Controls */}
-            {activeTab !== Tab.DASHBOARD && filterControls}
-          </div>
         </div>
       </header>
 
@@ -496,8 +501,9 @@ const App: React.FC = () => {
               onDayClick={handleDayClick}
             />
           )}
-          {activeTab === Tab.EXERCISES && <ExerciseView stats={exerciseStats} />}
-          {activeTab === Tab.HISTORY && <HistoryView data={filteredData} />}
+          {activeTab === Tab.EXERCISES && <ExerciseView stats={exerciseStats} filtersSlot={filterControls} />}
+          {activeTab === Tab.HISTORY && <HistoryView data={filteredData} filtersSlot={filterControls} />}
+          {activeTab === Tab.MUSCLE_ANALYSIS && <MuscleAnalysis data={filteredData} filtersSlot={filterControls} />}
         </Suspense>
       </main>
     </div>

@@ -2,10 +2,11 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { WorkoutSet, AnalysisResult, SetWisdom } from '../types';
 import { 
   ChevronLeft, ChevronRight, Trophy, Target, Hash, HelpCircle,
-  AlertTriangle, Info, TrendingUp, TrendingDown, Calendar, Clock
+  AlertTriangle, Info, TrendingUp, TrendingDown, Calendar, Clock, Dumbbell
 } from 'lucide-react';
 import { analyzeSetProgression, analyzeSession, getStatusColor, analyzeProgression, getWisdomColor } from '../utils/masterAlgorithm';
 import { getExerciseAssets, ExerciseAsset } from '../utils/exerciseAssets';
+import { ViewHeader } from './ViewHeader';
 
 // --- STYLES ---
 const FANCY_FONT: React.CSSProperties = {
@@ -16,6 +17,7 @@ const FANCY_FONT: React.CSSProperties = {
 
 interface HistoryViewProps {
   data: WorkoutSet[];
+  filtersSlot?: React.ReactNode;
 }
 
 interface GroupedExercise {
@@ -96,7 +98,7 @@ const TooltipPortal: React.FC<{ data: TooltipState }> = ({ data }) => {
   );
 };
 
-export const HistoryView: React.FC<HistoryViewProps> = ({ data }) => {
+export const HistoryView: React.FC<HistoryViewProps> = ({ data, filtersSlot }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
   const [assetsMap, setAssetsMap] = useState<Map<string, ExerciseAsset> | null>(null);
@@ -171,29 +173,44 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ data }) => {
     setTooltip({ rect, title, body, status, metrics });
   };
 
+  // Stats for header
+  const totalSessions = sessions.length;
+  const totalSets = data.length;
+
+  // Pagination controls for header
+  const paginationControls = (
+    <div className="flex items-center gap-2">
+      <button 
+        onClick={() => setCurrentPage(p => Math.max(1, p - 1))} 
+        disabled={currentPage === 1}
+        className="p-1.5 hover:bg-slate-700 rounded-lg disabled:opacity-30 transition-all"
+      >
+        <ChevronLeft className="w-4 h-4 text-slate-400" />
+      </button>
+      <span className="text-xs font-medium text-slate-400 min-w-[80px] text-center">
+        Page {currentPage}/{totalPages}
+      </span>
+      <button 
+        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} 
+        disabled={currentPage === totalPages}
+        className="p-1.5 hover:bg-slate-700 rounded-lg disabled:opacity-30 transition-all"
+      >
+        <ChevronRight className="w-4 h-4 text-slate-400" />
+      </button>
+    </div>
+  );
+
   return (
-    <div className="space-y-4 sm:space-y-8 pb-20 max-w-5xl mx-auto px-1 sm:px-0">
-      
-      {/* --- Pagination Header --- */}
-      <div className="flex justify-between items-center bg-slate-900/50 p-2 sm:p-3 rounded-2xl border border-slate-800/50 backdrop-blur-sm sticky top-0 z-10 transition-all duration-300">
-        <button 
-          onClick={() => setCurrentPage(p => Math.max(1, p - 1))} 
-          disabled={currentPage === 1}
-          className="p-1.5 sm:p-2 hover:bg-slate-800 rounded-full disabled:opacity-30 transition-all hover:scale-105"
-        >
-          <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5 text-slate-400" />
-        </button>
-        <span className="text-[10px] sm:text-xs font-bold uppercase tracking-widest text-slate-500">
-          History • Page {currentPage}/{totalPages}
-        </span>
-        <button 
-          onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} 
-          disabled={currentPage === totalPages}
-          className="p-1.5 sm:p-2 hover:bg-slate-800 rounded-full disabled:opacity-30 transition-all hover:scale-105"
-        >
-          <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-slate-400" />
-        </button>
-      </div>
+    <div className="space-y-4 sm:space-y-6 pb-20 max-w-5xl mx-auto px-1 sm:px-0">
+      {/* Header - consistent with Dashboard */}
+      <ViewHeader
+        stats={[
+          { icon: Calendar, value: totalSessions, label: 'Sessions' },
+          { icon: Dumbbell, value: totalSets, label: 'Sets' },
+        ]}
+        filtersSlot={filtersSlot}
+        rightSlot={paginationControls}
+      />
 
       {/* 
         Animation Wrapper: 

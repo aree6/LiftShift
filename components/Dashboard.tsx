@@ -106,6 +106,18 @@ const ChartDescription = ({ children, isMounted = true }: { children: React.Reac
 );
 
 // 3. Reusable Chart Header with Toggles
+interface ChartHeaderProps {
+  title: string;
+  icon: React.ElementType;
+  color: string;
+  mode?: TimeFilterMode;
+  onToggle?: (mode: TimeFilterMode) => void;
+  viewType?: string;
+  onViewToggle?: (type: string) => void;
+  viewOptions?: { value: string; label: string }[];
+  isMounted?: boolean;
+}
+
 const ChartHeader = ({ 
   title, 
   icon: Icon, 
