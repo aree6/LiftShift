@@ -11,12 +11,13 @@ const ExerciseView = React.lazy(() => import('./components/ExerciseView').then(m
 const HistoryView = React.lazy(() => import('./components/HistoryView').then(m => ({ default: m.HistoryView })));
 const MuscleAnalysis = React.lazy(() => import('./components/MuscleAnalysis').then(m => ({ default: m.MuscleAnalysis })));
 import { CSVImportModal } from './components/CSVImportModal';
-import { saveCSVData, getCSVData, clearCSVData, saveWeightUnit, getWeightUnit, WeightUnit } from './utils/localStorage';
-import { LayoutDashboard, Dumbbell, History, Upload, Filter, Loader2, CheckCircle2, X, Trash2, Menu, Calendar, Activity } from 'lucide-react';
+import { saveCSVData, getCSVData, clearCSVData, saveWeightUnit, getWeightUnit, WeightUnit, getBodyMapGender, saveBodyMapGender } from './utils/localStorage';
+import { LayoutDashboard, Dumbbell, History, Loader2, CheckCircle2, X, Calendar, BicepsFlexed, Pencil, RefreshCw } from 'lucide-react';
 import { format, isSameDay, isWithinInterval } from 'date-fns';
 import { CalendarSelector } from './components/CalendarSelector';
 import { trackPageView } from './utils/ga';
 import BackgroundTexture from './components/BackgroundTexture';
+import { SupportLinks } from './components/SupportLinks';
 
 enum Tab {
   DASHBOARD = 'dashboard',
@@ -30,19 +31,15 @@ const App: React.FC = () => {
   const [parsedData, setParsedData] = useState<WorkoutSet[]>([]);
   const [activeTab, setActiveTab] = useState<Tab>(Tab.DASHBOARD);
   const [showCSVModal, setShowCSVModal] = useState(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [highlightedExercise, setHighlightedExercise] = useState<string | null>(null);
   const [initialMuscleForAnalysis, setInitialMuscleForAnalysis] = useState<{ muscleId: string; viewMode: 'muscle' | 'group' } | null>(null);
   
-  // Gender state with sessionStorage persistence
-  const [bodyMapGender, setBodyMapGender] = useState<BodyMapGender>(() => {
-    const stored = sessionStorage.getItem('bodyMapGender');
-    return (stored === 'male' || stored === 'female') ? stored : 'male';
-  });
+  // Gender state with localStorage persistence
+  const [bodyMapGender, setBodyMapGender] = useState<BodyMapGender>(() => getBodyMapGender());
   
-  // Persist gender to sessionStorage when it changes
+  // Persist gender to localStorage when it changes
   useEffect(() => {
-    sessionStorage.setItem('bodyMapGender', bodyMapGender);
+    saveBodyMapGender(bodyMapGender);
   }, [bodyMapGender]);
   
   // Weight unit state with localStorage persistence
@@ -229,80 +226,80 @@ const App: React.FC = () => {
     );
   }, [filteredData, filterCacheKey]);
 
+  const hasActiveCalendarFilter = !!selectedDay || selectedWeeks.length > 0 || !!selectedRange;
+
   const filterControls = (
-    <div className={`relative flex flex-col sm:flex-row sm:flex-nowrap gap-2 sm:gap-3 p-2 rounded-xl shadow-sm items-start sm:items-center transition-all duration-300 ${
-      (selectedDay || selectedWeeks.length > 0 || selectedRange)
-        ? 'bg-blue-950/40 border-2 border-blue-500/50 ring-2 ring-blue-500/20'
-        : 'bg-black/70 border border-slate-700/50'
-    }`}>
-       <div className="flex items-center px-2">
-          <Filter className={`w-4 h-4 mr-2 transition-colors ${(selectedDay || selectedWeeks.length > 0 || selectedRange) ? 'text-blue-400' : 'text-slate-500'}`} />
-          <span className={`text-xs font-bold uppercase tracking-wide transition-colors ${(selectedDay || selectedWeeks.length > 0 || selectedRange) ? 'text-blue-400' : 'text-slate-500'}`}>
-            {(selectedDay || selectedWeeks.length > 0 || selectedRange) ? 'Filter Active' : 'Filters'}
-          </span>
-       </div>
-       
-       {/* Specific Day Active Chip */}
-       {selectedDay && (
-         <button 
-           onClick={() => setSelectedDay(null)}
-           className="flex items-center gap-2 bg-blue-600 text-white text-xs sm:text-sm px-2 sm:px-3 py-2 rounded-lg hover:bg-blue-700 transition-colors whitespace-nowrap"
-         >
-           <span className="whitespace-nowrap">{format(selectedDay, 'MMM d, yyyy')}</span>
-           <X className="w-3 h-3" />
-         </button>
-       )}
+    <div
+      className={`relative flex items-center gap-2 rounded-lg px-3 py-2 h-10 shadow-sm transition-all duration-300 ${
+        hasActiveCalendarFilter
+          ? 'bg-blue-950/40 border-2 border-blue-500/50 ring-2 ring-blue-500/20'
+          : 'bg-black/70 border border-slate-700/50'
+      }`}
+    >
+      <div className="flex-1 min-w-0 overflow-x-auto">
+        <div className="flex items-center gap-2 flex-nowrap min-w-max">
+          {selectedDay ? (
+            <button
+              onClick={() => setSelectedDay(null)}
+              className="inline-flex items-center gap-2 h-8 px-2 rounded-md bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 transition-colors whitespace-nowrap"
+              title={format(selectedDay, 'MMM d, yyyy')}
+            >
+              <span>{format(selectedDay, 'MMM d, yyyy')}</span>
+              <X className="w-3 h-3" />
+            </button>
+          ) : null}
 
-       {/* Selected Weeks Chip */}
-       {selectedWeeks.length > 0 && (
-         <button 
-           onClick={() => setSelectedWeeks([])}
-           className="flex items-center gap-2 bg-emerald-600 text-white text-xs sm:text-sm px-2 sm:px-3 py-2 rounded-lg hover:bg-emerald-700 transition-colors whitespace-nowrap"
-           title={selectedWeeks.length === 1 ? `${format(selectedWeeks[0].start, 'MMM d')} – ${format(selectedWeeks[0].end, 'MMM d, yyyy')}` : ''}
-         >
-           <span className="whitespace-nowrap">{selectedWeeks.length === 1 ? `Week: ${format(selectedWeeks[0].start, 'MMM d')} – ${format(selectedWeeks[0].end, 'MMM d, yyyy')}` : `Weeks selected (${selectedWeeks.length})`}</span>
-           <X className="w-3 h-3" />
-         </button>
-       )}
+          {selectedRange ? (
+            <button
+              onClick={() => setSelectedRange(null)}
+              className="inline-flex items-center gap-2 h-8 px-2 rounded-md bg-purple-600 text-white text-xs font-semibold hover:bg-purple-700 transition-colors whitespace-nowrap"
+              title={`Range: ${format(selectedRange.start, 'MMM d, yyyy')} – ${format(selectedRange.end, 'MMM d, yyyy')}`}
+            >
+              <span>
+                Range: {format(selectedRange.start, 'MMM d, yyyy')} – {format(selectedRange.end, 'MMM d, yyyy')}
+              </span>
+              <X className="w-3 h-3" />
+            </button>
+          ) : null}
 
-       {/* Selected Range Chip (Month/Year/Custom) */}
-       {selectedRange && (
-         <button 
-           onClick={() => setSelectedRange(null)}
-           className="flex items-center gap-2 bg-purple-600 text-white text-xs sm:text-sm px-2 sm:px-3 py-2 rounded-lg hover:bg-purple-700 transition-colors whitespace-nowrap"
-         >
-           <span className="whitespace-nowrap">Range: {format(selectedRange.start, 'MMM d, yyyy')} – {format(selectedRange.end, 'MMM d, yyyy')}</span>
-           <X className="w-3 h-3" />
-         </button>
-       )}
+          {selectedWeeks.length > 0 ? (
+            <button
+              onClick={() => setSelectedWeeks([])}
+              className="inline-flex items-center gap-2 h-8 px-2 rounded-md bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 transition-colors whitespace-nowrap"
+              title={
+                selectedWeeks.length === 1
+                  ? `${format(selectedWeeks[0].start, 'MMM d')} – ${format(selectedWeeks[0].end, 'MMM d, yyyy')}`
+                  : ''
+              }
+            >
+              <span>
+                {selectedWeeks.length === 1
+                  ? `Week: ${format(selectedWeeks[0].start, 'MMM d')} – ${format(selectedWeeks[0].end, 'MMM d, yyyy')}`
+                  : `Weeks: ${selectedWeeks.length}`}
+              </span>
+              <X className="w-3 h-3" />
+            </button>
+          ) : null}
 
-       {/* Calendar selector (master) */}
-       <div className="relative">
-         <button
-           onClick={() => setCalendarOpen(!calendarOpen)}
-           className="flex items-center gap-2 px-2 py-2 rounded-lg bg-black/70 border border-slate-700/50 text-xs sm:text-sm hover:bg-black/60"
-         >
-           <Calendar className="w-4 h-4 text-slate-400" /> Calendar
-         </button>
-         {calendarOpen && (
-           <div className="fixed inset-0 z-50 grid place-items-center p-4">
-             <div className="absolute inset-0 bg-black/40" onClick={() => setCalendarOpen(false)} />
-             <CalendarSelector
-               mode="both"
-               minDate={minDate}
-               maxDate={maxDate}
-               availableDates={availableDatesSet}
-               multipleWeeks={true}
-               onSelectWeeks={(ranges) => { setSelectedWeeks(ranges); setSelectedDay(null); setSelectedRange(null); setCalendarOpen(false); }}
-               onSelectDay={(d) => { setSelectedDay(d); setSelectedWeeks([]); setSelectedRange(null); setCalendarOpen(false); }}
-               onSelectWeek={(r) => { setSelectedWeeks([r]); setSelectedDay(null); setSelectedRange(null); setCalendarOpen(false); }}
-               onSelectMonth={(r) => { setSelectedRange(r); setSelectedDay(null); setSelectedWeeks([]); setCalendarOpen(false); }}
-               onSelectYear={(r) => { setSelectedRange(r); setSelectedDay(null); setSelectedWeeks([]); setCalendarOpen(false); }}
-               onClear={() => { setSelectedRange(null); setSelectedDay(null); setSelectedWeeks([]); setCalendarOpen(false); }}
-             />
-           </div>
-         )}
-       </div>
+          {!hasActiveCalendarFilter ? (
+            <span className="text-xs text-slate-500 whitespace-nowrap">No filter</span>
+          ) : null}
+        </div>
+      </div>
+
+      <button
+        onClick={() => setCalendarOpen(!calendarOpen)}
+        className="inline-flex items-center gap-2 h-8 px-2 rounded-md bg-black/50 hover:bg-black/60 text-xs font-semibold text-slate-200 whitespace-nowrap"
+      >
+        <Calendar className="w-4 h-4 text-slate-400" />
+        <span>Calendar</span>
+      </button>
+    </div>
+  );
+
+  const desktopFilterControls = (
+    <div className="hidden sm:block">
+      {filterControls}
     </div>
   );
 
@@ -313,18 +310,16 @@ const App: React.FC = () => {
     setActiveTab(Tab.HISTORY);
   };
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      processFile(file);
-    }
-  };
-
   const handleModalFileSelect = (file: File, gender: BodyMapGender, unit: WeightUnit) => {
     setBodyMapGender(gender);
     setWeightUnit(unit);
     processFile(file);
     setShowCSVModal(false);
+  };
+
+  const handleOpenUpdateFlow = () => {
+    // Re-open onboarding with persisted preferences preselected
+    setShowCSVModal(true);
   };
 
   const handleClearCSV = () => {
@@ -377,7 +372,18 @@ const App: React.FC = () => {
       
       {/* CSV Import Modal */}
       {showCSVModal && (
-        <CSVImportModal onFileSelect={handleModalFileSelect} isLoading={isAnalyzing} />
+        <CSVImportModal
+          onFileSelect={handleModalFileSelect}
+          isLoading={isAnalyzing}
+          initialGender={bodyMapGender}
+          initialUnit={weightUnit}
+          onGenderChange={(g) => setBodyMapGender(g)}
+          onUnitChange={(u) => setWeightUnit(u)}
+          onClose={() => setShowCSVModal(false)}
+          onClearData={() => {
+            handleClearCSV();
+          }}
+        />
       )}
       
       {/* Loading Overlay */}
@@ -419,9 +425,9 @@ const App: React.FC = () => {
         <div className="px-4 sm:px-6 py-4 flex flex-col gap-4">
           {/* Top Row: Logo and Nav Buttons */}
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3 sm:gap-4">
+            <div className="flex items-center gap-3 sm:gap-4 min-w-0">
               <img src="/HevyAnalytics.png" alt="HevyAnalytics Logo" className="w-7 h-7 sm:w-8 sm:h-8" decoding="async" />
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3 min-w-0">
                 <span className="font-bold text-lg sm:text-xl tracking-tight text-white inline-flex items-start whitespace-nowrap">
                   <span>HevyAnalytics</span>
                   <sup className="ml-1 inline-block rounded-full border border-amber-500/30 bg-amber-500/15 px-1.5 py-0.5 text-[9px] sm:text-[10px] font-semibold leading-none tracking-wide text-amber-200 align-super -translate-y-0.5 -translate-x-2">
@@ -430,138 +436,126 @@ const App: React.FC = () => {
                 </span>
               </div>
             </div>
-            
-            {/* Desktop Navigation */}
-            <nav className="hidden md:flex items-center gap-2">
-              <button 
-                onClick={() => {
-                  setActiveTab(Tab.DASHBOARD);
-                  setIsMobileMenuOpen(false);
-                }}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-200 ${activeTab === Tab.DASHBOARD ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/50' : 'text-slate-400 hover:bg-black/60 hover:text-white'}`}
-              >
-                <LayoutDashboard className="w-5 h-5" />
-                <span className="font-medium">Dashboard</span>
-              </button>
-              <button 
-                onClick={() => {
-                  setActiveTab(Tab.MUSCLE_ANALYSIS);
-                  setIsMobileMenuOpen(false);
-                }}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-200 ${activeTab === Tab.MUSCLE_ANALYSIS ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/50' : 'text-slate-400 hover:bg-black/60 hover:text-white'}`}
-              >
-                <Activity className="w-5 h-5" />
-                <span className="font-medium">Muscle Analysis</span>
-              </button>
-              <button 
-                onClick={() => {
-                  setActiveTab(Tab.EXERCISES);
-                  setIsMobileMenuOpen(false);
-                }}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-200 ${activeTab === Tab.EXERCISES ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/50' : 'text-slate-400 hover:bg-black/60 hover:text-white'}`}
-              >
-                <Dumbbell className="w-5 h-5" />
-                <span className="font-medium">Exercises</span>
-              </button>
-              <button 
-                onClick={() => {
-                  setActiveTab(Tab.HISTORY);
-                  setIsMobileMenuOpen(false);
-                }}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-200 ${activeTab === Tab.HISTORY ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/50' : 'text-slate-400 hover:bg-black/60 hover:text-white'}`}
-              >
-                <History className="w-5 h-5" />
-                <span className="font-medium">History</span>
-              </button>
-            </nav>
 
-            {/* Mobile Menu Button */}
-            <button 
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="md:hidden p-2 rounded-lg hover:bg-black/60 transition-colors text-slate-400 hover:text-white"
-            >
-              <Menu className="w-6 h-6" />
-            </button>
+            <div className="flex items-center justify-end gap-2 min-w-0">
+              {/* Desktop: right-aligned support buttons, Update pinned as rightmost */}
+              <div className="hidden md:block">
+                <SupportLinks
+                  variant="primary"
+                  layout="header"
+                  primaryRightSlot={(
+                    <button
+                      type="button"
+                      onClick={handleOpenUpdateFlow}
+                      className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-xs font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-9 px-3 py-1.5 bg-transparent border border-black/70 text-slate-200 hover:border-white hover:text-white hover:bg-white/5 transition-all duration-200 gap-2"
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                      <span>Update CSV</span>
+                    </button>
+                  )}
+                />
+              </div>
 
-            {/* Action Buttons - Desktop */}
-            <div className="hidden md:flex items-center gap-3">
-              <label className="cursor-pointer group flex items-center gap-2 px-3 py-1.5 rounded-lg border border-dashed border-slate-600 hover:border-slate-400 hover:bg-black/60 transition-all">
-                <Upload className="w-3.5 h-3.5 text-slate-400 group-hover:text-white" />
-                <input type="file" accept=".csv" onChange={handleFileUpload} className="hidden" />
-              </label>
-              <button
-                onClick={handleClearCSV}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-dashed border-slate-600 hover:border-red-500 hover:bg-red-950/30 transition-all group"
-              >
-                <Trash2 className="w-3.5 h-3.5 text-slate-400 group-hover:text-red-400" />
-
-              </button>
+              {/* Mobile: keep Update action */}
+              <div className="md:hidden">
+                <button
+                  type="button"
+                  onClick={handleOpenUpdateFlow}
+                  className="inline-flex items-center gap-2 h-9 px-3 rounded-md text-xs font-semibold bg-transparent border border-black/70 text-slate-200 hover:border-white hover:text-white hover:bg-white/5 transition-all"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  <span className="hidden sm:inline">Update CSV</span>
+                  <span className="sm:hidden">Update</span>
+                </button>
+              </div>
             </div>
           </div>
 
-          {/* Mobile Navigation Menu */}
-          {isMobileMenuOpen && (
-            <nav className="md:hidden flex flex-col gap-2 border-t border-slate-800 pt-4 mt-2">
-              <button 
-                onClick={() => {
-                  setActiveTab(Tab.DASHBOARD);
-                  setIsMobileMenuOpen(false);
-                }}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-200 w-full text-left ${activeTab === Tab.DASHBOARD ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-black/60 hover:text-white'}`}
-              >
-                <LayoutDashboard className="w-5 h-5" />
-                <span className="font-medium">Dashboard</span>
-              </button>
-              <button 
-                onClick={() => {
-                  setActiveTab(Tab.MUSCLE_ANALYSIS);
-                  setIsMobileMenuOpen(false);
-                }}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-200 w-full text-left ${activeTab === Tab.MUSCLE_ANALYSIS ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-black/60 hover:text-white'}`}
-              >
-                <Activity className="w-5 h-5" />
-                <span className="font-medium">Muscle Analysis</span>
-              </button>
-              <button 
-                onClick={() => {
-                  setActiveTab(Tab.EXERCISES);
-                  setIsMobileMenuOpen(false);
-                }}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-200 w-full text-left ${activeTab === Tab.EXERCISES ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-black/60 hover:text-white'}`}
-              >
-                <Dumbbell className="w-5 h-5" />
-                <span className="font-medium">Exercises</span>
-              </button>
-              <button 
-                onClick={() => {
-                  setActiveTab(Tab.HISTORY);
-                  setIsMobileMenuOpen(false);
-                }}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-200 w-full text-left ${activeTab === Tab.HISTORY ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-black/60 hover:text-white'}`}
-              >
-                <History className="w-5 h-5" />
-                <span className="font-medium">History</span>
-              </button>
+          {/* Second Row: Navigation */}
+          <nav className="grid grid-cols-5 gap-1 pt-1 sm:grid sm:grid-cols-4 sm:gap-2">
+            <button 
+              onClick={() => setActiveTab(Tab.DASHBOARD)}
+              className={`w-full flex items-center justify-center gap-2 px-2 sm:px-3 py-2 rounded-lg transition-all duration-200 whitespace-nowrap ${activeTab === Tab.DASHBOARD ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/50' : 'text-slate-400 hover:bg-black/60 hover:text-white'}`}
+            >
+              <LayoutDashboard className="w-5 h-5" />
+              <span className="hidden sm:inline font-medium">Dashboard</span>
+            </button>
+            <button 
+              onClick={() => setActiveTab(Tab.MUSCLE_ANALYSIS)}
+              className={`w-full flex items-center justify-center gap-2 px-2 sm:px-3 py-2 rounded-lg transition-all duration-200 whitespace-nowrap ${activeTab === Tab.MUSCLE_ANALYSIS ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/50' : 'text-slate-400 hover:bg-black/60 hover:text-white'}`}
+            >
+              <BicepsFlexed className="w-5 h-5" />
+              <span className="hidden sm:inline font-medium">Muscle</span>
+            </button>
+            <button 
+              onClick={() => setActiveTab(Tab.EXERCISES)}
+              className={`w-full flex items-center justify-center gap-2 px-2 sm:px-3 py-2 rounded-lg transition-all duration-200 whitespace-nowrap ${activeTab === Tab.EXERCISES ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/50' : 'text-slate-400 hover:bg-black/60 hover:text-white'}`}
+            >
+              <Dumbbell className="w-5 h-5" />
+              <span className="hidden sm:inline font-medium">Exercises</span>
+            </button>
+            <button 
+              onClick={() => setActiveTab(Tab.HISTORY)}
+              className={`w-full flex items-center justify-center gap-2 px-2 sm:px-3 py-2 rounded-lg transition-all duration-200 whitespace-nowrap ${activeTab === Tab.HISTORY ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/50' : 'text-slate-400 hover:bg-black/60 hover:text-white'}`}
+            >
+              <History className="w-5 h-5" />
+              <span className="hidden sm:inline font-medium">History</span>
+            </button>
 
-              {/* Mobile Action Buttons */}
-              <div className="flex flex-col gap-2 pt-2 border-t border-slate-800 mt-2">
-                <label className="cursor-pointer group flex items-center gap-2 px-3 py-1.5 rounded-lg border border-dashed border-slate-600 hover:border-slate-400 hover:bg-black/60 transition-all">
-                  <Upload className="w-3.5 h-3.5 text-slate-400 group-hover:text-white" />
-                  <span className="text-xs text-slate-400 group-hover:text-white">Import</span>
-                  <input type="file" accept=".csv" onChange={handleFileUpload} className="hidden" />
-                </label>
+            {/* Mobile-only Calendar entry (5th item) */}
+            <button
+              onClick={() => setCalendarOpen((v) => !v)}
+              className={`sm:hidden w-full h-full relative flex flex-col items-center justify-center px-2 py-2 rounded-lg transition-all duration-200 ${
+                (selectedDay || selectedWeeks.length > 0 || selectedRange)
+                  ? 'bg-blue-950/40 ring-2 ring-blue-500/20 border border-blue-500/50 text-white'
+                  : 'bg-black/30 hover:bg-black/60 text-slate-200'
+              }`}
+              title="Calendar"
+              aria-label="Calendar"
+            >
+              {calendarOpen ? <Pencil className="w-5 h-5" /> : <Calendar className="w-5 h-5" />}
+              <span className="text-[10px] font-semibold leading-none mt-1">Calendar</span>
+
+              {(selectedDay || selectedWeeks.length > 0 || selectedRange) && !calendarOpen ? (
                 <button
-                  onClick={handleClearCSV}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-dashed border-slate-600 hover:border-red-500 hover:bg-red-950/30 transition-all group"
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setSelectedRange(null);
+                    setSelectedDay(null);
+                    setSelectedWeeks([]);
+                  }}
+                  className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 border border-slate-700/50 grid place-items-center hover:bg-black/70"
+                  aria-label="Clear calendar filter"
+                  title="Clear"
                 >
-                  <Trash2 className="w-3.5 h-3.5 text-slate-400 group-hover:text-red-400" />
-                  <span className="text-xs text-slate-400 group-hover:text-red-400">Remove</span>
+                  <X className="w-3 h-3" />
                 </button>
-              </div>
-            </nav>
-          )}
+              ) : null}
+            </button>
+          </nav>
         </div>
       </header>
+
+      {calendarOpen && (
+        <div className="fixed inset-0 z-50 grid place-items-center p-4">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setCalendarOpen(false)} />
+          <CalendarSelector
+            mode="both"
+            minDate={minDate}
+            maxDate={maxDate}
+            availableDates={availableDatesSet}
+            multipleWeeks={true}
+            onSelectWeeks={(ranges) => { setSelectedWeeks(ranges); setSelectedDay(null); setSelectedRange(null); setCalendarOpen(false); }}
+            onSelectDay={(d) => { setSelectedDay(d); setSelectedWeeks([]); setSelectedRange(null); setCalendarOpen(false); }}
+            onSelectWeek={(r) => { setSelectedWeeks([r]); setSelectedDay(null); setSelectedRange(null); setCalendarOpen(false); }}
+            onSelectMonth={(r) => { setSelectedRange(r); setSelectedDay(null); setSelectedWeeks([]); setCalendarOpen(false); }}
+            onSelectYear={(r) => { setSelectedRange(r); setSelectedDay(null); setSelectedWeeks([]); setCalendarOpen(false); }}
+            onClear={() => { setSelectedRange(null); setSelectedDay(null); setSelectedWeeks([]); setCalendarOpen(false); }}
+          />
+        </div>
+      )}
 
       {/* Main Content Area */}
       <main className="flex-1 overflow-x-hidden overflow-y-auto bg-black/70 p-3 sm:p-4 md:p-6 lg:p-8">
@@ -572,19 +566,27 @@ const App: React.FC = () => {
               dailyData={dailySummaries} 
               exerciseStats={exerciseStats} 
               fullData={filteredData} 
-              filtersSlot={filterControls}
+              filtersSlot={desktopFilterControls}
               onDayClick={handleDayClick}
               onMuscleClick={handleMuscleClick}
               bodyMapGender={bodyMapGender}
               weightUnit={weightUnit}
             />
           )}
-          {activeTab === Tab.EXERCISES && <ExerciseView stats={exerciseStats} filtersSlot={filterControls} highlightedExercise={highlightedExercise} weightUnit={weightUnit} bodyMapGender={bodyMapGender} />}
-          {activeTab === Tab.HISTORY && <HistoryView data={filteredData} filtersSlot={filterControls} weightUnit={weightUnit} bodyMapGender={bodyMapGender} />}
+          {activeTab === Tab.EXERCISES && <ExerciseView stats={exerciseStats} filtersSlot={desktopFilterControls} highlightedExercise={highlightedExercise} weightUnit={weightUnit} bodyMapGender={bodyMapGender} />}
+          {activeTab === Tab.HISTORY && (
+            <HistoryView
+              data={filteredData}
+              filtersSlot={desktopFilterControls}
+              weightUnit={weightUnit}
+              bodyMapGender={bodyMapGender}
+              onExerciseClick={handleExerciseClick}
+            />
+          )}
           {activeTab === Tab.MUSCLE_ANALYSIS && (
             <MuscleAnalysis
               data={filteredData}
-              filtersSlot={filterControls}
+              filtersSlot={desktopFilterControls}
               onExerciseClick={handleExerciseClick}
               initialMuscle={initialMuscleForAnalysis}
               onInitialMuscleConsumed={() => setInitialMuscleForAnalysis(null)}
@@ -592,6 +594,16 @@ const App: React.FC = () => {
             />
           )}
         </Suspense>
+
+        {/* Desktop: secondary links at bottom */}
+        <div className="hidden sm:block">
+          <SupportLinks variant="secondary" layout="footer" />
+        </div>
+
+        {/* Mobile: keep all support links at bottom */}
+        <div className="sm:hidden">
+          <SupportLinks variant="all" layout="footer" />
+        </div>
       </main>
     </div>
   );

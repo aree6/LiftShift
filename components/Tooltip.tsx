@@ -25,7 +25,7 @@ export const Tooltip: React.FC<TooltipProps> = ({ data }) => {
       className="fixed z-[9999] pointer-events-none transition-all duration-200 animate-in fade-in zoom-in-95"
       style={positionStyle}
     >
-      <div className={`border rounded-xl backdrop-blur-md p-3 ${theme}`}>
+      <div className={`border rounded-xl p-3 ${theme}`}>
         <div className="flex items-center gap-2 mb-1 pb-1 border-b border-white/10">
           <span className="font-bold uppercase text-[10px] tracking-wider">{title}</span>
         </div>

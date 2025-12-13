@@ -1,24 +1,47 @@
-import { WorkoutSet, SessionAnalysis, AnalysisResult, SetWisdom, AnalysisStatus } from '../types';
+import { WorkoutSet, SessionAnalysis, AnalysisResult, SetWisdom, AnalysisStatus, StructuredTooltip, TooltipLine } from '../types';
 import { roundTo } from './formatters';
 
+// === CONSTANTS ===
 const EPLEY_FACTOR = 30;
-const DROP_THRESHOLD = 25.0;
-const FATIGUE_BUFFER = 1.5;
+const DROP_THRESHOLD_MILD = 15.0;    // 0-15% drop is normal fatigue
+const DROP_THRESHOLD_MODERATE = 25.0; // 15-25% is significant but acceptable
+const DROP_THRESHOLD_SEVERE = 40.0;   // >40% is concerning
+const FATIGUE_BUFFER = 1.5;           // Allow 1.5 reps below expected due to cumulative fatigue
+const MAX_REPS_FOR_1RM = 12;          // Epley becomes unreliable above ~12 reps
 
+// === TOOLTIP HELPERS ===
+const line = (text: string, color?: TooltipLine['color'], bold?: boolean): TooltipLine => ({ text, color, bold });
+
+const buildStructured = (
+  trendValue: string,
+  direction: 'up' | 'down' | 'same',
+  why: TooltipLine[],
+  improve?: TooltipLine[]
+): StructuredTooltip => ({ trend: { value: trendValue, direction }, why, improve });
+
+// === 1RM CALCULATIONS ===
+// Epley formula: 1RM = weight × (1 + reps/30)
+// More accurate for 1-10 reps, less reliable for high rep ranges
 const calculateEpley1RM = (weight: number, reps: number): number => {
   if (reps <= 0 || weight <= 0) return 0;
-  return weight * (1 + reps / EPLEY_FACTOR);
+  // Cap reps for 1RM calculation - high rep sets don't predict 1RM well
+  const effectiveReps = Math.min(reps, MAX_REPS_FOR_1RM);
+  return Number((weight * (1 + effectiveReps / EPLEY_FACTOR)).toFixed(2));
 };
 
+// Predict how many reps you should get at a given weight based on your 1RM
 const predictReps = (oneRM: number, newWeight: number): number => {
   if (newWeight <= 0 || oneRM <= 0) return 0;
+  if (newWeight >= oneRM) return 1; // At or above 1RM, expect 1 rep max
   const predicted = EPLEY_FACTOR * ((oneRM / newWeight) - 1);
-  return Math.max(0, roundTo(predicted, 1));
+  return Math.max(1, roundTo(predicted, 1));
 };
 
+// Calculate percentage change FROM old TO new
+// Positive = increase, Negative = decrease
 const calculatePercentChange = (oldVal: number, newVal: number): number => {
-  if (oldVal <= 0) return 0;
-  return ((newVal - oldVal) / oldVal) * 100;
+  if (oldVal <= 0) return newVal > 0 ? 100 : 0;
+  return Number((((newVal - oldVal) / oldVal) * 100).toFixed(1));
 };
 
 interface SetMetrics {
@@ -43,7 +66,8 @@ const createAnalysisResult = (
   actualReps: number,
   expectedReps: string,
   shortMessage: string,
-  tooltip: string
+  tooltip: string,
+  structured?: StructuredTooltip
 ): AnalysisResult => ({
   transition,
   status,
@@ -55,91 +79,285 @@ const createAnalysisResult = (
   },
   shortMessage,
   tooltip,
+  structured,
 });
 
+// Analyze sets at the same weight - focus on rep changes due to fatigue
 const analyzeSameWeight = (
   transition: string,
-  volDropPct: number,
-  reps: number
-): AnalysisResult | null => {
-  if (volDropPct < -5.0) {
+  repDropPct: number,
+  prevReps: number,
+  currReps: number,
+  setNumber: number
+): AnalysisResult => {
+  const repDiff = currReps - prevReps;
+  const isFirstWorkingSet = setNumber === 1;
+  
+  // REPS INCREASED
+  if (repDiff > 0) {
     return createAnalysisResult(
-      transition, 'success', 0, volDropPct, reps, '-',
+      transition, 'success', 0, repDropPct, currReps, `${prevReps}`,
       'Second Wind',
-      `Second Wind: Performance increased by ${Math.abs(roundTo(volDropPct, 0))}% on the same weight. You likely held back on the previous set or rested longer than usual.`
+      `+${repDiff} reps vs previous`,
+      buildStructured(`+${repDiff}`, 'up', [
+        line('Had reserves in previous set', 'gray'),
+        line('Or took longer rest this time', 'gray'),
+      ])
     );
   }
-  if (volDropPct <= DROP_THRESHOLD) {
+  
+  // REPS SAME
+  if (repDiff === 0) {
     return createAnalysisResult(
-      transition, 'info', 0, volDropPct, reps, '-',
-      'Optimal Fatigue',
-      `Optimal Fatigue: Volume dropped by ${roundTo(volDropPct, 0)}%. This range (0-25%) is often optimal for hypertrophy, indicating effort without metabolic collapse.`
+      transition, 'success', 0, 0, currReps, `${prevReps}`,
+      'Consistent',
+      `Maintained ${currReps} reps`,
+      buildStructured('=', 'same', [
+        line('Good pacing and recovery', 'green'),
+        line('Rest time is working well', 'gray'),
+      ])
     );
   }
+  
+  const dropAbs = Math.abs(repDiff);
+  const dropPctAbs = Math.abs(repDropPct);
+  
+  // MILD DROP (0-15%)
+  if (dropPctAbs <= DROP_THRESHOLD_MILD) {
+    return createAnalysisResult(
+      transition, 'info', 0, repDropPct, currReps, `${prevReps}`,
+      'Normal Fatigue',
+      `-${dropAbs} reps (${roundTo(dropPctAbs, 0)}%)`,
+      buildStructured(`-${dropAbs}`, 'down', [
+        line('Normal fatigue between sets', 'blue'),
+        line('Muscles recovering as expected', 'gray'),
+      ])
+    );
+  }
+  
+  // MODERATE DROP (15-25%)
+  if (dropPctAbs <= DROP_THRESHOLD_MODERATE) {
+    const why: TooltipLine[] = isFirstWorkingSet 
+      ? [line('First set pushed close to failure', 'yellow')]
+      : [line('Previous set was near failure', 'yellow'), line('Or rest was shorter than usual', 'gray')];
+    
+    return createAnalysisResult(
+      transition, 'warning', 0, repDropPct, currReps, `${prevReps}`,
+      'High Fatigue',
+      `-${dropAbs} reps (${roundTo(dropPctAbs, 0)}%)`,
+      buildStructured(`-${dropAbs}`, 'down', why, [
+        line('Normal if training to failure', 'gray'),
+        line('For more volume: rest 2-3 min', 'blue'),
+      ])
+    );
+  }
+  
+  // SEVERE DROP (>25%)
+  const why: TooltipLine[] = isFirstWorkingSet
+    ? [line('First set was to failure', 'red'), line('Limits performance on remaining sets', 'gray')]
+    : [line('Accumulated fatigue from previous sets', 'red'), line('Or rest time too short', 'gray')];
+  
   return createAnalysisResult(
-    transition, 'danger', 0, volDropPct, reps, '-',
+    transition, 'danger', 0, repDropPct, currReps, `${prevReps}`,
     'Significant Drop',
-    `Significant Drop: Volume dropped by ${roundTo(volDropPct, 0)}%. Two likely causes:\n1. The previous set was taken to absolute failure.\n2. Your rest time was too short.\nAdvice: If you rested plenty, leave 1 rep in reserve next time. If you rushed, rest longer.`
+    `-${dropAbs} reps (${roundTo(dropPctAbs, 0)}%)`,
+    buildStructured(`-${dropAbs}`, 'down', why, [
+      line('If intentional: good intensity', 'green'),
+      line('For more volume: leave 1-2 RIR', 'blue'),
+    ])
   );
 };
 
+// Analyze when weight increased between sets
 const analyzeWeightIncrease = (
   transition: string,
   weightChangePct: number,
-  volDropPct: number,
-  reps: number,
-  bestOneRM: number,
-  newWeight: number
+  prevWeight: number,
+  currWeight: number,
+  prevReps: number,
+  currReps: number,
+  bestOneRM: number
 ): AnalysisResult => {
-  const expectedRepsRaw = predictReps(bestOneRM, newWeight);
+  const expectedRepsRaw = predictReps(bestOneRM, currWeight);
   const expectedRepsInt = Math.round(expectedRepsRaw);
-  const passed = reps >= (expectedRepsRaw - FATIGUE_BUFFER);
+  const repDiff = currReps - expectedRepsInt;
+  
+  const prevVol = prevWeight * prevReps;
+  const currVol = currWeight * currReps;
+  const volChangePct = calculatePercentChange(prevVol, currVol);
+  const pct = roundTo(weightChangePct, 0);
 
-  if (passed) {
+  // EXCEEDED EXPECTATIONS
+  if (currReps > expectedRepsInt) {
     return createAnalysisResult(
-      transition, 'success', weightChangePct, volDropPct, reps, `~${expectedRepsInt}`,
-      'Good Overload',
-      `Good Overload: Weight +${roundTo(weightChangePct, 0)}% and you hit ${reps} reps (Expected based on best performance: ~${expectedRepsInt}). You are getting stronger.`
+      transition, 'success', weightChangePct, volChangePct, currReps, `~${expectedRepsInt}`,
+      'Strong Overload',
+      `+${pct}% weight, ${currReps} reps`,
+      buildStructured(`+${pct}%`, 'up', [
+        line(`Got ${currReps} reps (expected ~${expectedRepsInt})`, 'green'),
+        line('Strength gains showing', 'gray'),
+      ])
     );
   }
+  
+  // MET EXPECTATIONS (within fatigue buffer)
+  if (currReps >= (expectedRepsRaw - FATIGUE_BUFFER)) {
+    return createAnalysisResult(
+      transition, 'success', weightChangePct, volChangePct, currReps, `~${expectedRepsInt}`,
+      'Good Overload',
+      `+${pct}% weight, ${currReps} reps`,
+      buildStructured(`+${pct}%`, 'up', [
+        line(`Hit ${currReps} reps as expected`, 'green'),
+        line('Progressive overload achieved', 'gray'),
+      ])
+    );
+  }
+  
+  // SLIGHTLY BELOW (1-3 reps under)
+  if (currReps >= expectedRepsInt - 3) {
+    return createAnalysisResult(
+      transition, 'warning', weightChangePct, volChangePct, currReps, `~${expectedRepsInt}`,
+      'Slightly Ambitious',
+      `+${pct}% weight, ${currReps} reps`,
+      buildStructured(`+${pct}%`, 'up', [
+        line(`Got ${currReps} reps (expected ~${expectedRepsInt})`, 'yellow'),
+        line('Weight jump may be slightly aggressive', 'gray'),
+      ], [
+        line('Keep trying this weight', 'blue'),
+        line('Strength adapts over time', 'gray'),
+      ])
+    );
+  }
+  
+  // SIGNIFICANTLY BELOW
   return createAnalysisResult(
-    transition, 'warning', weightChangePct, volDropPct, reps, `~${expectedRepsInt}`,
+    transition, 'danger', weightChangePct, volChangePct, currReps, `~${expectedRepsInt}`,
     'Premature Jump',
-    `Premature Jump: Weight +${roundTo(weightChangePct, 0)}% but reps dropped more than expected (Got ${reps}, Expected ~${expectedRepsInt} based on your best set). Advice: Stay at the lower weight until you can hit more reps.`
+    `+${pct}% weight, ${currReps} reps`,
+    buildStructured(`+${pct}%`, 'up', [
+      line(`Only ${currReps} reps (expected ~${expectedRepsInt})`, 'red'),
+      line('Weight increase too aggressive', 'gray'),
+    ], [
+      line('Build more reps at previous weight first', 'blue'),
+      line('Try smaller 2.5-5% jumps', 'gray'),
+    ])
   );
 };
 
+// Analyze when weight decreased (backoff/drop set)
+const analyzeWeightDecrease = (
+  transition: string,
+  weightChangePct: number,
+  prevWeight: number,
+  currWeight: number,
+  prevReps: number,
+  currReps: number,
+  bestOneRM: number
+): AnalysisResult => {
+  const expectedRepsRaw = predictReps(bestOneRM, currWeight);
+  const expectedRepsInt = Math.round(expectedRepsRaw);
+  
+  const prevVol = prevWeight * prevReps;
+  const currVol = currWeight * currReps;
+  const volChangePct = calculatePercentChange(prevVol, currVol);
+  const pct = roundTo(weightChangePct, 0);
+  
+  // MET OR EXCEEDED EXPECTATIONS
+  if (currReps >= expectedRepsInt) {
+    return createAnalysisResult(
+      transition, 'success', weightChangePct, volChangePct, currReps, `~${expectedRepsInt}`,
+      'Effective Backoff',
+      `${pct}% weight, ${currReps} reps`,
+      buildStructured(`${pct}%`, 'down', [
+        line('Smart backoff for volume', 'green'),
+        line('Reduced neural fatigue while maintaining work', 'gray'),
+      ])
+    );
+  }
+  
+  // SLIGHTLY BELOW
+  if (currReps >= expectedRepsInt - 3) {
+    return createAnalysisResult(
+      transition, 'info', weightChangePct, volChangePct, currReps, `~${expectedRepsInt}`,
+      'Fatigued Backoff',
+      `${pct}% weight, ${currReps} reps`,
+      buildStructured(`${pct}%`, 'down', [
+        line(`Got ${currReps} reps (expected ~${expectedRepsInt})`, 'yellow'),
+        line('Accumulated fatigue from earlier sets', 'gray'),
+      ])
+    );
+  }
+  
+  // SIGNIFICANTLY BELOW
+  return createAnalysisResult(
+    transition, 'warning', weightChangePct, volChangePct, currReps, `~${expectedRepsInt}`,
+    'Heavy Fatigue',
+    `${pct}% weight, ${currReps} reps`,
+    buildStructured(`${pct}%`, 'down', [
+      line(`Only ${currReps} reps (expected ~${expectedRepsInt})`, 'red'),
+      line('High accumulated fatigue', 'gray'),
+    ], [
+      line('Good if training to failure intentionally', 'green'),
+      line('Otherwise: end exercise or rest longer', 'gray'),
+    ])
+  );
+};
+
+// Helper to check if a set is a warmup (based on set_type field from CSV only)
+export const isWarmupSet = (set: WorkoutSet): boolean => {
+  return set.set_type?.toLowerCase().includes('warmup') || set.set_type?.toLowerCase() === 'w';
+};
+
 export const analyzeSetProgression = (sets: WorkoutSet[]): AnalysisResult[] => {
-  if (sets.length < 2) return [];
+  // Filter out warmup sets (based on set_type field)
+  const workingSets = sets.filter(s => !isWarmupSet(s));
+  
+  if (workingSets.length < 2) return [];
 
   const results: AnalysisResult[] = [];
-  let bestSession1RM = extractSetMetrics(sets[0]).oneRM;
+  
+  // Track best 1RM from working sets only
+  let bestSession1RM = 0;
+  for (const set of workingSets) {
+    const metrics = extractSetMetrics(set);
+    bestSession1RM = Math.max(bestSession1RM, metrics.oneRM);
+  }
 
-  for (let i = 1; i < sets.length; i++) {
-    const prev = extractSetMetrics(sets[i - 1]);
-    const curr = extractSetMetrics(sets[i]);
-    const transition = `Set ${i} -> Set ${i + 1}`;
-
-    bestSession1RM = Math.max(bestSession1RM, prev.oneRM);
+  for (let i = 1; i < workingSets.length; i++) {
+    const prev = extractSetMetrics(workingSets[i - 1]);
+    const curr = extractSetMetrics(workingSets[i]);
+    const transition = `Set ${i} → ${i + 1}`;
 
     const weightChangePct = calculatePercentChange(prev.weight, curr.weight);
-    const volDropPct = calculatePercentChange(curr.volume, prev.volume);
+    const repChangePct = calculatePercentChange(prev.reps, curr.reps);
 
-    let result: AnalysisResult | null = null;
+    let result: AnalysisResult;
 
+    // Same weight (within 1% tolerance)
     if (Math.abs(weightChangePct) < 1.0) {
-      result = analyzeSameWeight(transition, volDropPct, curr.reps);
-    } else if (weightChangePct > 0) {
-      result = analyzeWeightIncrease(transition, weightChangePct, volDropPct, curr.reps, bestSession1RM, curr.weight);
-    } else {
-      result = createAnalysisResult(
-        transition, 'info', weightChangePct, volDropPct, curr.reps, '-',
-        'Backoff Set',
-        `Backoff: Weight reduced by ${Math.abs(roundTo(weightChangePct, 0))}%. Good for accumulating volume with less neural fatigue.`
+      // Pass set number (i is the current set index, so i+1 is the current set number)
+      result = analyzeSameWeight(transition, repChangePct, prev.reps, curr.reps, i + 1);
+    } 
+    // Weight increased
+    else if (weightChangePct > 0) {
+      result = analyzeWeightIncrease(
+        transition, weightChangePct, 
+        prev.weight, curr.weight, 
+        prev.reps, curr.reps, 
+        bestSession1RM
+      );
+    } 
+    // Weight decreased (backoff/drop set)
+    else {
+      result = analyzeWeightDecrease(
+        transition, weightChangePct,
+        prev.weight, curr.weight,
+        prev.reps, curr.reps,
+        bestSession1RM
       );
     }
 
-    if (result) results.push(result);
+    results.push(result);
   }
 
   return results;
@@ -167,46 +385,80 @@ const determineGoal = (avgReps: number): GoalConfig => {
 };
 
 export const analyzeSession = (sets: WorkoutSet[]): SessionAnalysis => {
-  if (sets.length === 0) {
+  // Filter out warmup sets for session analysis
+  const workingSets = sets.filter(s => !isWarmupSet(s));
+  
+  if (workingSets.length === 0) {
     return { goalLabel: 'N/A', avgReps: 0, setCount: 0 };
   }
 
   let totalReps = 0;
-  for (const s of sets) {
+  for (const s of workingSets) {
     totalReps += s.reps || 0;
   }
-  const avgReps = Math.round(totalReps / sets.length);
+  const avgReps = Math.round(totalReps / workingSets.length);
   const { label, tooltip } = determineGoal(avgReps);
 
-  return { goalLabel: label, avgReps, setCount: sets.length, tooltip };
+  return { goalLabel: label, avgReps, setCount: workingSets.length, tooltip };
 };
 
 const DEFAULT_TARGET_REPS = 10;
 const MIN_HYPERTROPHY_REPS = 5;
+const PROMOTE_THRESHOLD = 12; // If all sets hit 12+ reps, definitely time to increase
 
 export const analyzeProgression = (
   allSetsForExercise: WorkoutSet[], 
   targetReps: number = DEFAULT_TARGET_REPS
 ): SetWisdom | null => {
-  if (allSetsForExercise.length === 0) return null;
+  // Filter out warmup sets
+  const workingSets = allSetsForExercise.filter(s => !isWarmupSet(s));
+  
+  if (workingSets.length === 0) return null;
 
-  const reps = allSetsForExercise.map(s => s.reps);
+  const reps = workingSets.map(s => s.reps);
+  const weights = workingSets.map(s => s.weight_kg);
   const minReps = Math.min(...reps);
   const maxReps = Math.max(...reps);
+  const avgReps = Math.round(reps.reduce((a, b) => a + b, 0) / reps.length);
   
-  if (minReps >= targetReps) {
+  // Check if all sets were at the same weight
+  const maxWeight = Math.max(...weights);
+  const minWeight = Math.min(...weights);
+  const sameWeight = (maxWeight - minWeight) / maxWeight < 0.05; // Within 5%
+  
+  // Get sets at the top weight only
+  const topWeightSets = workingSets.filter(s => s.weight_kg >= maxWeight * 0.95);
+  const topWeightReps = topWeightSets.map(s => s.reps);
+  const topWeightMinReps = topWeightReps.length > 0 ? Math.min(...topWeightReps) : minReps;
+  const topWeightAvgReps = topWeightReps.length > 0 
+    ? Math.round(topWeightReps.reduce((a, b) => a + b, 0) / topWeightReps.length)
+    : avgReps;
+  
+  // Strong promotion signal: All working sets hit target reps
+  if (topWeightMinReps >= targetReps) {
+    const increase = topWeightMinReps >= PROMOTE_THRESHOLD ? '5-10%' : '2.5-5%';
     return { 
       type: 'promote', 
       message: 'Increase Weight',
-      tooltip: `You hit ${targetReps}+ reps on ALL sets. To force adaptation (Progressive Overload), increase the weight next session.`,
+      tooltip: `All sets hit ${topWeightMinReps}+ reps. Increase by ${increase} next session.`,
     };
   }
   
-  if (maxReps < MIN_HYPERTROPHY_REPS) {
+  // Demotion signal: Working sets too heavy
+  if (topWeightReps.length > 0 && Math.max(...topWeightReps) < MIN_HYPERTROPHY_REPS) {
     return { 
       type: 'demote', 
       message: 'Decrease Weight', 
-      tooltip: 'Reps dropped below 5. Unless doing powerlifting, this volume might be too low for muscle growth. Lower weight by 5-10%.',
+      tooltip: `Max ${Math.max(...topWeightReps)} reps. Reduce by 5-10% to hit 6-12 rep range.`,
+    };
+  }
+  
+  // Mixed performance - some sets good, some not
+  if (topWeightReps.length >= 2 && topWeightMinReps < targetReps - 3 && Math.max(...topWeightReps) >= targetReps) {
+    return {
+      type: 'demote',
+      message: 'Inconsistent',
+      tooltip: `Reps varied ${topWeightMinReps}-${Math.max(...topWeightReps)}. Lower weight or rest longer for consistency.`,
     };
   }
 

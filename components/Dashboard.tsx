@@ -9,7 +9,7 @@ import {
   getTopExercisesOverTime
 } from '../utils/analytics';
 import { getMuscleVolumeTimeSeries, getDetailedMuscleCompositionLatest, normalizeMuscleGroup, getMuscleVolumeTimeSeriesDetailed } from '../utils/muscleAnalytics';
-import { CSV_TO_SVG_MUSCLE_MAP } from '../utils/muscleMapping';
+import { CSV_TO_SVG_MUSCLE_MAP, SVG_MUSCLE_NAMES, getVolumeColor } from '../utils/muscleMapping';
 import { BodyMap, BodyMapGender } from './BodyMap';
 import { MUSCLE_COLORS } from '../utils/categories';
 import { saveChartModes, getChartModes, TimeFilterMode, WeightUnit } from '../utils/localStorage';
@@ -20,7 +20,7 @@ import {
   MUSCLE_GROUP_TO_SVG_IDS,
   getGroupHighlightIds,
 } from '../utils/muscleMappingConstants';
-import { 
+import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   Legend, AreaChart, Area, 
   Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, 
@@ -28,15 +28,127 @@ import {
   BarChart, Bar
 } from 'recharts';
 import { 
-  Calendar, Zap, Layers, Eye, Layout, ChevronDown, 
-  Clock, Dumbbell, Trophy, Timer, Info
+  Calendar, Zap, Layers, 
+  Clock, Dumbbell, Trophy, Timer, Info, TrendingUp, TrendingDown, Minus, PersonStanding,
+  Infinity, CalendarDays, CalendarRange, CalendarClock,
+  BarChart3, AreaChart as AreaChartIcon, LineChart as LineChartIcon,
+  Grid3X3, Scan, Square, ChartBarStacked, ChartColumnStacked, BicepsFlexed
 } from 'lucide-react';
 import { format, startOfMonth, startOfWeek, subDays, differenceInCalendarDays } from 'date-fns';
 import { getExerciseAssets, ExerciseAsset } from '../utils/exerciseAssets';
-import { SupportLinks } from './SupportLinks';
-import { calculateDashboardInsights, detectPlateaus, DashboardInsights, PlateauAnalysis } from '../utils/insights';
+import { ViewHeader } from './ViewHeader';
+import { calculateDashboardInsights, detectPlateaus, calculateDelta, DashboardInsights, PlateauAnalysis } from '../utils/insights';
 import { InsightsPanel, PlateauAlert, RecentPRsPanel } from './InsightCards';
 import { computationCache } from '../utils/computationCache';
+
+const formatSigned = (n: number) => (n > 0 ? `+${n}` : `${n}`);
+const formatSignedFixed = (n: number, digits: number) => (n > 0 ? `+${n.toFixed(digits)}` : n.toFixed(digits));
+const formatDeltaShort = (
+  current: number,
+  previous: number,
+  opts?: { unit?: string; digits?: number; hidePercentIfNoBaseline?: boolean }
+) => {
+  const { unit = '', digits = 0, hidePercentIfNoBaseline = true } = opts || {};
+  const delta = calculateDelta(current, previous);
+  const currText = digits > 0 ? current.toFixed(digits) : Math.round(current).toString();
+  const deltaText = digits > 0 ? formatSignedFixed(delta.delta, digits) : formatSigned(delta.delta);
+  const pctText = hidePercentIfNoBaseline && delta.previous <= 0 ? '' : `, ${formatSigned(delta.deltaPercent)}%`;
+  return `${currText}${unit} (${deltaText}${unit}${pctText} vs prior)`;
+};
+
+const safePct = (n: number, d: number) => (d > 0 ? (n / d) * 100 : 0);
+
+const modeToPeriodLabel = (mode?: TimeFilterMode) => {
+  if (mode === 'monthly') return 'this month';
+  if (mode === 'weekly') return 'this week';
+  if (mode === 'all') return 'latest';
+  return 'latest';
+};
+
+const modeToVsLabel = (mode?: TimeFilterMode) => {
+  if (mode === 'monthly') return 'vs lst mo';
+  if (mode === 'weekly') return 'vs lst wk';
+  if (mode === 'all') return 'vs prior period';
+  return 'vs prior period';
+};
+
+const TrendIcon = ({ direction }: { direction: 'up' | 'down' | 'same' }) => {
+  const Icon = direction === 'up' ? TrendingUp : direction === 'down' ? TrendingDown : Minus;
+  const offsetCls = direction === 'up' ? 'top-[1px]' : direction === 'down' ? 'top-0' : 'top-0';
+  return (
+    <span className={`relative inline-flex ${offsetCls}`}>
+      <Icon className="w-3 h-3" />
+    </span>
+  );
+};
+
+const ShiftedMeta = ({
+  children,
+}: {
+  children: React.ReactNode;
+}) => {
+  return <span className="inline-flex items-center gap-1 ml-2 leading-none">{children}</span>;
+};
+
+const BadgeLabel = ({ main, meta }: { main: React.ReactNode; meta?: React.ReactNode }) => (
+  <span className="inline-flex items-center gap-2">
+    <span className="font-semibold leading-none">{main}</span>
+    {meta && <span className="text-[9px] opacity-70 leading-none">{meta}</span>}
+  </span>
+);
+
+const getTrendBadgeTone = (
+  deltaPercent: number,
+  opts?: { goodWhen?: 'up' | 'down' | 'either' }
+): 'good' | 'bad' | 'neutral' => {
+  const goodWhen = opts?.goodWhen ?? 'up';
+  if (!isFinite(deltaPercent) || deltaPercent === 0) return 'neutral';
+  if (goodWhen === 'either') return deltaPercent > 0 ? 'good' : 'bad';
+  if (goodWhen === 'up') return deltaPercent > 0 ? 'good' : 'bad';
+  return deltaPercent < 0 ? 'good' : 'bad';
+};
+
+const TrendBadge = ({
+  label,
+  tone,
+}: {
+  label: React.ReactNode;
+  tone: 'good' | 'bad' | 'neutral' | 'info';
+}) => {
+  const cls =
+    tone === 'good'
+      ? 'border-emerald-500/30 bg-emerald-950/40 text-emerald-200'
+      : tone === 'bad'
+        ? 'border-rose-500/30 bg-rose-950/40 text-rose-200'
+        : tone === 'info'
+          ? 'border-blue-500/30 bg-slate-900/40 text-slate-200'
+          : 'border-slate-700/40 bg-slate-900/20 text-slate-300';
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold tracking-normal border ${cls}`}>
+      {label}
+    </span>
+  );
+};
+
+const InsightRow = ({ children }: { children: React.ReactNode }) => (
+  <div className="flex flex-wrap items-center gap-2">
+    {children}
+  </div>
+);
+
+const InsightLine = ({ children }: { children: React.ReactNode }) => (
+  <div className="flex flex-wrap items-center gap-2">
+    <span className="font-semibold text-slate-300">Insight:</span>
+    {children}
+  </div>
+);
+
+const sumLastN = <T,>(arr: T[], n: number, getVal: (x: T) => number) => {
+  if (arr.length < n) return null;
+  let s = 0;
+  for (let i = arr.length - n; i < arr.length; i++) s += getVal(arr[i]);
+  return s;
+};
 
 interface DashboardProps {
   dailyData: DailySummary[];
@@ -48,18 +160,6 @@ interface DashboardProps {
   bodyMapGender?: BodyMapGender;
   weightUnit?: WeightUnit;
 }
-
-type ChartKey = 'heatmap' | 'prTrend' | 'volumeVsDuration' | 'intensityEvo' | 'weekShape' | 'topExercises' | 'muscleVolume';
-
-const CHART_LABELS: Record<ChartKey, string> = {
-  heatmap: 'Consistency Heatmap',
-  prTrend: 'PRs Over Time',
-  volumeVsDuration: 'Volume Density',
-  intensityEvo: 'Training Style Evolution',
-  weekShape: 'Weekly Rhythm',
-  topExercises: 'Most Frequent Exercises',
-  muscleVolume: 'Muscle Analysis'
-};
 
 // --- SUB-COMPONENTS ---
 
@@ -136,6 +236,7 @@ interface ChartHeaderProps {
   title: string;
   icon: React.ElementType;
   color: string;
+  badgeSlot?: React.ReactNode;
   mode?: TimeFilterMode;
   onToggle?: (mode: TimeFilterMode) => void;
   viewType?: string;
@@ -144,10 +245,22 @@ interface ChartHeaderProps {
   isMounted?: boolean;
 }
 
+const iconForViewOption = (opt: { value: string; label: string }) => {
+  const key = `${opt.value} ${opt.label}`.toLowerCase();
+  if (key.includes('area')) return AreaChartIcon;
+  if (key.includes('stack')) return ChartColumnStacked;
+  if (key.includes('bar')) return BarChart3;
+  if (key.includes('line')) return LineChartIcon;
+  if (key.includes('radar')) return Scan;
+  if (key.includes('heat')) return Grid3X3;
+  return Square;
+};
+
 const ChartHeader = ({ 
   title, 
   icon: Icon, 
   color, 
+  badgeSlot,
   mode, 
   onToggle,
   viewType,
@@ -158,61 +271,78 @@ const ChartHeader = ({
   <div className={`flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-3 sm:gap-0 transition-opacity duration-700 ${isMounted ? 'opacity-100' : 'opacity-0'}`}>
     <h3 className="text-lg font-semibold text-white flex items-center gap-2 transition-opacity duration-200 hover:opacity-90">
       <Icon className={`w-5 h-5 ${color} transition-opacity duration-200 hover:opacity-80`} />
-      {title}
+      <span className="flex items-center gap-2">
+        <span>{title}</span>
+        {badgeSlot && <span className="relative -top-[2px]">{badgeSlot}</span>}
+      </span>
     </h3>
-    <div className="flex items-center gap-2 flex-wrap">
+    <div className="flex items-center gap-0.5 sm:gap-1 flex-nowrap sm:flex-wrap overflow-x-auto sm:overflow-visible max-w-full">
       {/* View Type Toggle (Line/Area, Area/Line, Radar/Bar) */}
       {viewType && onViewToggle && viewOptions && (
-        <div className="bg-black/70 p-1 rounded-lg flex gap-1 border border-slate-800 transition-all duration-200 hover:border-slate-700">
+        <div className="bg-black/70 p-0.5 rounded-lg flex gap-0.5 border border-slate-800 transition-all duration-200 hover:border-slate-700 shrink-0">
           {viewOptions.map((option) => (
+            (() => {
+              const OptIcon = iconForViewOption(option);
+              return (
             <button
               key={option.value}
               onClick={() => onViewToggle(option.value)}
-              className={`px-2 py-1 text-[10px] font-bold uppercase rounded transition-all duration-200 ${
+              title={option.label}
+              aria-label={option.label}
+              className={`w-6 h-5 flex items-center justify-center rounded transition-all duration-200 ${
                 viewType === option.value 
                   ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30' 
                   : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800'
               }`}
             >
-              {option.label}
+              <OptIcon className="w-4 h-4" />
+              <span className="sr-only">{option.label}</span>
             </button>
+              );
+            })()
           ))}
         </div>
       )}
 
-      
       {/* All/Weekly/Monthly Toggle */}
-    {mode && onToggle && (
-      <div className="bg-black/70 p-1 rounded-lg flex gap-1 border border-slate-800 transition-all duration-200 hover:border-slate-700">
+      {mode && onToggle && (
+      <div className="bg-black/70 p-0.5 rounded-lg flex gap-0.5 border border-slate-800 transition-all duration-200 hover:border-slate-700 shrink-0">
         <button 
           onClick={() => onToggle('all')} 
-          className={`px-2 py-1 text-[10px] font-bold uppercase rounded transition-all duration-200 transform hover:scale-105 active:scale-95 ${
+          title="All"
+          aria-label="All"
+          className={`w-6 h-5 flex items-center justify-center rounded transition-all duration-200 ${
             mode === 'all' 
               ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30' 
               : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800'
           }`}
         >
-          All
+          <Infinity className="w-4 h-4" />
+          <span className="sr-only">All</span>
         </button>
         <button 
           onClick={() => onToggle('weekly')} 
-          className={`px-2 py-1 text-[10px] font-bold uppercase rounded transition-all duration-200 transform hover:scale-105 active:scale-95 ${
+          title="Weekly"
+          aria-label="Weekly"
+          className={`w-6 h-5 flex items-center justify-center rounded transition-all duration-200 text-[9px] font-bold leading-none ${
             mode === 'weekly' 
               ? 'bg-blue-600 text-white shadow-lg shadow-lg shadow-blue-600/30' 
               : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800'
           }`}
         >
-          Weekly
+          wk
         </button>
         <button 
           onClick={() => onToggle('monthly')} 
-          className={`px-2 py-1 text-[10px] font-bold uppercase rounded transition-all duration-200 transform hover:scale-105 active:scale-95 ${
+          title="Monthly"
+          aria-label="Monthly"
+          className={`w-6 h-5 flex items-center justify-center rounded transition-all duration-200 text-[9px] font-bold leading-none ${
             mode === 'monthly' 
               ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30' 
               : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800'
           }`}
         >
-          Monthly
+          mo
         </button>
       </div>
     )}
@@ -347,18 +477,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
     saveChartModes(newModes);
   };
 
-  const [visibleCharts, setVisibleCharts] = useState<Record<ChartKey, boolean>>({
-    heatmap: true,
-    prTrend: true,
-    volumeVsDuration: true,
-    intensityEvo: true,
-    weekShape: true,
-    topExercises: true,
-    muscleVolume: true
-  });
-  
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [topExerciseLimit, setTopExerciseLimit] = useState(5);
   const [topExerciseMode, setTopExerciseMode] = useState<'all' | 'weekly' | 'monthly'>('all');
   const [topExercisesView, setTopExercisesView] = useState<'barh' | 'area'>('barh');
   
@@ -473,10 +591,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
     }
   }, [spanDays, granularity]);
 
-  const toggleChart = (key: ChartKey) => {
-    setVisibleCharts(prev => ({ ...prev, [key]: !prev[key] }));
-  };
-
   // --- MEMOIZED DATA LOGIC ---
 
   const totalPrs = useMemo(() => exerciseStats.reduce((acc, curr) => acc + curr.prCount, 0), [exerciseStats]);
@@ -517,12 +631,74 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
     return getPrsOverTime(fullData, mode as any);
   }, [fullData, chartModes.prTrend]);
 
+  const prTrendDelta = useMemo(() => {
+    if (prsData.length < 2) return null;
+    const last = prsData[prsData.length - 1];
+    const prev = prsData[prsData.length - 2];
+    return { last, prev, delta: calculateDelta(last.count, prev.count) };
+  }, [prsData]);
+
+  const prTrendDelta4 = useMemo(() => {
+    if (prsData.length < 5) return null;
+    const last = prsData[prsData.length - 1];
+    const prev4Sum = sumLastN(prsData.slice(0, -1), 4, (d) => d.count);
+    if (prev4Sum == null) return null;
+    return calculateDelta(last.count, prev4Sum / 4);
+  }, [prsData]);
+
   // 2. Intensity Evolution Data
   const intensityData = useMemo(() => {
     const mode = chartModes.intensityEvo === 'all' ? 'daily' : chartModes.intensityEvo;
     const result = getIntensityEvolution(fullData, mode as any);
     return result;
   }, [fullData, chartModes.intensityEvo]);
+
+  const intensityInsight = useMemo(() => {
+    if (!intensityData || intensityData.length < 2) return null;
+    const last = intensityData[intensityData.length - 1];
+    const prev = intensityData[intensityData.length - 2];
+
+    const lastTotal = (last.Strength || 0) + (last.Hypertrophy || 0) + (last.Endurance || 0);
+    const prevTotal = (prev.Strength || 0) + (prev.Hypertrophy || 0) + (prev.Endurance || 0);
+    if (lastTotal <= 0 || prevTotal <= 0) return null;
+
+    const shares = {
+      Strength: safePct(last.Strength || 0, lastTotal),
+      Hypertrophy: safePct(last.Hypertrophy || 0, lastTotal),
+      Endurance: safePct(last.Endurance || 0, lastTotal),
+    } as const;
+    const prevShares = {
+      Strength: safePct(prev.Strength || 0, prevTotal),
+      Hypertrophy: safePct(prev.Hypertrophy || 0, prevTotal),
+      Endurance: safePct(prev.Endurance || 0, prevTotal),
+    } as const;
+
+    const entries = (Object.entries(shares) as Array<[keyof typeof shares, number]>).sort((a, b) => b[1] - a[1]);
+    const dominant = entries[0];
+    const secondary = entries[1];
+
+    const all = (['Hypertrophy', 'Strength', 'Endurance'] as const).map((k) => {
+      const short = k === 'Hypertrophy' ? 'HYP' : k === 'Strength' ? 'STR' : 'END';
+      const pct = shares[k];
+      const prevPct = prevShares[k];
+      const delta = calculateDelta(pct, prevPct);
+      return { k, short, pct, prevPct, delta };
+    });
+
+    return {
+      all,
+      dominant: {
+        k: dominant[0],
+        pct: dominant[1],
+        delta: calculateDelta(dominant[1], prevShares[dominant[0]]),
+      },
+      secondary: {
+        k: secondary[0],
+        pct: secondary[1],
+      },
+      period: last.dateFormatted,
+    };
+  }, [intensityData]);
 
   // 3. Volume Density Data (volume done per set)
   const volumeDurationData = useMemo(() => {
@@ -588,9 +764,49 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
     }
   }, [dailyData, chartModes.volumeVsDuration, weightUnit]);
 
+  const volumeDensityTrend = useMemo(() => {
+    if (!volumeDurationData || volumeDurationData.length < 2) return null;
+    const last: any = volumeDurationData[volumeDurationData.length - 1];
+    const prev: any = volumeDurationData[volumeDurationData.length - 2];
+    const delta = calculateDelta(last.volumePerSet || 0, prev.volumePerSet || 0);
+
+    const prev4Sum = sumLastN((volumeDurationData as any[]).slice(0, -1), 4, (d: any) => d.volumePerSet || 0);
+    const delta4 = prev4Sum == null ? null : calculateDelta(last.volumePerSet || 0, prev4Sum / 4);
+
+    return {
+      label: last.tooltipLabel || last.dateFormatted,
+      delta,
+      delta4,
+    };
+  }, [volumeDurationData]);
+
+  const volumeVsDurationBadgeMode = chartModes.volumeVsDuration;
+
   // Static Data
   const weekShapeData = useMemo(() => getDayOfWeekShape(dailyData), [dailyData]);
-  const topExercisesData = useMemo(() => getTopExercisesRadial(exerciseStats).slice(0, topExerciseLimit), [exerciseStats, topExerciseLimit]);
+  const topExercisesData = useMemo(() => getTopExercisesRadial(exerciseStats).slice(0, 4), [exerciseStats]);
+
+  const weeklyRhythmInsight = useMemo(() => {
+    if (!weekShapeData || weekShapeData.length === 0) return null;
+    const total = weekShapeData.reduce((acc, d) => acc + (d.A || 0), 0);
+    if (total <= 0) return null;
+    const sorted = [...weekShapeData].sort((a, b) => (b.A || 0) - (a.A || 0));
+    const top = sorted[0];
+    const bottom = sorted[sorted.length - 1];
+    const topShare = safePct(top.A || 0, total);
+    const bottomShare = safePct(bottom.A || 0, total);
+    const spread = topShare - bottomShare;
+    const rhythmLabel = spread <= 12 ? "It's even" : spread <= 22 ? "It's somewhat spiky" : "It's spiky";
+    const rhythmTone = spread <= 12 ? 'good' : spread <= 22 ? 'neutral' : 'bad';
+    return {
+      total,
+      top: { subject: top.subject, share: topShare },
+      bottom: { subject: bottom.subject, share: bottomShare },
+      spread,
+      rhythmLabel,
+      rhythmTone,
+    };
+  }, [weekShapeData]);
   
   // Data for horizontal bars (simple) with time filters: All, Monthly (30d), Weekly (7d)
   const topExercisesBarData = useMemo(() => {
@@ -610,8 +826,43 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
     }
     const arr = Array.from(counts.entries()).map(([name, count]) => ({ name, count }));
     arr.sort((a,b) => b.count - a.count);
-    return arr.slice(0, topExerciseLimit);
-  }, [fullData, topExerciseMode, topExerciseLimit]);
+    return arr.slice(0, 4);
+  }, [fullData, topExerciseMode]);
+
+  const topExercisesInsight = useMemo(() => {
+    const now = new Date();
+    const getSetCountBetween = (start: Date | null, end: Date) => {
+      let count = 0;
+      for (const s of fullData) {
+        const d = s.parsedDate;
+        if (!d) continue;
+        if (d > end) continue;
+        if (start && d < start) continue;
+        count += 1;
+      }
+      return count;
+    };
+
+    const sumShown = topExercisesBarData.reduce((acc, x) => acc + (x.count || 0), 0);
+    const top = topExercisesBarData[0];
+    const topShare = sumShown > 0 && top ? safePct(top.count || 0, sumShown) : 0;
+
+    if (topExerciseMode === 'all') {
+      if (!top) return { windowLabel: 'All time', delta: null as any, top, topShare };
+      return { windowLabel: 'All time', delta: null as any, top, topShare };
+    }
+
+    const windowDays = topExerciseMode === 'weekly' ? 7 : 30;
+    const start = subDays(now, windowDays);
+    const prevStart = subDays(now, windowDays * 2);
+    const prevEnd = subDays(now, windowDays);
+
+    const currentSets = getSetCountBetween(start, now);
+    const prevSets = getSetCountBetween(prevStart, prevEnd);
+    const windowLabel = topExerciseMode === 'weekly' ? '7d' : '30d';
+    const delta = calculateDelta(currentSets, prevSets);
+    return { windowLabel, delta, top, topShare };
+  }, [fullData, topExerciseMode, topExercisesBarData]);
 
   // Time series for area view of Top Exercises
   const topExercisesOverTimeData = useMemo(() => {
@@ -653,6 +904,27 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
     });
     return [...keys].sort((a,b) => (totals[b]||0) - (totals[a]||0)).slice(0, 6);
   }, [trendData, muscleGrouping, muscleSeriesGroups.keys, muscleSeriesMuscles.keys]);
+
+  const muscleTrendInsight = useMemo(() => {
+    if (!trendData || trendData.length < 2 || trendKeys.length === 0) return null;
+    const last: any = trendData[trendData.length - 1];
+    const prev: any = trendData[trendData.length - 2];
+    const totalLast = trendKeys.reduce((acc, k) => acc + (last[k] || 0), 0);
+    const totalPrev = trendKeys.reduce((acc, k) => acc + (prev[k] || 0), 0);
+    const totalDelta = calculateDelta(totalLast, totalPrev);
+    const biggestMover = trendKeys
+      .map((k) => ({ k, d: (last[k] || 0) - (prev[k] || 0) }))
+      .sort((a, b) => Math.abs(b.d) - Math.abs(a.d))[0];
+    const label = last.dateFormatted || 'Latest period';
+    return { label, totalDelta, biggestMover };
+  }, [trendData, trendKeys]);
+
+  const muscleVsLabel = useMemo(() => {
+    if (musclePeriod === 'weekly') return 'vs lst wk';
+    if (musclePeriod === 'monthly') return 'vs lst mo';
+    if (musclePeriod === 'yearly') return 'vs lst yr';
+    return 'vs prior period';
+  }, [musclePeriod]);
 
   const compositionQuickData = useMemo(() => {
     if (!assetsMap) return [] as { subject: string; value: number }[];
@@ -717,6 +989,22 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
     arr.sort((a,b) => b.value - a.value);
     return arr.slice(0, 16);
   }, [assetsMap, fullData, muscleCompQuick, compositionGrouping]);
+
+  const weeklySetsInsight = useMemo(() => {
+    if (!compositionQuickData || compositionQuickData.length === 0) return null;
+    const total = compositionQuickData.reduce((acc, d) => acc + (d.value || 0), 0);
+    const sorted = [...compositionQuickData].sort((a, b) => (b.value || 0) - (a.value || 0));
+    const top = sorted[0];
+    const topShare = total > 0 ? safePct(top.value || 0, total) : 0;
+    const top3 = sorted.slice(0, 3).reduce((acc, d) => acc + (d.value || 0), 0);
+    const top3Share = total > 0 ? safePct(top3, total) : 0;
+    return {
+      total,
+      top,
+      topShare,
+      top3Share,
+    };
+  }, [compositionQuickData]);
 
   // Heat map muscle volumes - maps SVG muscle IDs to weekly sets values (cached)
   const heatmapMuscleVolumes = useMemo(() => {
@@ -838,6 +1126,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
     return getGroupHighlightIds(heatmapHoveredMuscle);
   }, [heatmapHoveredMuscle, compositionGrouping]);
 
+  const weeklySetsHoverMeta = useMemo(() => {
+    if (!heatmapHoveredMuscle) return null;
+
+    const name =
+      compositionGrouping === 'groups'
+        ? (SVG_TO_MUSCLE_GROUP as any)[heatmapHoveredMuscle] || 'Unknown'
+        : (SVG_MUSCLE_NAMES as any)[heatmapHoveredMuscle] || 'Unknown';
+
+    const value = heatmapMuscleVolumes.volumes.get(heatmapHoveredMuscle) || 0;
+    const accent = getVolumeColor(value, heatmapMuscleVolumes.maxVolume);
+
+    return { name, value, accent };
+  }, [heatmapHoveredMuscle, compositionGrouping, heatmapMuscleVolumes]);
+
   const muscleCalMeta = useMemo(() => {
     let minTs = Number.POSITIVE_INFINITY;
     let maxTs = 0;
@@ -866,59 +1168,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
       <style>{ANIMATION_KEYFRAMES}</style>
       <div className={`space-y-6 pb-20 transition-opacity duration-700 ease-out ${isMounted ? 'opacity-100' : 'opacity-0'}`}>
       
-        {/* HEADER & CONTROLS */}
-        <div className="bg-black/70 p-3 sm:p-4 rounded-xl border border-slate-700/50">
-        <div className="grid grid-cols-1 sm:grid-cols-3 items-center gap-3">
-          <div className="hidden sm:flex items-center gap-2 justify-start">
-            <div className="flex items-center gap-2 px-3 py-2 bg-black/50 border border-slate-700/50 rounded-lg">
-              <Clock className="w-4 h-4 text-slate-400" />
-              <div className="text-xs">
-                <div className="text-white font-bold leading-4">{totalWorkouts}</div>
-                <div className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider">Workouts</div>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 px-3 py-2 bg-black/50 border border-slate-700/50 rounded-lg">
-              <Dumbbell className="w-4 h-4 text-slate-400" />
-              <div className="text-xs">
-                <div className="text-white font-bold leading-4">{totalSets}</div>
-                <div className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider">Sets</div>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex justify-center">
-            <div className="w-full sm:w-auto flex justify-center">
-              {filtersSlot}
-            </div>
-          </div>
-
-          <div className="flex justify-end">
-            <div className="relative w-full sm:w-auto">
-              <button 
-                onClick={() => setIsMenuOpen(!isMenuOpen)} 
-                className="flex items-center gap-2 px-3 py-2 bg-black/70 hover:bg-black/60 rounded-lg text-xs sm:text-sm font-medium border border-slate-700/50 text-slate-200 transition-colors w-full sm:w-auto justify-center sm:justify-start"
-              >
-                <Eye className="w-4 h-4" /> Configure View <ChevronDown className={`w-4 h-4 transition-transform ${isMenuOpen ? 'rotate-180' : ''}`} />
-              </button>
-              {isMenuOpen && (
-                <div className="absolute right-0 top-full mt-2 w-48 sm:w-56 bg-black/90 border border-slate-700/50 rounded-xl shadow-xl z-50 p-2 animate-in fade-in slide-in-from-top-2">
-                  <p className="text-[10px] uppercase font-bold text-slate-500 px-3 py-1">Visible Charts</p>
-                  {Object.entries(CHART_LABELS).map(([key, label]) => (
-                    <button 
-                      key={key} 
-                      onClick={() => toggleChart(key as ChartKey)} 
-                      className="w-full flex justify-between px-3 py-2 text-xs sm:text-sm text-slate-300 hover:bg-black/60 rounded-lg transition-colors"
-                    >
-                      <span>{label}</span>
-                      <div className={`w-3 h-3 rounded-full border ${visibleCharts[key as ChartKey] ? 'bg-blue-500 border-blue-500' : 'bg-transparent border-slate-600'}`} />
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
+        <div className="hidden sm:block">
+          <ViewHeader
+            leftStats={[
+              { icon: Clock, value: totalWorkouts, label: 'Workouts' },
+            ]}
+            rightStats={[
+              { icon: Dumbbell, value: totalSets, label: 'Sets' },
+            ]}
+            filtersSlot={filtersSlot}
+          />
         </div>
-      </div>
 
       {/* INSIGHTS PANEL - KPIs with Deltas & Sparklines */}
       <InsightsPanel 
@@ -956,13 +1216,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
       )}
 
       {/* 1. HEATMAP (Full Width) */}
-      {visibleCharts.heatmap && <Heatmap dailyData={dailyData} totalPrs={totalPrs} onDayClick={onDayClick} />}
+      <Heatmap dailyData={dailyData} totalPrs={totalPrs} onDayClick={onDayClick} />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         
         {/* 2. PR TRENDS (Area/Bar) */}
-        {visibleCharts.prTrend && (
-          <div className="bg-black/70 border border-slate-700/50 p-4 sm:p-6 rounded-xl shadow-lg min-h-[400px] sm:min-h-[480px] flex flex-col transition-all duration-300 hover:shadow-xl">
+        <div className="bg-black/70 border border-slate-700/50 p-4 sm:p-6 rounded-xl shadow-lg min-h-[400px] sm:min-h-[480px] flex flex-col transition-all duration-300 hover:shadow-xl">
             <ChartHeader 
               title="PRs Over Time" 
               icon={Trophy} 
@@ -1014,49 +1273,138 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
               </ResponsiveContainer>
             </div>
             <ChartDescription isMounted={isMounted}>
-              <p>
-                <span className="font-semibold text-slate-300">Track your strength milestones.</span> This chart reveals when you're hitting new personal records—those breakthrough moments that define your progress.
-              </p>
-              <p>
-                Higher values indicate periods of rapid strength gain (beginner gains, peaking blocks), while lower values suggest maintenance or deload phases.
-              </p>
-              <p className="text-slate-500 italic">
-                💡 Switch between <span className="text-blue-400">Area</span> and <span className="text-blue-400">Bar</span> views to see smooth trends or compare discrete periods.
-              </p>
+              <InsightLine>
+                {prTrendDelta ? (
+                  <TrendBadge
+                    label={
+                      <BadgeLabel
+                        main={
+                          <span className="inline-flex items-center gap-1">
+                            <TrendIcon direction={prTrendDelta.delta.direction} />
+                            <span>{`${formatSigned(prTrendDelta.delta.deltaPercent)}%`}</span>
+                          </span>
+                        }
+                        meta={modeToVsLabel(chartModes.prTrend)}
+                      />
+                    }
+                    tone={getTrendBadgeTone(prTrendDelta.delta.deltaPercent, { goodWhen: 'up' })}
+                  />
+                ) : (
+                  <TrendBadge label="Need more data" tone="neutral" />
+                )}
+                {prTrendDelta4 && (
+                  <TrendBadge
+                    label={
+                      <BadgeLabel
+                        main={
+                          <span className="inline-flex items-center gap-1">
+                            <TrendIcon direction={prTrendDelta4.direction} />
+                            <span>{`${formatSigned(prTrendDelta4.deltaPercent)}%`}</span>
+                          </span>
+                        }
+                        meta="vs lst 4 sess"
+                      />
+                    }
+                    tone={getTrendBadgeTone(prTrendDelta4.deltaPercent, { goodWhen: 'up' })}
+                  />
+                )}
+              </InsightLine>
+              <div className="text-[11px] text-slate-500 leading-snug">
+                PRs per period show your "breakthrough pace." A steady rise usually means you’re progressing; dips often align with maintenance or deload phases.
+              </div>
             </ChartDescription>
-          </div>
-        )}
+        </div>
 
         {/* 3. WEEKLY SETS (Radar/Heatmap) */}
         <div className="bg-black/70 border border-slate-700/50 p-4 sm:p-6 rounded-xl shadow-lg min-h-[400px] sm:min-h-[480px] flex flex-col transition-all duration-300 hover:shadow-xl min-w-0">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 mb-4">
-            <ChartHeader 
-              title="Weekly sets"
-              icon={Dumbbell}
-              color="text-cyan-500"
-              isMounted={isMounted}
-            />
-            <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+          <div className="relative z-30 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
+            <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+              <Dumbbell className="w-5 h-5 text-cyan-500" />
+              <span>Weekly sets</span>
+            </h3>
+
+            <div className="flex items-center gap-1 flex-nowrap overflow-x-auto w-full sm:w-auto sm:overflow-visible">
               {/* View Toggle: Radar / Heatmap */}
-              <div className="bg-black/70 p-1 rounded-lg inline-flex gap-1 border border-slate-800">
-                <button onClick={() => setWeeklySetsView('radar')} className={`px-2 py-1 text-[10px] font-bold uppercase rounded ${weeklySetsView==='radar'?'bg-cyan-600 text-white':'text-slate-500 hover:text-slate-300 hover:bg-slate-800'}`}>Radar</button>
-                <button onClick={() => setWeeklySetsView('heatmap')} className={`px-2 py-1 text-[10px] font-bold uppercase rounded ${weeklySetsView==='heatmap'?'bg-cyan-600 text-white':'text-slate-500 hover:text-slate-300 hover:bg-slate-800'}`}>Heatmap</button>
+              <div className="bg-black/70 p-0.5 rounded-lg inline-flex gap-0.5 border border-slate-800 shrink-0">
+                <button
+                  onClick={() => setWeeklySetsView('radar')}
+                  title="Radar"
+                  aria-label="Radar"
+                  className={`w-6 h-5 flex items-center justify-center rounded ${weeklySetsView==='radar'?'bg-cyan-600 text-white':'text-slate-500 hover:text-slate-300 hover:bg-slate-800'}`}
+                >
+                  <Scan className="w-3 h-3" />
+                  <span className="sr-only">Radar</span>
+                </button>
+                <button
+                  onClick={() => setWeeklySetsView('heatmap')}
+                  title="Heatmap"
+                  aria-label="Heatmap"
+                  className={`w-6 h-5 flex items-center justify-center rounded ${weeklySetsView==='heatmap'?'bg-cyan-600 text-white':'text-slate-500 hover:text-slate-300 hover:bg-slate-800'}`}
+                >
+                  <Grid3X3 className="w-3 h-3" />
+                  <span className="sr-only">Heatmap</span>
+                </button>
               </div>
               {/* Grouping Toggle - available for both views */}
-              <div className="bg-black/70 p-1 rounded-lg inline-flex gap-1 border border-slate-800">
-                <button onClick={() => setCompositionGrouping('groups')} className={`px-2 py-1 text-[10px] font-bold uppercase rounded ${compositionGrouping==='groups'?'bg-cyan-600 text-white':'text-slate-500 hover:text-slate-300 hover:bg-slate-800'}`}>Groups</button>
-                <button onClick={() => setCompositionGrouping('muscles')} className={`px-2 py-1 text-[10px] font-bold uppercase rounded ${compositionGrouping==='muscles'?'bg-cyan-600 text-white':'text-slate-500 hover:text-slate-300 hover:bg-slate-800'}`}>Muscles</button>
+              <div className="bg-black/70 p-0.5 rounded-lg inline-flex gap-0.5 border border-slate-800 shrink-0">
+                <button
+                  onClick={() => setCompositionGrouping('groups')}
+                  title="Groups"
+                  aria-label="Groups"
+                  className={`w-6 h-5 flex items-center justify-center rounded ${compositionGrouping==='groups'?'bg-cyan-600 text-white':'text-slate-500 hover:text-slate-300 hover:bg-slate-800'}`}
+                >
+                  <PersonStanding className="w-3 h-3 scale-[1.3]" />
+                  <span className="sr-only">Groups</span>
+                </button>
+                <button
+                  onClick={() => setCompositionGrouping('muscles')}
+                  title="Muscles"
+                  aria-label="Muscles"
+                  className={`w-6 h-5 flex items-center justify-center rounded ${compositionGrouping==='muscles'?'bg-cyan-600 text-white':'text-slate-500 hover:text-slate-300 hover:bg-slate-800'}`}
+                >
+                  <BicepsFlexed className="w-3 h-3" />
+                  <span className="sr-only">Muscles</span>
+                </button>
               </div>
               {/* Quick Filters */}
-              <div className="bg-black/70 p-1 rounded-lg inline-flex gap-1 border border-slate-800">
-                <button onClick={() => setMuscleCompQuick('all')} className={`px-2 py-1 text-[10px] font-bold uppercase rounded ${muscleCompQuick==='all'?'bg-cyan-600 text-white':'text-slate-500 hover:text-slate-300 hover:bg-slate-800'}`}>All</button>
-                <button onClick={() => setMuscleCompQuick('7d')} className={`px-2 py-1 text-[10px] font-bold uppercase rounded ${muscleCompQuick==='7d'?'bg-cyan-600 text-white':'text-slate-500 hover:text-slate-300 hover:bg-slate-800'}`}>Last Week</button>
-                <button onClick={() => setMuscleCompQuick('30d')} className={`px-2 py-1 text-[10px] font-bold uppercase rounded ${muscleCompQuick==='30d'?'bg-cyan-600 text-white':'text-slate-500 hover:text-slate-300 hover:bg-slate-800'}`}>Last Month</button>
-                <button onClick={() => setMuscleCompQuick('365d')} className={`px-2 py-1 text-[10px] font-bold uppercase rounded ${muscleCompQuick==='365d'?'bg-cyan-600 text-white':'text-slate-500 hover:text-slate-300 hover:bg-slate-800'}`}>Last Year</button>
+              <div className="bg-black/70 p-0.5 rounded-lg inline-flex gap-0.5 border border-slate-800 shrink-0">
+                <button
+                  onClick={() => setMuscleCompQuick('all')}
+                  title="All"
+                  aria-label="All"
+                  className={`w-6 h-5 flex items-center justify-center rounded ${muscleCompQuick==='all'?'bg-cyan-600 text-white':'text-slate-500 hover:text-slate-300 hover:bg-slate-800'}`}
+                >
+                  <Infinity className="w-3 h-3" />
+                  <span className="sr-only">All</span>
+                </button>
+                <button
+                  onClick={() => setMuscleCompQuick('7d')}
+                  title="Last week"
+                  aria-label="Last week"
+                  className={`px-1 h-5 flex items-center justify-center rounded text-[8px] font-bold leading-none ${muscleCompQuick==='7d'?'bg-cyan-600 text-white':'text-slate-500 hover:text-slate-300 hover:bg-slate-800'}`}
+                >
+                  lst wk
+                </button>
+                <button
+                  onClick={() => setMuscleCompQuick('30d')}
+                  title="Last month"
+                  aria-label="Last month"
+                  className={`px-1 h-5 flex items-center justify-center rounded text-[8px] font-bold leading-none ${muscleCompQuick==='30d'?'bg-cyan-600 text-white':'text-slate-500 hover:text-slate-300 hover:bg-slate-800'}`}
+                >
+                  lst mo
+                </button>
+                <button
+                  onClick={() => setMuscleCompQuick('365d')}
+                  title="Last year"
+                  aria-label="Last year"
+                  className={`px-1 h-5 flex items-center justify-center rounded text-[8px] font-bold leading-none ${muscleCompQuick==='365d'?'bg-cyan-600 text-white':'text-slate-500 hover:text-slate-300 hover:bg-slate-800'}`}
+                >
+                  lst yr
+                </button>
               </div>
             </div>
           </div>
-          <div className={`flex-1 w-full min-h-[250px] sm:min-h-[300px] transition-all duration-700 delay-100 ${isMounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'} min-w-0`}>
+          <div className={`relative z-10 flex-1 w-full min-h-[250px] sm:min-h-[300px] transition-all duration-700 delay-100 ${isMounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'} min-w-0 pb-10`}>
             {weeklySetsView === 'radar' ? (
               compositionQuickData.length === 0 ? (
                 <div className="flex items-center justify-center h-[300px] text-slate-500 text-xs border border-dashed border-slate-800 rounded-lg">
@@ -1081,17 +1429,30 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
                   </div>
                 ) : (
                   <>
-                    <div className="transform scale-[0.55] origin-center -mt-4">
-                      <BodyMap
-                        onPartClick={(muscleId) => onMuscleClick?.(muscleId, compositionGrouping === 'groups' ? 'group' : 'muscle')}
-                        selectedPart={null}
-                        muscleVolumes={heatmapMuscleVolumes.volumes}
-                        maxVolume={heatmapMuscleVolumes.maxVolume}
-                        hoveredMuscleIdsOverride={heatmapHoveredMuscleIds}
-                        onPartHover={setHeatmapHoveredMuscle}
-                        gender={bodyMapGender}
-                        viewMode={compositionGrouping === 'groups' ? 'group' : 'muscle'}
-                      />
+                    <div className="relative flex justify-center w-full mt-4 sm:mt-6">
+                      <div className="transform scale-[0.5] origin-center">
+                        <BodyMap
+                          onPartClick={(muscleId) => onMuscleClick?.(muscleId, compositionGrouping === 'groups' ? 'group' : 'muscle')}
+                          selectedPart={null}
+                          muscleVolumes={heatmapMuscleVolumes.volumes}
+                          maxVolume={heatmapMuscleVolumes.maxVolume}
+                          hoveredMuscleIdsOverride={heatmapHoveredMuscleIds}
+                          onPartHover={setHeatmapHoveredMuscle}
+                          gender={bodyMapGender}
+                          viewMode={compositionGrouping === 'groups' ? 'group' : 'muscle'}
+                        />
+                      </div>
+
+                      {weeklySetsHoverMeta && (
+                        <div className="absolute top-24 sm:top-28 left-1/2 -translate-x-1/2 bg-black/90 border border-slate-700/50 rounded-lg px-3 py-2 shadow-xl pointer-events-none z-20">
+                          <div className="font-semibold text-[11px] text-center whitespace-nowrap" style={{ color: weeklySetsHoverMeta.accent }}>
+                            {weeklySetsHoverMeta.name}
+                          </div>
+                          <div className="text-[10px] text-center font-semibold whitespace-nowrap" style={{ color: weeklySetsHoverMeta.accent }}>
+                            {`${weeklySetsHoverMeta.value.toFixed(1)}/wk`}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </>
                 )}
@@ -1123,16 +1484,26 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
               ) : null
             }
           >
-            <p>
-              <span className="font-semibold text-slate-300">Quick slice.</span> Values represent weekly sets. {weeklySetsView === 'heatmap' ? 'Body heat map shows muscle activation intensity.' : ''} Group by {compositionGrouping === 'groups' ? <span className="text-cyan-400">muscle group</span> : <span className="text-cyan-400">individual muscle</span>}. View for All time, Last Week, Month, or Year.
-            </p>
+            <InsightLine>
+              {weeklySetsInsight ? (
+                <>
+                  <TrendBadge label={<BadgeLabel main={`~${weeklySetsInsight.total.toFixed(1)}/wk`} />} tone="info" />
+                  <TrendBadge label={`Top: ${weeklySetsInsight.top.subject} ${weeklySetsInsight.top.value.toFixed(1)}/wk`} tone="neutral" />
+                  <TrendBadge label={`Top3 ${weeklySetsInsight.top3Share.toFixed(0)}%`} tone={weeklySetsInsight.top3Share >= 70 ? 'bad' : weeklySetsInsight.top3Share >= 55 ? 'neutral' : 'good'} />
+                </>
+              ) : (
+                <TrendBadge label="Need more data" tone="neutral" />
+              )}
+            </InsightLine>
+            <div className="text-[11px] text-slate-500 leading-snug">
+              Read this as your weekly set allocation. If the Top3 share is high, your volume is concentrated (great for specialization, but watch balance).
+            </div>
           </ChartDescription>
         </div>
       </div>
 
       {/* 4. INTENSITY EVOLUTION (Area/Stacked Bar) */}
-      {visibleCharts.intensityEvo && (
-        <div className="bg-black/70 border border-slate-700/50 p-4 sm:p-6 rounded-xl shadow-lg min-h-[400px] sm:min-h-[480px] flex flex-col transition-all duration-300 hover:shadow-xl">
+      <div className="bg-black/70 border border-slate-700/50 p-4 sm:p-6 rounded-xl shadow-lg min-h-[400px] sm:min-h-[480px] flex flex-col transition-all duration-300 hover:shadow-xl">
           <ChartHeader 
             title="Training Style Evolution" 
             icon={Layers} 
@@ -1198,43 +1569,117 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
             </div>
           )}
           <ChartDescription isMounted={isMounted}>
-             <p>
-               <span className="font-semibold text-slate-300">Discover your training style.</span> This chart breaks down your workouts by rep ranges, revealing what you're actually training for.
-             </p>
-             <p>
-               <span className="text-blue-400">Strength</span> (1-5 reps) builds raw power, <span className="text-emerald-400">Hypertrophy</span> (6-12 reps) builds muscle size, and <span className="text-purple-400">Endurance</span> (13+ reps) builds stamina. The balance between these tells your training story.
-             </p>
-             <p className="text-slate-500 italic">
-               💡 Switch between <span className="text-orange-400">Area</span> and <span className="text-orange-400">Stacked Bar</span> views to see layered trends or detailed composition breakdowns.
-             </p>
+             <InsightLine>
+               {intensityInsight ? (
+                 <>
+                   {intensityInsight.all
+                     .slice()
+                     .sort((a, b) => b.pct - a.pct)
+                     .map((s) => (
+                       <TrendBadge
+                         key={s.short}
+                          label={
+                            <BadgeLabel
+                              main={`${s.short} ${s.pct.toFixed(0)}%`}
+                              meta={
+                               <ShiftedMeta>
+                                 <TrendIcon direction={s.delta.direction} />
+                                 <span>{`${formatSigned(s.delta.deltaPercent)}% ${modeToVsLabel(chartModes.intensityEvo)}`}</span>
+                               </ShiftedMeta>
+                             }
+                            />
+                          }
+                        tone={getTrendBadgeTone(s.delta.deltaPercent, { goodWhen: 'either' })}
+                      />
+                    ))}
+                 </>
+               ) : (
+                 <TrendBadge label="Need more data" tone="neutral" />
+               )}
+             </InsightLine>
+             <div className="text-[11px] text-slate-500 leading-snug">
+               Your rep ranges hint what you’re training for (strength vs size vs endurance). Big % shifts usually reflect a new block or focus.
+             </div>
           </ChartDescription>
         </div>
-      )}
 
-      {/* MUSCLE ANALYSIS (Unified) */}
-      {visibleCharts.muscleVolume && (
+        {/* MUSCLE ANALYSIS (Unified) */}
         <div className="bg-black/70 border border-slate-700/50 p-4 sm:p-6 rounded-xl shadow-lg min-h-[400px] sm:min-h-[520px] flex flex-col transition-all duration-300 hover:shadow-xl min-w-0">
-          <ChartHeader 
-            title="Muscle Analysis" 
-            icon={Dumbbell} 
-            color="text-emerald-500"
-            isMounted={isMounted}
-          />
-          <div className="mb-3 flex flex-wrap items-center gap-2">
-            <div className="bg-black/70 p-1 rounded-lg inline-flex gap-1 border border-slate-800">
-              <button onClick={() => setMuscleGrouping('groups')} className={`px-2 py-1 text-[10px] font-bold uppercase rounded ${muscleGrouping==='groups'?'bg-blue-600 text-white':'text-slate-500 hover:text-slate-300 hover:bg-slate-800'}`}>Groups</button>
-              <button onClick={() => setMuscleGrouping('muscles')} className={`px-2 py-1 text-[10px] font-bold uppercase rounded ${muscleGrouping==='muscles'?'bg-blue-600 text-white':'text-slate-500 hover:text-slate-300 hover:bg-slate-800'}`}>Muscles</button>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
+            <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+              <BicepsFlexed className="w-5 h-5 text-emerald-500" />
+              <span>Muscle Analysis</span>
+            </h3>
+
+            <div className="flex items-center gap-1 flex-nowrap overflow-x-auto w-full sm:w-auto sm:overflow-visible">
+              <div className="bg-black/70 p-0.5 rounded-lg inline-flex gap-0.5 border border-slate-800 shrink-0">
+              <button
+                onClick={() => setMuscleGrouping('groups')}
+                title="Groups"
+                aria-label="Groups"
+                className={`w-5 h-5 flex items-center justify-center rounded ${muscleGrouping==='groups'?'bg-blue-600 text-white':'text-slate-500 hover:text-slate-300 hover:bg-slate-800'}`}
+              >
+                <PersonStanding className="w-3.5 h-3.5 scale-[1.3]" />
+                <span className="sr-only">Groups</span>
+              </button>
+              <button
+                onClick={() => setMuscleGrouping('muscles')}
+                title="Muscles"
+                aria-label="Muscles"
+                className={`w-5 h-5 flex items-center justify-center rounded ${muscleGrouping==='muscles'?'bg-blue-600 text-white':'text-slate-500 hover:text-slate-300 hover:bg-slate-800'}`}
+              >
+                <BicepsFlexed className="w-3.5 h-3.5" />
+                <span className="sr-only">Muscles</span>
+              </button>
             </div>
-            <div className="bg-black/70 p-1 rounded-lg inline-flex gap-1 border border-slate-800">
-              <button onClick={() => setMusclePeriod('weekly')} className={`px-2 py-1 text-[10px] font-bold uppercase rounded ${musclePeriod==='weekly'?'bg-purple-600 text-white':'text-slate-500 hover:text-slate-300 hover:bg-slate-800'}`}>Weekly</button>
-              <button onClick={() => setMusclePeriod('monthly')} className={`px-2 py-1 text-[10px] font-bold uppercase rounded ${musclePeriod==='monthly'?'bg-purple-600 text-white':'text-slate-500 hover:text-slate-300 hover:bg-slate-800'}`}>Monthly</button>
-              <button onClick={() => setMusclePeriod('yearly')} className={`px-2 py-1 text-[10px] font-bold uppercase rounded ${musclePeriod==='yearly'?'bg-purple-600 text-white':'text-slate-500 hover:text-slate-300 hover:bg-slate-800'}`}>Yearly</button>
+            <div className="bg-black/70 p-0.5 rounded-lg inline-flex gap-0.5 border border-slate-800 shrink-0">
+              <button
+                onClick={() => setMusclePeriod('weekly')}
+                title="Weekly"
+                aria-label="Weekly"
+                className={`w-5 h-5 flex items-center justify-center rounded text-[9px] font-bold leading-none ${musclePeriod==='weekly'?'bg-purple-600 text-white':'text-slate-500 hover:text-slate-300 hover:bg-slate-800'}`}
+              >
+                wk
+              </button>
+              <button
+                onClick={() => setMusclePeriod('monthly')}
+                title="Monthly"
+                aria-label="Monthly"
+                className={`w-5 h-5 flex items-center justify-center rounded text-[9px] font-bold leading-none ${musclePeriod==='monthly'?'bg-purple-600 text-white':'text-slate-500 hover:text-slate-300 hover:bg-slate-800'}`}
+              >
+                mo
+              </button>
+              <button
+                onClick={() => setMusclePeriod('yearly')}
+                title="Yearly"
+                aria-label="Yearly"
+                className={`w-5 h-5 flex items-center justify-center rounded text-[9px] font-bold leading-none ${musclePeriod==='yearly'?'bg-purple-600 text-white':'text-slate-500 hover:text-slate-300 hover:bg-slate-800'}`}
+              >
+                yr
+              </button>
             </div>
-            <div className="bg-black/70 p-1 rounded-lg inline-flex gap-1 border border-slate-800">
-              <button onClick={() => setMuscleTrendView('stackedBar')} className={`px-2 py-1 text-[10px] font-bold uppercase rounded ${muscleTrendView==='stackedBar'?'bg-emerald-600 text-white':'text-slate-500 hover:text-slate-300 hover:bg-slate-800'}`}>Stacked</button>
-              <button onClick={() => setMuscleTrendView('area')} className={`px-2 py-1 text-[10px] font-bold uppercase rounded ${muscleTrendView==='area'?'bg-emerald-600 text-white':'text-slate-500 hover:text-slate-300 hover:bg-slate-800'}`}>Area</button>
+            <div className="bg-black/70 p-0.5 rounded-lg inline-flex gap-0.5 border border-slate-800 shrink-0">
+              <button
+                onClick={() => setMuscleTrendView('stackedBar')}
+                title="Stacked"
+                aria-label="Stacked"
+                className={`w-5 h-5 flex items-center justify-center rounded ${muscleTrendView==='stackedBar'?'bg-emerald-600 text-white':'text-slate-500 hover:text-slate-300 hover:bg-slate-800'}`}
+              >
+                <ChartColumnStacked className="w-3.5 h-3.5" />
+                <span className="sr-only">Stacked</span>
+              </button>
+              <button
+                onClick={() => setMuscleTrendView('area')}
+                title="Area"
+                aria-label="Area"
+                className={`w-5 h-5 flex items-center justify-center rounded ${muscleTrendView==='area'?'bg-emerald-600 text-white':'text-slate-500 hover:text-slate-300 hover:bg-slate-800'}`}
+              >
+                <AreaChartIcon className="w-3.5 h-3.5" />
+                <span className="sr-only">Area</span>
+              </button>
             </div>
 
+            </div>
           </div>
           <div className={`flex-1 w-full min-h-[250px] sm:min-h-[320px] transition-all duration-700 delay-100 ${isMounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'} min-w-0`}>
             {trendData.length === 0 || trendKeys.length === 0 ? (
@@ -1272,20 +1717,62 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
             )}
           </div>
           <ChartDescription isMounted={isMounted}>
+            <InsightLine>
+              {muscleTrendInsight ? (
+                <>
+                  <TrendBadge
+                    label={
+                      <BadgeLabel
+                        main={
+                          <span className="inline-flex items-center gap-1">
+                            <TrendIcon direction={muscleTrendInsight.totalDelta.direction} />
+                            <span>{`${formatSigned(muscleTrendInsight.totalDelta.deltaPercent)}%`}</span>
+                          </span>
+                        }
+                        meta={muscleVsLabel}
+                      />
+                    }
+                    tone={getTrendBadgeTone(muscleTrendInsight.totalDelta.deltaPercent, { goodWhen: 'up' })}
+                  />
+                  {muscleTrendInsight.biggestMover && (
+                    <TrendBadge
+                      label={
+                        <BadgeLabel
+                          main={
+                            <span className="inline-flex items-center gap-1">
+                              <TrendIcon direction={muscleTrendInsight.biggestMover.d > 0 ? 'up' : muscleTrendInsight.biggestMover.d < 0 ? 'down' : 'same'} />
+                              <span>{muscleTrendInsight.biggestMover.k}</span>
+                            </span>
+                          }
+                          meta={
+                            <ShiftedMeta>
+                              <span>{`biggest mover: ${formatSigned(muscleTrendInsight.biggestMover.d)} sets`}</span>
+                            </ShiftedMeta>
+                          }
+                        />
+                      }
+                      tone={muscleTrendInsight.biggestMover.d === 0 ? 'neutral' : muscleTrendInsight.biggestMover.d > 0 ? 'good' : 'bad'}
+                    />
+                  )}
+                </>
+              ) : (
+                <TrendBadge label="Need more data" tone="neutral" />
+              )}
+            </InsightLine>
             <p>
-              <span className="font-semibold text-slate-300">Weighted by muscle involvement.</span> <span className="text-emerald-400 font-semibold">Primary</span> = 1 set, <span className="text-cyan-400 font-semibold">Secondary</span> = 0.5 set. Cardio is ignored; Full Body adds 1 set to every group.
+              <span className="font-semibold text-slate-300">Weighting:</span> <span className="text-emerald-400 font-semibold">Primary</span> = 1 set, <span className="text-cyan-400 font-semibold">Secondary</span> = 0.5 set. Cardio is ignored; Full Body adds 1 set to every group.
             </p>
-            <p className="text-slate-500 italic">Use <span className="text-blue-400">Groups</span>/<span className="text-blue-400">Muscles</span>, choose <span className="text-purple-400">Weekly/Monthly/Yearly</span>, and switch <span className="text-emerald-400">Stacked</span>/<span className="text-emerald-400">Area</span>.</p>
+            <p className="text-[11px] text-slate-500 leading-snug">
+              Use this to spot volume drift: if one area rises while others fade, you’re gradually specializing (intentional or accidental).
+            </p>
           </ChartDescription>
         </div>
-      )}
 
       {/* 5. Weekly Rhythm + Muscle Composition */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         
         {/* Weekly Rhythm: Radar/Bar */}
-        {visibleCharts.weekShape && (
-          <div className="bg-black/70 border border-slate-700/50 p-4 sm:p-6 rounded-xl shadow-lg min-h-[400px] sm:min-h-[520px] flex flex-col transition-all duration-300 hover:shadow-xl">
+        <div className="bg-black/70 border border-slate-700/50 p-4 sm:p-6 rounded-xl shadow-lg min-h-[400px] sm:min-h-[520px] flex flex-col transition-all duration-300 hover:shadow-xl">
             <ChartHeader 
               title="Weekly Rhythm" 
               icon={Clock} 
@@ -1319,22 +1806,34 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
               </ResponsiveContainer>
             </div>
             <ChartDescription isMounted={isMounted}>
-              <p>
-                <span className="font-semibold text-slate-300">Find your rhythm.</span> This chart reveals your workout patterns—when you train and how consistently.
-              </p>
-              <p>
-                A balanced pattern shows consistent daily habits, while a skewed shape reveals your preferred "gym days." Are you a weekend warrior or a weekday warrior?
-              </p>
-              <p className="text-slate-500 italic">
-                💡 Switch between <span className="text-pink-400">Radar</span> and <span className="text-pink-400">Bar</span> views to see a circular pattern or traditional comparison.
-              </p>
+              <InsightLine>
+                {weeklyRhythmInsight ? (
+                  <>
+                    <TrendBadge
+                      label={<BadgeLabel main={`Top ${weeklyRhythmInsight.top.subject} ${weeklyRhythmInsight.top.share.toFixed(0)}%`} />}
+                      tone="info"
+                    />
+                    <TrendBadge
+                      label={<BadgeLabel main={`Low ${weeklyRhythmInsight.bottom.subject} ${weeklyRhythmInsight.bottom.share.toFixed(0)}%`} />}
+                      tone="neutral"
+                    />
+                    <TrendBadge
+                      label={<BadgeLabel main={weeklyRhythmInsight.rhythmLabel} />}
+                      tone={weeklyRhythmInsight.rhythmTone}
+                    />
+                  </>
+                ) : (
+                  <TrendBadge label="Need more data" tone="neutral" />
+                )}
+              </InsightLine>
+              <div className="text-[11px] text-slate-500 leading-snug">
+                Read this as your training-day pattern. A flatter shape = steadier habit; big spikes mean your week depends on a couple of key days.
+              </div>
             </ChartDescription>
           </div>
-        )}
 
         {/* Volume Density (Area/Bar) */}
-        {visibleCharts.volumeVsDuration && (
-          <div className="bg-black/70 border border-slate-700/50 p-4 sm:p-6 rounded-xl shadow-lg min-h-[400px] sm:min-h-[520px] flex flex-col transition-all duration-300 hover:shadow-xl">
+        <div className="bg-black/70 border border-slate-700/50 p-4 sm:p-6 rounded-xl shadow-lg min-h-[400px] sm:min-h-[520px] flex flex-col transition-all duration-300 hover:shadow-xl">
             <ChartHeader 
               title="Volume Density" 
               icon={Timer} 
@@ -1393,97 +1892,143 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
               </ResponsiveContainer>
             </div>
             <ChartDescription isMounted={isMounted}>
-              <p>
-                <span className="font-semibold text-slate-300">Measure your training intensity.</span> This metric shows how much volume you're moving per set—a key indicator of workout difficulty.
-              </p>
-              <p>
-                Higher values mean you're pushing heavier weights or doing more reps per set. Watch the trends to see how your work capacity evolves over time.
-              </p>
-              <p className="text-slate-500 italic">
-                💡 Switch between <span className="text-purple-400">Area</span> and <span className="text-purple-400">Bar</span> views to see smooth trends or compare discrete periods.
-              </p>
+              <InsightLine>
+                {volumeDensityTrend ? (
+                  <>
+                    <TrendBadge
+                      label={
+                        <BadgeLabel
+                          main={
+                            <span className="inline-flex items-center gap-1">
+                              <TrendIcon direction={volumeDensityTrend.delta.direction} />
+                              <span>{`${formatSigned(volumeDensityTrend.delta.deltaPercent)}%`}</span>
+                            </span>
+                          }
+                          meta={modeToVsLabel(volumeVsDurationBadgeMode)}
+                        />
+                      }
+                      tone={getTrendBadgeTone(volumeDensityTrend.delta.deltaPercent, { goodWhen: 'up' })}
+                    />
+                    {volumeDensityTrend.delta4 && (
+                      <TrendBadge
+                        label={
+                          <BadgeLabel
+                            main={
+                              <span className="inline-flex items-center gap-1">
+                                <TrendIcon direction={volumeDensityTrend.delta4.direction} />
+                                <span>{`${formatSigned(volumeDensityTrend.delta4.deltaPercent)}%`}</span>
+                              </span>
+                            }
+                            meta="vs lst 4 sess"
+                          />
+                        }
+                        tone={getTrendBadgeTone(volumeDensityTrend.delta4.deltaPercent, { goodWhen: 'up' })}
+                      />
+                    )}
+                    <TrendBadge
+                      label={
+                        volumeDensityTrend.delta.direction === 'up'
+                          ? 'Work capacity is improving'
+                          : volumeDensityTrend.delta.direction === 'down'
+                            ? 'Work capacity is down'
+                            : 'Work capacity is steady'
+                      }
+                      tone={
+                        volumeDensityTrend.delta.direction === 'up'
+                          ? 'good'
+                          : volumeDensityTrend.delta.direction === 'down'
+                            ? 'bad'
+                            : 'neutral'
+                      }
+                    />
+                  </>
+                ) : (
+                  <TrendBadge label="Need more data" tone="neutral" />
+                )}
+              </InsightLine>
+              <div className="text-[11px] text-slate-500 leading-snug">
+                This chart is best read by the curve and the % change: rising density usually means you’re doing more work per set (intensity/work capacity trend).
+              </div>
             </ChartDescription>
-          </div>
-        )}
+        </div>
       </div>
 
       {/* 6. Top Exercises (Full Width, Bars/Area Views) */}
-      {visibleCharts.topExercises && (
-        <div className="bg-black/70 border border-slate-700/50 p-4 sm:p-6 rounded-xl shadow-lg min-h-[360px] flex flex-col transition-all duration-300 hover:shadow-xl min-w-0">
+      <div className="bg-black/70 border border-slate-700/50 p-4 sm:p-6 rounded-xl shadow-lg min-h-[360px] flex flex-col transition-all duration-300 hover:shadow-xl min-w-0">
           <div className={`flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3 sm:gap-0 transition-opacity duration-700 ${isMounted ? 'opacity-100' : 'opacity-0'}`}>
             <h3 className="text-base sm:text-lg font-semibold text-white flex items-center gap-2">
               <Zap className="w-5 h-5 text-amber-500" />
               Most Frequent Exercises
             </h3>
-            <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-1 flex-nowrap overflow-x-auto sm:overflow-visible max-w-full">
               {/* All / Monthly / Weekly Toggle */}
-              <div className="bg-black/70 p-1 rounded-lg flex gap-1 border border-slate-800 transition-all duration-200 hover:border-slate-700">
+              <div className="bg-black/70 p-0.5 rounded-lg flex gap-0.5 border border-slate-800 transition-all duration-200 hover:border-slate-700 shrink-0">
                 <button 
                   onClick={() => setTopExerciseMode('all')} 
-                  className={`px-2 py-1 text-[10px] font-bold uppercase rounded transition-all duration-200 ${
+                  title="All"
+                  aria-label="All"
+                  className={`w-6 h-5 flex items-center justify-center rounded transition-all duration-200 ${
                     topExerciseMode === 'all' 
                       ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30' 
                       : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800'
                   }`}
                 >
-                  All
+                  <Infinity className="w-3 h-3" />
+                  <span className="sr-only">All</span>
                 </button>
                 <button 
                   onClick={() => setTopExerciseMode('monthly')} 
-                  className={`px-2 py-1 text-[10px] font-bold uppercase rounded transition-all duration-200 ${
+                  title="Monthly"
+                  aria-label="Monthly"
+                  className={`w-6 h-5 flex items-center justify-center rounded transition-all duration-200 text-[9px] font-bold leading-none ${
                     topExerciseMode === 'monthly' 
                       ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30' 
                       : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800'
                   }`}
                 >
-                  Monthly
+                  mo
                 </button>
                 <button 
                   onClick={() => setTopExerciseMode('weekly')} 
-                  className={`px-2 py-1 text-[10px] font-bold uppercase rounded transition-all duration-200 ${
+                  title="Weekly"
+                  aria-label="Weekly"
+                  className={`w-6 h-5 flex items-center justify-center rounded transition-all duration-200 text-[9px] font-bold leading-none ${
                     topExerciseMode === 'weekly' 
                       ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30' 
                       : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800'
                   }`}
                 >
-                  Weekly
+                  wk
                 </button>
               </div>
               {/* View: Bars / Area */}
-              <div className="bg-black/70 p-1 rounded-lg flex gap-1 border border-slate-800 transition-all duration-200 hover:border-slate-700">
+              <div className="bg-black/70 p-0.5 rounded-lg flex gap-0.5 border border-slate-800 transition-all duration-200 hover:border-slate-700 shrink-0">
                 <button 
                   onClick={() => setTopExercisesView('barh')} 
-                  className={`px-2 py-1 text-[10px] font-bold uppercase rounded transition-all duration-200 ${
+                  title="Bars"
+                  aria-label="Bars"
+                  className={`w-6 h-5 flex items-center justify-center rounded transition-all duration-200 ${
                     topExercisesView === 'barh' 
                       ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/30' 
                       : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800'
                   }`}
                 >
-                  Bars
+                  <ChartBarStacked className="w-3 h-3" />
+                  <span className="sr-only">Bars</span>
                 </button>
                 <button 
                   onClick={() => setTopExercisesView('area')} 
-                  className={`px-2 py-1 text-[10px] font-bold uppercase rounded transition-all duration-200 ${
+                  title="Area"
+                  aria-label="Area"
+                  className={`w-6 h-5 flex items-center justify-center rounded transition-all duration-200 ${
                     topExercisesView === 'area' 
                       ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/30' 
                       : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800'
                   }`}
                 >
-                  Area
+                  <AreaChartIcon className="w-3 h-3" />
+                  <span className="sr-only">Area</span>
                 </button>
-              </div>
-              {/* Exercise Count Dropdown */}
-              <div className="flex items-center gap-2 bg-black/70 p-1.5 rounded-lg border border-slate-700/50">
-                <span className="text-xs text-slate-400 font-medium">Show:</span>
-                <select 
-                  value={topExerciseLimit} 
-                  onChange={(e) => setTopExerciseLimit(parseInt(e.target.value))}
-                  className="bg-black/70 border border-slate-600/50 rounded px-2 py-1 text-xs text-white focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
-                >
-                  {[3, 4, 5, 6, 7, 8].map(num => (
-                    <option key={num} value={num}>{num}</option>
-                  ))}
-                </select>
               </div>
             </div>
           </div>
@@ -1657,7 +2202,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
                                     </div>
                                   </div>
 
-                                    <div className={`self-end pr-1 font-extrabold text-xl tracking-tight ${countClass}`}>
+                                    <div className={`hidden self-end pr-1 font-extrabold text-xl tracking-tight ${countClass}`}>
                                       {medal ? (
                                         <span style={countShimmerStyle}>{exercise.count}x</span>
                                       ) : (
@@ -1788,14 +2333,46 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
           </div>
 
           <ChartDescription isMounted={isMounted}>
-            <p>
-              <span className="font-semibold text-slate-300">Your most-used movements.</span> The horizontal bars show total set counts for each exercise.
-            </p>
+            <InsightLine>
+              {topExercisesInsight.windowLabel === 'All time' ? (
+                <>
+                  <TrendBadge label="All time" tone="info" />
+                  {topExercisesInsight.top && <TrendBadge label={<BadgeLabel main={`Top: ${topExercisesInsight.top.name}`} />} tone="neutral" />}
+                  {topExercisesInsight.top && <TrendBadge label={<BadgeLabel main={`${topExercisesInsight.topShare.toFixed(0)}%`} meta="of shown" />} tone="neutral" />}
+                </>
+              ) : (
+                <>
+                  <TrendBadge
+                    label={
+                      <BadgeLabel
+                        main={
+                          <span className="inline-flex items-center gap-1">
+                            <TrendIcon direction={topExercisesInsight.delta.direction} />
+                            <span>{`${formatSigned(topExercisesInsight.delta.deltaPercent)}%`}</span>
+                          </span>
+                        }
+                        meta={`vs prior ${topExercisesInsight.windowLabel}`}
+                      />
+                    }
+                    tone={getTrendBadgeTone(topExercisesInsight.delta.deltaPercent, { goodWhen: 'up' })}
+                  />
+                  {topExercisesInsight.top && <TrendBadge label={<BadgeLabel main={`Top: ${topExercisesInsight.top.name}`} />} tone="neutral" />}
+                  {topExercisesInsight.top && <TrendBadge label={<BadgeLabel main={`${topExercisesInsight.topShare.toFixed(0)}%`} meta="of shown" />} tone={topExercisesInsight.topShare >= 45 ? 'bad' : topExercisesInsight.topShare >= 30 ? 'neutral' : 'good'} />}
+                </>
+              )}
+              {topExercisesInsight.top ? (
+                <TrendBadge
+                  label={topExercisesInsight.topShare >= 45 ? 'Variety is low' : topExercisesInsight.topShare >= 30 ? 'Variety is ok' : 'Variety is high'}
+                  tone={topExercisesInsight.topShare >= 45 ? 'bad' : topExercisesInsight.topShare >= 30 ? 'neutral' : 'good'}
+                />
+              ) : null}
+            </InsightLine>
+            <div className="text-[11px] text-slate-500 leading-snug">
+              This highlights your staples. If one movement takes a very large share, you may be under-rotating variations (useful to manage overuse).
+            </div>
           </ChartDescription>
         </div>
-      )}
 
-      <SupportLinks />
       </div>
     </>
   );

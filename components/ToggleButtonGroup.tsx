@@ -33,11 +33,11 @@ export function ToggleButtonGroup<T extends string = string>({
   activeColor = 'blue',
   size = 'sm',
 }: ToggleButtonGroupProps<T>): React.ReactElement {
-  const sizeClasses = size === 'sm' ? 'px-2 py-1 text-[10px]' : 'px-3 py-1.5 text-xs';
+  const sizeClasses = size === 'sm' ? 'px-1.5 py-0.5 text-[9px]' : 'px-3 py-1.5 text-xs';
   const activeClass = COLOR_CLASSES[activeColor] ?? COLOR_CLASSES.blue;
 
   return (
-    <div className="bg-slate-950 p-1 rounded-lg flex gap-1 border border-slate-800 transition-all duration-200 hover:border-slate-700">
+    <div className="bg-slate-950 p-0.5 rounded-lg flex gap-1 border border-slate-800 transition-all duration-200 hover:border-slate-700">
       {options.map((option) => (
         <button
           key={option.value}

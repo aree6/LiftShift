@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { WorkoutSet } from '../types';
 import { BodyMap, BodyMapGender } from './BodyMap';
 import { ViewHeader } from './ViewHeader';
-import { SupportLinks } from './SupportLinks';
 import {
   loadExerciseMuscleData,
   calculateMuscleVolume,
@@ -23,7 +22,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
-import { TrendingUp, TrendingDown, Dumbbell, X, Activity, Layers, Target } from 'lucide-react';
+import { TrendingUp, TrendingDown, Dumbbell, X, Activity, Layers, PersonStanding, BicepsFlexed } from 'lucide-react';
 import { normalizeMuscleGroup, NormalizedMuscleGroup } from '../utils/muscleAnalytics';
 import {
   SVG_TO_MUSCLE_GROUP,
@@ -390,6 +389,29 @@ export const MuscleAnalysis: React.FC<MuscleAnalysisProps> = ({ data, filtersSlo
     return [...getSvgIdsForGroup(group)];
   }, [hoveredMuscle, viewMode]);
 
+  const hoveredTooltipMeta = useMemo(() => {
+    if (!hoveredMuscle) return null;
+
+    if (viewMode === 'group') {
+      const groupName = MUSCLE_GROUP_DISPLAY[hoveredMuscle];
+      const sets = muscleGroupVolumes.get(groupName as any) || 0;
+      const accent = getVolumeColor(sets, maxGroupVolume);
+      return {
+        name: groupName,
+        sets,
+        accent,
+      };
+    }
+
+    const sets = muscleVolumes.get(hoveredMuscle) || 0;
+    const accent = getVolumeColor(sets, maxVolume);
+    return {
+      name: SVG_MUSCLE_NAMES[hoveredMuscle],
+      sets,
+      accent,
+    };
+  }, [hoveredMuscle, viewMode, muscleGroupVolumes, muscleVolumes, maxGroupVolume, maxVolume]);
+
   const closePanel = useCallback(() => {
     setSelectedMuscle(null);
   }, []);
@@ -420,14 +442,14 @@ export const MuscleAnalysis: React.FC<MuscleAnalysisProps> = ({ data, filtersSlo
   return (
     <div className="space-y-6">
       {/* Header - consistent with Dashboard */}
-      <ViewHeader
-        stats={[
-          { icon: Activity, value: totalSets, label: 'Total Sets' },
-          { icon: Dumbbell, value: musclesWorked, label: 'Muscles' },
-        ]}
-        filtersSlot={filtersSlot}
-        rightSlot={null}
-      />
+      <div className="hidden sm:block">
+        <ViewHeader
+          leftStats={[{ icon: Activity, value: totalSets, label: 'Total Sets' }]}
+          rightStats={[{ icon: Dumbbell, value: musclesWorked, label: 'Muscles' }]}
+          filtersSlot={filtersSlot}
+          rightSlot={null}
+        />
+      </div>
 
       {/* Main Content - Always Side by Side Layout */}
       <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
@@ -438,25 +460,29 @@ export const MuscleAnalysis: React.FC<MuscleAnalysisProps> = ({ data, filtersSlo
             <div className="inline-flex bg-black/70 rounded-lg p-0.5 shadow-lg border border-slate-700/50">
               <button
                 onClick={() => handleViewModeChange('muscle')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium transition-all ${
+                title="Muscle"
+                aria-label="Muscle"
+                className={`w-8 h-7 flex items-center justify-center rounded text-xs font-medium transition-all ${
                   viewMode === 'muscle'
                     ? 'bg-red-600 text-white'
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
-                <Target className="w-3 h-3" />
-                Muscle
+                <BicepsFlexed className="w-3.5 h-3.5" />
+                <span className="sr-only">Muscle</span>
               </button>
               <button
                 onClick={() => handleViewModeChange('group')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium transition-all ${
+                title="Group"
+                aria-label="Group"
+                className={`w-8 h-7 flex items-center justify-center rounded text-xs font-medium transition-all ${
                   viewMode === 'group'
                     ? 'bg-red-600 text-white'
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
-                <Layers className="w-3 h-3" />
-                Group
+                <PersonStanding className="w-3.5 h-3.5 scale-[1.3]" />
+                <span className="sr-only">Group</span>
               </button>
             </div>
           </div>
@@ -498,15 +524,13 @@ export const MuscleAnalysis: React.FC<MuscleAnalysisProps> = ({ data, filtersSlo
           </div>
 
           {/* Hover Tooltip */}
-          {hoveredMuscle && (
-            <div className="absolute top-14 left-1/2 -translate-x-1/2 bg-black/90 border border-slate-700/50 rounded-lg px-4 py-2 shadow-xl pointer-events-none z-20">
-              <div className="text-white font-medium text-sm">
-                {viewMode === 'group' ? MUSCLE_GROUP_DISPLAY[hoveredMuscle] : SVG_MUSCLE_NAMES[hoveredMuscle]}
+          {hoveredTooltipMeta && (
+            <div className="absolute top-24 sm:top-28 left-1/2 -translate-x-1/2 bg-black/90 border border-slate-700/50 rounded-lg px-4 py-2 shadow-xl pointer-events-none z-20">
+              <div className="font-medium text-sm text-center whitespace-nowrap" style={{ color: hoveredTooltipMeta.accent }}>
+                {hoveredTooltipMeta.name}
               </div>
-              <div className="text-red-400 text-xs text-center">
-                {viewMode === 'group' 
-                  ? Math.round((muscleGroupVolumes.get(MUSCLE_GROUP_DISPLAY[hoveredMuscle]) || 0) * 10) / 10
-                  : Math.round((muscleVolumes.get(hoveredMuscle) || 0) * 10) / 10} sets
+              <div className="text-xs text-center whitespace-nowrap" style={{ color: hoveredTooltipMeta.accent }}>
+                {Math.round(hoveredTooltipMeta.sets * 10) / 10} sets
               </div>
             </div>
           )}
@@ -790,8 +814,6 @@ export const MuscleAnalysis: React.FC<MuscleAnalysisProps> = ({ data, filtersSlo
           )}
         </div>
       </div>
-
-      <SupportLinks />
     </div>
   );
 };

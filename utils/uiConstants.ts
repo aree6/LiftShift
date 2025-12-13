@@ -33,13 +33,13 @@ export const CHART_COLORS: readonly string[] = [
   '#ef4444',
 ] as const;
 
-/** Tooltip theme classes by status */
+/** Tooltip theme classes by status - transparent (no blur, no black block) */
 export const TOOLTIP_THEMES: Readonly<Record<AnalysisStatus | 'default', string>> = {
-  success: 'border-emerald-500/50 bg-emerald-950/95 text-emerald-100 shadow-[0_0_15px_rgba(16,185,129,0.2)]',
-  warning: 'border-amber-500/50 bg-amber-950/95 text-amber-100 shadow-[0_0_15px_rgba(245,158,11,0.2)]',
-  danger: 'border-rose-500/50 bg-rose-950/95 text-rose-100 shadow-[0_0_15px_rgba(244,63,94,0.2)]',
-  info: 'border-blue-500/50 bg-slate-900/95 text-slate-200 shadow-[0_0_15px_rgba(59,130,246,0.2)]',
-  default: 'border-slate-700/50 bg-slate-950/95 text-slate-300 shadow-xl',
+  success: 'border-emerald-500/35 bg-emerald-950/75 text-emerald-100 shadow-[0_0_18px_rgba(16,185,129,0.14)]',
+  warning: 'border-orange-500/35 bg-orange-950/75 text-orange-100 shadow-[0_0_18px_rgba(249,115,22,0.14)]',
+  danger: 'border-rose-500/35 bg-rose-950/75 text-rose-100 shadow-[0_0_18px_rgba(244,63,94,0.14)]',
+  info: 'border-blue-500/35 bg-slate-900/75 text-slate-200 shadow-[0_0_18px_rgba(59,130,246,0.14)]',
+  default: 'border-slate-700/35 bg-slate-950/75 text-slate-300 shadow-xl',
 };
 
 /** Animation keyframes as CSS string for inline style injection */
@@ -55,6 +55,11 @@ export const ANIMATION_KEYFRAMES = `
   @keyframes textShimmer {
     0% { background-position: -200% 50%; }
     100% { background-position: 200% 50%; }
+  }
+
+  @keyframes prRowShimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
   }
 `;
 

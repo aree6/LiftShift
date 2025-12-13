@@ -214,7 +214,11 @@ export function getFilteredCacheKey(
     parts.push(`r:${filterState.range.start.getTime()}-${filterState.range.end.getTime()}`);
   }
   if (filterState.weeks && filterState.weeks.length > 0) {
-    parts.push(`w:${filterState.weeks.length}`);
+    const weeksKey = filterState.weeks
+      .map(w => `${w.start.getTime()}-${w.end.getTime()}`)
+      .sort()
+      .join(',');
+    parts.push(`w:${weeksKey}`);
   }
   
   return parts.join(':');

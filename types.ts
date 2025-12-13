@@ -70,10 +70,23 @@ export interface AnalysisMetrics {
   expected_reps: string;
 }
 
+export interface TooltipLine {
+  text: string;
+  color?: 'green' | 'red' | 'yellow' | 'blue' | 'gray';
+  bold?: boolean;
+}
+
+export interface StructuredTooltip {
+  trend: { value: string; direction: 'up' | 'down' | 'same' };
+  why: TooltipLine[];
+  improve?: TooltipLine[];
+}
+
 export interface AnalysisResult {
   transition: string;
   status: AnalysisStatus;
   metrics: AnalysisMetrics;
   tooltip: string;
   shortMessage: string;
+  structured?: StructuredTooltip;
 }

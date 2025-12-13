@@ -12,7 +12,6 @@ import { getExerciseAssets, ExerciseAsset } from '../utils/exerciseAssets';
 import { getDateKey, TimePeriod } from '../utils/dateUtils';
 import { ViewHeader } from './ViewHeader';
 import { BodyMap, BodyMapGender } from './BodyMap';
-import { SupportLinks } from './SupportLinks';
 import { 
   loadExerciseMuscleData, 
   ExerciseMuscleData, 
@@ -396,72 +395,58 @@ export const ExerciseView: React.FC<ExerciseViewProps> = ({ stats, filtersSlot, 
   }, [selectedStats]);
 
   // Stats for header
-  const totalExercises = stats.length;
   const totalPRs = useMemo(() => stats.reduce((sum, s) => sum + s.prCount, 0), [stats]);
 
-  const headerRightSlot = (
-    <div className="hidden sm:flex items-center gap-2 justify-end">
-      <div className="flex items-center gap-2 px-3 py-2 bg-black/70 border border-slate-700/50 rounded-lg">
-        <Trophy className="w-4 h-4 text-slate-400" />
-        <div className="text-xs">
-          <div className="text-white font-bold leading-4">{totalPRs}</div>
-          <div className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider">PRs</div>
-        </div>
-      </div>
-      {selectedStats && (
-        <>
-          <div className="flex items-center gap-2 px-3 py-2 bg-black/70 border border-slate-700/50 rounded-lg">
-            <Scale className="w-4 h-4 text-slate-400" />
-            <div className="text-xs">
-              <div className="flex items-center gap-1">
-                <span className="text-white font-bold leading-4">{convertWeight(selectedStats.maxWeight, weightUnit)}</span>
-                <span className="text-slate-500">{weightUnit}</span>
-                {exerciseDeltas && exerciseDeltas.bestImprovement > 0 && (
-                  <DeltaBadge delta={convertWeight(exerciseDeltas.bestImprovement, weightUnit)} suffix={` ${weightUnit}`} />
-                )}
-              </div>
-              <div className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider">
-                Best {exerciseDeltas && exerciseDeltas.previousBestWeight > 0}
-              </div>
-            </div>
-          </div>
-          {exerciseDeltas && (
-            <div className="flex items-center gap-2 px-3 py-2 bg-black/70 border border-slate-700/50 rounded-lg">
-              <TrendingUp className="w-4 h-4 text-slate-400" />
-              <div className="text-xs">
-                <div className="flex items-center gap-1">
-                  <span className="text-white font-bold leading-4">{convertWeight(exerciseDeltas.avgWeightLast3, weightUnit)}</span>
-                  <span className="text-slate-500">{weightUnit}</span>
-                  {exerciseDeltas.weightDelta !== 0 && (
-                    <DeltaBadge delta={convertWeight(exerciseDeltas.weightDelta, weightUnit)} suffix={` ${weightUnit}`} />
-                  )}
-                </div>
-                <div className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider">Last Session</div>
-              </div>
-            </div>
-          )}
-          <div className="flex items-center gap-2 px-3 py-2 bg-black/70 border border-slate-700/50 rounded-lg">
-            <Activity className="w-4 h-4 text-slate-400" />
-            <div className="text-xs">
-              <div className="text-white font-bold leading-4">{selectedStats.history.length}</div>
-              <div className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider">Sessions</div>
-            </div>
-          </div>
-        </>
-      )}
-    </div>
-  );
+  const sessionsCount = selectedStats ? selectedStats.history.length : 0;
 
   return (
     <div className="flex flex-col gap-6 w-full text-slate-200 pb-10">
       {/* Header - consistent with Dashboard */}
-      <ViewHeader
-        stats={[
-          { icon: Dumbbell, value: totalExercises, label: 'Exercises' },
-        ]}
-        filtersSlot={filtersSlot}
-        rightSlot={headerRightSlot}
-      />
+      <div className="hidden sm:block">
+        <ViewHeader
+          leftStats={[
+            { icon: Trophy, value: totalPRs, label: 'PRs' },
+            ...(selectedStats ? [{ icon: Activity, value: sessionsCount, label: 'Sessions' }] : []),
+          ]}
+          rightStats={[
+            ...(selectedStats
+              ? [
+                  {
+                    icon: Scale,
+                    value: (
+                      <span className="inline-flex items-center gap-1">
+                        <span className="text-white font-bold leading-4">{convertWeight(selectedStats.maxWeight, weightUnit)}</span>
+                        <span className="text-slate-500">{weightUnit}</span>
+                        {exerciseDeltas && exerciseDeltas.bestImprovement > 0 ? (
+                          <DeltaBadge delta={convertWeight(exerciseDeltas.bestImprovement, weightUnit)} suffix={` ${weightUnit}`} />
+                        ) : null}
+                      </span>
+                    ),
+                    label: 'Best',
+                  },
+                ]
+              : []),
+            ...(exerciseDeltas
+              ? [
+                  {
+                    icon: TrendingUp,
+                    value: (
+                      <span className="inline-flex items-center gap-1">
+                        <span className="text-white font-bold leading-4">{convertWeight(exerciseDeltas.avgWeightLast3, weightUnit)}</span>
+                        <span className="text-slate-500">{weightUnit}</span>
+                        {exerciseDeltas.weightDelta !== 0 ? (
+                          <DeltaBadge delta={convertWeight(exerciseDeltas.weightDelta, weightUnit)} suffix={` ${weightUnit}`} />
+                        ) : null}
+                      </span>
+                    ),
+                    label: 'Last Session',
+                  },
+                ]
+              : []),
+          ]}
+          filtersSlot={filtersSlot}
+        />
+      </div>
       
       {/* 
           TOP SECTION: GRID LAYOUT 
@@ -762,7 +747,6 @@ export const ExerciseView: React.FC<ExerciseViewProps> = ({ stats, filtersSlot, 
           </div>
         </div>
       )}
-      <SupportLinks />
     </div>
   );
 };

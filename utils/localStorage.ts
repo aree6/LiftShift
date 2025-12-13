@@ -93,6 +93,9 @@ export const getChartModes = (): Record<string, TimeFilterMode> | null => {
 export type WeightUnit = 'kg' | 'lbs';
 const WEIGHT_UNIT_KEY = 'hevy_analytics_weight_unit';
 
+const BODY_MAP_GENDER_KEY = 'hevy_analytics_body_map_gender';
+export type StoredBodyMapGender = 'male' | 'female';
+
 /**
  * Save weight unit preference to local storage
  */
@@ -114,5 +117,23 @@ export const getWeightUnit = (): WeightUnit => {
   } catch (error) {
     console.error('Failed to retrieve weight unit from local storage:', error);
     return 'kg';
+  }
+};
+
+export const saveBodyMapGender = (gender: StoredBodyMapGender): void => {
+  try {
+    localStorage.setItem(BODY_MAP_GENDER_KEY, gender);
+  } catch (error) {
+    console.error('Failed to save body map gender to local storage:', error);
+  }
+};
+
+export const getBodyMapGender = (): StoredBodyMapGender => {
+  try {
+    const gender = localStorage.getItem(BODY_MAP_GENDER_KEY);
+    return (gender === 'male' || gender === 'female') ? gender : 'male';
+  } catch (error) {
+    console.error('Failed to retrieve body map gender from local storage:', error);
+    return 'male';
   }
 };

@@ -85,9 +85,14 @@ const DeltaBadge: React.FC<{ delta: DeltaResult; suffix?: string; showPercent?: 
   const Icon = isUp ? TrendingUp : TrendingDown;
 
   return (
-    <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded ${bgClass} ${colorClass} text-[10px] font-bold`}>
+    <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded ${bgClass} ${colorClass}`}>
       <Icon className="w-3 h-3" />
-      {isUp ? '+' : ''}{showPercent ? `${deltaPercent}%` : delta.delta}{suffix}{context && ` ${context}`}
+      <span className="text-[10px] font-bold">
+        {isUp ? '+' : ''}
+        {showPercent ? `${deltaPercent}%` : delta.delta}
+        {suffix}
+      </span>
+      {context && <span className="text-[9px] opacity-75">{context}</span>}
     </span>
   );
 };
@@ -185,32 +190,33 @@ export const KPICard: React.FC<KPICardProps> = ({
 }) => {
   return (
     <div className={`bg-black/70 border border-slate-700/50 rounded-xl ${compact ? 'p-3' : 'p-4'} flex flex-col gap-2 hover:border-slate-600/50 transition-all group`}>
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className={`p-1.5 rounded-lg bg-black/50 ${iconColor}`}>
+      <div className="grid grid-cols-[1fr_auto_auto] grid-rows-2 gap-x-3 gap-y-1 items-center">
+        <div className="flex items-center gap-2 col-start-1 row-start-1 min-w-0">
+          <div className={`p-1.5 rounded-lg bg-black/50 ${iconColor} flex-shrink-0`}>
             <Icon className="w-4 h-4" />
           </div>
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{title}</span>
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 truncate">{title}</span>
         </div>
-        {sparkline && sparkline.length > 1 && (
-          <Sparkline data={sparkline} color={sparklineColor} />
+
+        <div className="flex items-baseline gap-2 col-start-1 row-start-2 min-w-0">
+          <div className="text-2xl font-bold text-white tracking-tight leading-none">{value}</div>
+          {subtitle && <div className="text-[10px] text-slate-500 truncate">{subtitle}</div>}
+        </div>
+
+        <div className="col-start-2 row-start-2 justify-self-start">
+          {delta ? <DeltaBadge delta={delta} context={deltaContext} /> : badge ? badge : null}
+        </div>
+
+        {sparkline && sparkline.length > 1 ? (
+          <div className="col-start-3 row-span-2 self-center justify-self-center">
+            <Sparkline data={sparkline} color={sparklineColor} height={26} />
+          </div>
+        ) : (
+          <div className="col-start-3 row-span-2" />
         )}
       </div>
 
-      {/* Value */}
-      <div className="flex items-end justify-between">
-        <div>
-          <div className="text-2xl font-bold text-white tracking-tight">{value}</div>
-          {subtitle && <div className="text-[10px] text-slate-500">{subtitle}</div>}
-        </div>
-      </div>
-
-      {/* Badge and Delta */}
-      <div className="flex items-center justify-between">
-        {delta && <DeltaBadge delta={delta} context={deltaContext} />}
-        {badge && <div className={delta ? '' : 'w-full'}>{badge}</div>}
-      </div>
+      {delta && badge && <div>{badge}</div>}
     </div>
   );
 };
@@ -282,7 +288,7 @@ export const InsightsPanel: React.FC<InsightsPanelProps> = memo(function Insight
         icon={Calendar}
         iconColor="text-blue-400"
         delta={weekComparison.workouts}
-        deltaContext="vs last wk"
+        deltaContext="vs lst wk"
         sparkline={workoutSparkline}
         sparklineColor="#3b82f6"
       />
@@ -295,7 +301,7 @@ export const InsightsPanel: React.FC<InsightsPanelProps> = memo(function Insight
         icon={Dumbbell}
         iconColor="text-purple-400"
         delta={weekComparison.sets}
-        deltaContext="vs last wk"
+        deltaContext="vs lst wk"
         sparkline={setsSparkline}
         sparklineColor="#a855f7"
       />
