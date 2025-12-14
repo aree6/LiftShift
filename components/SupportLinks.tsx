@@ -15,7 +15,7 @@ export const SupportLinks: React.FC<{
   const uniformButtonClass =
     layout === 'header'
       ? 'inline-flex items-center justify-center whitespace-nowrap rounded-md text-xs font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-9 px-3 py-1.5 bg-transparent border border-black/70 text-slate-200 hover:border-white hover:text-white hover:bg-white/5 transition-all duration-200'
-      : 'inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-10 px-4 py-2 bg-transparent border border-black/70 text-slate-200 hover:border-white hover:text-white hover:bg-white/5 transition-all duration-200';
+      : 'inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-10 px-4 py-2 bg-transparent border border-black/70 text-slate-200 hover:border-white hover:text-white hover:bg-white/5 transition-all duration-200 flex-1 sm:flex-none min-w-[140px] sm:min-w-0';
 
   const showPrimary = variant === 'all' || variant === 'primary';
   const showSecondary = variant === 'all' || variant === 'secondary';
@@ -23,12 +23,12 @@ export const SupportLinks: React.FC<{
   const primaryContainerClass =
     layout === 'header'
       ? 'flex flex-wrap items-center justify-end gap-2'
-      : 'flex flex-col sm:flex-row items-center justify-center gap-3';
+      : 'flex flex-wrap w-full items-center justify-center gap-2';
 
   const secondaryContainerClass =
     layout === 'header'
       ? 'flex flex-wrap items-center gap-2'
-      : 'flex flex-col sm:flex-row items-center justify-center gap-3';
+      : 'flex flex-wrap w-full items-center justify-center gap-2';
 
   const content = (
     <>
@@ -37,7 +37,7 @@ export const SupportLinks: React.FC<{
           <StarOnGithubButton
             showCount={layout !== 'header'}
             variant={layout === 'header' ? 'outline' : 'solid'}
-            className={layout === 'header' ? '' : undefined}
+            className={layout === 'header' ? '' : 'flex-1 sm:flex-none min-w-[140px] sm:min-w-0'}
           />
 
           <button
@@ -97,9 +97,9 @@ export const SupportLinks: React.FC<{
   }
 
   return (
-    <div className={`mt-10 pt-6 border-t border-slate-800/70 ${className ?? ''}`.trim()}>
-      <div className="flex flex-col items-center gap-4">
-        <div className="flex flex-col items-center justify-center gap-3">{content}</div>
+    <div className={`mt-6 pt-4 border-t border-slate-800/70 ${className ?? ''}`.trim()}>
+      <div className="flex flex-col items-stretch gap-4">
+        <div className="flex flex-col items-stretch justify-center gap-3">{content}</div>
       </div>
     </div>
   );

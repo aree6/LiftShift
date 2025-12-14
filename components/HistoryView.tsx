@@ -133,9 +133,24 @@ const Sparkline: React.FC<{ data: number[]; width?: number; height?: number; col
   // Determine trend color
   const trend = data[data.length - 1] - data[0];
   const strokeColor = trend >= 0 ? '#10b981' : '#f43f5e';
+  const markerId = `sparkline-arrow-${String(strokeColor).replace(/[^a-zA-Z0-9]/g, '')}`;
   
   return (
     <svg width={width} height={height} className="overflow-visible">
+      <defs>
+        <marker
+          id={markerId}
+          viewBox="0 0 6 10"
+          refX="4.8"
+          refY="5"
+          markerWidth="5"
+          markerHeight="9"
+          orient="auto"
+          markerUnits="userSpaceOnUse"
+        >
+          <path d="M 0 0 L 6 5 L 0 10 z" fill={strokeColor} />
+        </marker>
+      </defs>
       <polyline
         points={points}
         fill="none"
@@ -143,14 +158,8 @@ const Sparkline: React.FC<{ data: number[]; width?: number; height?: number; col
         strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
+        markerEnd={`url(#${markerId})`}
         opacity="0.8"
-      />
-      {/* End dot */}
-      <circle
-        cx={(data.length - 1) / (data.length - 1) * width}
-        cy={height - ((data[data.length - 1] - min) / range) * height}
-        r="2"
-        fill={strokeColor}
       />
     </svg>
   );

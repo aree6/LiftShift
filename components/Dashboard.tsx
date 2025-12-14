@@ -1,7 +1,6 @@
 import React, { useMemo, useState, useEffect, useCallback, memo } from 'react';
 import { DailySummary, ExerciseStats, WorkoutSet } from '../types';
 import { 
-  getHeatmapData, 
   getIntensityEvolution, 
   getDayOfWeekShape, 
   getTopExercisesRadial,
@@ -34,12 +33,13 @@ import {
   BarChart3, AreaChart as AreaChartIcon, LineChart as LineChartIcon,
   Grid3X3, Scan, Square, ChartBarStacked, ChartColumnStacked, BicepsFlexed
 } from 'lucide-react';
-import { format, startOfMonth, startOfWeek, subDays, differenceInCalendarDays } from 'date-fns';
+import { Target } from 'lucide-react';
+import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addMonths, eachDayOfInterval, subDays, differenceInCalendarDays } from 'date-fns';
 import { formatDayContraction, formatDayYearContraction, formatWeekContraction, formatMonthYearContraction } from '../utils/dateUtils';
 import { getExerciseAssets, ExerciseAsset } from '../utils/exerciseAssets';
 import { ViewHeader } from './ViewHeader';
-import { calculateDashboardInsights, detectPlateaus, calculateDelta, DashboardInsights, PlateauAnalysis } from '../utils/insights';
-import { InsightsPanel, PlateauAlert, RecentPRsPanel } from './InsightCards';
+import { calculateDashboardInsights, detectPlateaus, calculateDelta, DashboardInsights, PlateauAnalysis, SparklinePoint, StreakInfo } from '../utils/insights';
+import { InsightsPanel, PlateauAlert, RecentPRsPanel, Sparkline, StreakBadge } from './InsightCards';
 import { computationCache } from '../utils/computationCache';
 
 const formatSigned = (n: number) => (n > 0 ? `+${n}` : `${n}`);
@@ -139,10 +139,55 @@ const InsightRow = ({ children }: { children: React.ReactNode }) => (
 
 const InsightLine = ({ children }: { children: React.ReactNode }) => (
   <div className="flex flex-wrap items-center gap-2">
-    <span className="font-semibold text-slate-300">Insight:</span>
+    <span className="font-semibold text-slate-300">Insights:</span>
     {children}
   </div>
 );
+
+ const sanitizeInsightText = (text: string) => {
+   return text
+     .replace(/[\u201C\u201D"]/g, '')
+     .replace(/\u2014|\u2013/g, ',')
+     .replace(/;/g, '.')
+     .replace(/[()]/g, '')
+     .replace(/\s*\/\s*/g, ' and ')
+     .replace(/%/g, ' percent')
+     .replace(/\s+/g, ' ')
+     .trim();
+ };
+
+ const splitInsightSentences = (text: string) => {
+   const cleaned = sanitizeInsightText(text);
+   const sentences: string[] = [];
+   let start = 0;
+   for (let i = 0; i < cleaned.length; i++) {
+     if (cleaned[i] !== '.') continue;
+     const prev = i > 0 ? cleaned[i - 1] : '';
+     const next = i + 1 < cleaned.length ? cleaned[i + 1] : '';
+     const isDecimal = /\d/.test(prev) && /\d/.test(next);
+     const isSentenceEnd = !isDecimal && (i === cleaned.length - 1 || /\s/.test(next));
+     if (!isSentenceEnd) continue;
+     const s = cleaned.slice(start, i + 1).trim();
+     if (s) sentences.push(s);
+     start = i + 1;
+   }
+   const tail = cleaned.slice(start).trim();
+   if (tail) sentences.push(tail.endsWith('.') ? tail : `${tail}.`);
+   return sentences;
+ };
+
+ const InsightText = ({ text }: { text: string }) => {
+   const sentences = useMemo(() => splitInsightSentences(text), [text]);
+   return (
+     <div className="text-[11px] text-slate-500 leading-snug">
+       {sentences.map((s, i) => (
+         <span key={i} className="block">
+           {s}
+         </span>
+       ))}
+     </div>
+   );
+ };
 
 const sumLastN = <T,>(arr: T[], n: number, getVal: (x: T) => number) => {
   if (arr.length < n) return null;
@@ -353,40 +398,83 @@ const ChartHeader = ({
 );
 
 // 4. Heatmap Component - Memoized to prevent unnecessary re-renders
-const Heatmap = memo(({ dailyData, totalPrs, onDayClick, effectiveNow }: { dailyData: DailySummary[], totalPrs: number, onDayClick?: (date: Date) => void, effectiveNow: Date }) => {
+const Heatmap = memo(({ dailyData, streakInfo, consistencySparkline, onDayClick }: { dailyData: DailySummary[], streakInfo: StreakInfo, consistencySparkline: SparklinePoint[], onDayClick?: (date: Date) => void }) => {
   // Cache heatmap data across tab switches
   const heatmapData = useMemo(() => {
     return computationCache.getOrCompute(
       'heatmapData',
       dailyData,
-      () => getHeatmapData(dailyData),
+      () => {
+        if (dailyData.length === 0) return [];
+
+        const byDayKey = new Map<string, DailySummary>();
+        for (const d of dailyData) {
+          byDayKey.set(format(new Date(d.timestamp), 'yyyy-MM-dd'), d);
+        }
+
+        const firstDate = new Date(dailyData[0].timestamp);
+        const lastDate = new Date(dailyData[dailyData.length - 1].timestamp);
+        const days = eachDayOfInterval({ start: firstDate, end: lastDate });
+
+        return days.map((day) => {
+          const key = format(day, 'yyyy-MM-dd');
+          const activity = byDayKey.get(key);
+          return {
+            date: day,
+            count: activity?.sets ?? 0,
+            totalVolume: activity?.totalVolume ?? 0,
+            title: activity?.workoutTitle ?? null,
+          };
+        });
+      },
       { ttl: 10 * 60 * 1000 }
     );
   }, [dailyData]);
 
-  const monthLabels = useMemo(() => {
-    const columns = Math.ceil(heatmapData.length / 7);
-    const cells = new Array(columns).fill('');
-    if (heatmapData.length === 0) return { columns, cells };
+  const monthBlocks = useMemo(() => {
+    type MonthBlock = { key: string; label: string; cells: Array<any | null> };
 
-    let lastMonth = -1;
-    let lastCol = -1;
-    for (let i = 0; i < heatmapData.length; i++) {
-      const d = heatmapData[i].date;
-      const m = d.getMonth();
-      if (i === 0 || m !== lastMonth) {
-        const col = Math.floor(i / 7);
-        const label = format(d, 'MMM');
-        if (col === lastCol) {
-          cells[col] = label;
-        } else {
-          cells[col] = label;
-          lastCol = col;
-        }
-        lastMonth = m;
-      }
+    if (heatmapData.length === 0) return [] as MonthBlock[];
+
+    const byKey = new Map<string, any>();
+    for (const d of heatmapData) {
+      byKey.set(format(d.date, 'yyyy-MM-dd'), d);
     }
-    return { columns, cells };
+
+    const rangeStart = heatmapData[0].date as Date;
+    const rangeEnd = heatmapData[heatmapData.length - 1].date as Date;
+
+    const blocks: MonthBlock[] = [];
+    let cursor = startOfMonth(rangeStart);
+
+    while (cursor.getTime() <= rangeEnd.getTime()) {
+      const monthStart = cursor;
+      const monthEnd = endOfMonth(monthStart);
+
+      const visibleStart = monthStart.getTime() < rangeStart.getTime() ? rangeStart : monthStart;
+      const visibleEnd = monthEnd.getTime() > rangeEnd.getTime() ? rangeEnd : monthEnd;
+
+      const days = eachDayOfInterval({ start: visibleStart, end: visibleEnd });
+      const rowCount = Math.ceil(days.length / 7);
+      const cells: Array<any | null> = new Array(rowCount * 7).fill(null);
+
+      for (let i = 0; i < days.length; i++) {
+        const day = days[i];
+        cells[i] = byKey.get(format(day, 'yyyy-MM-dd')) || { date: day, count: 0, title: null };
+      }
+
+      const monthInitial = format(monthStart, 'MMM').slice(0, 1);
+      const yearShort = format(monthStart, 'yy');
+      blocks.push({
+        key: format(monthStart, 'yyyy-MM'),
+        label: `${monthInitial} ${yearShort}`,
+        cells,
+      });
+
+      cursor = addMonths(cursor, 1);
+    }
+
+    return blocks;
   }, [heatmapData]);
 
   const [tooltip, setTooltip] = useState<any | null>(null);
@@ -399,8 +487,11 @@ const Heatmap = memo(({ dailyData, totalPrs, onDayClick, effectiveNow }: { daily
       requestAnimationFrame(() => {
         // Add a small delay for mobile browsers to complete layout
         setTimeout(() => {
-    if (scrollContainerRef.current) {
-      scrollContainerRef.current.scrollLeft = scrollContainerRef.current.scrollWidth;
+          if (scrollContainerRef.current) {
+            scrollContainerRef.current.scrollLeft = Math.max(
+              0,
+              scrollContainerRef.current.scrollWidth - scrollContainerRef.current.clientWidth
+            );
           }
         }, 100);
       });
@@ -418,7 +509,7 @@ const Heatmap = memo(({ dailyData, totalPrs, onDayClick, effectiveNow }: { daily
   };
 
   const handleMouseEnter = (e: React.MouseEvent, day: any) => {
-    if (day.count === 0) return;
+    if (!day || day.count === 0) return;
     const rect = e.currentTarget.getBoundingClientRect();
     setTooltip({
       rect,
@@ -432,46 +523,58 @@ const Heatmap = memo(({ dailyData, totalPrs, onDayClick, effectiveNow }: { daily
   return (
     <div className="bg-black/70 border border-slate-700/50 p-4 sm:p-6 rounded-xl shadow-lg flex flex-col md:flex-row gap-4 sm:gap-6 overflow-hidden">
       <div className="flex-shrink-0 flex flex-col justify-between min-w-full md:min-w-[180px] border-b md:border-b-0 md:border-r border-slate-800/50 pb-4 md:pb-0 md:pr-6 md:mr-2">
-        <div>
-          <h3 className="text-base sm:text-lg font-semibold text-white flex items-center mb-1">
-            <Calendar className="w-5 h-5 mr-2 text-blue-500" />
-            Consistency
-          </h3>
-          <p className="text-xs sm:text-sm text-slate-500">365d ending {format(effectiveNow, 'MMM d, yyyy')}</p>
-        </div>
-        <div className="mt-4">
-           <div className="flex items-center gap-3">
-              <div className="p-2 bg-yellow-500/10 rounded-lg">
-                <Dumbbell className="w-5 h-5 sm:w-6 sm:h-6 text-yellow-500" />
+        <div className="w-full h-full flex items-center">
+          <div className="w-full flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <div className="p-1.5 rounded-lg bg-black/50 text-emerald-400 flex-shrink-0">
+                  <Target className="w-4 h-4" />
+                </div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 truncate">Consistency</span>
               </div>
-              <div>
-                <p className="text-xl sm:text-2xl font-bold text-white">{totalPrs}</p>
-                <p className="text-xs font-medium text-slate-400 uppercase">PRs Set</p>
+              <div className="text-2xl font-bold text-white tracking-tight leading-none">
+                {streakInfo.consistencyScore}%
               </div>
-           </div>
+              <div className="text-[11px] text-slate-500 mt-1">
+                {streakInfo.avgWorkoutsPerWeek}/wk avg
+              </div>
+            </div>
+
+            <div className="flex-shrink-0">
+              <Sparkline data={consistencySparkline} color="#10b981" height={24} />
+            </div>
+
+            <div className="flex-shrink-0">
+              <StreakBadge streak={streakInfo} />
+            </div>
+          </div>
         </div>
 
       </div>
       <div className="flex-1 w-full overflow-x-auto pb-2 custom-scrollbar" ref={scrollContainerRef}>
-        <div className="min-w-max">
-          <div className="grid grid-flow-col auto-cols-[12px] gap-1 text-[10px] text-slate-500 mb-2">
-            {monthLabels.cells.map((label, idx) => (
-              <div key={idx} className="w-3 h-3 flex items-end justify-start">
-                {label}
+        <div className="w-max">
+          <div className="flex items-start gap-4">
+            {monthBlocks.map((month) => (
+              <div key={month.key} className="flex flex-col items-center">
+                <div className="h-4 mb-2 flex items-center justify-center text-[10px] text-slate-500 whitespace-nowrap">
+                  {month.label}
+                </div>
+                <div className="grid grid-cols-7 gap-1">
+                  {month.cells.map((day, idx) => {
+                    if (!day) return <div key={`${month.key}-empty-${idx}`} className="w-3 h-3" />;
+                    return (
+                      <div
+                        key={day.date.toISOString()}
+                        className={`w-3 h-3 rounded-sm ${getColor(day.count)} transition-all duration-300 ${day.count > 0 ? 'cursor-pointer hover:z-10 ring-0 hover:ring-2 ring-white/20' : 'cursor-default'}`}
+                        onClick={() => day.count > 0 && onDayClick?.(day.date)}
+                        onMouseEnter={(e) => handleMouseEnter(e, day)}
+                        onMouseLeave={() => setTooltip(null)}
+                      />
+                    );
+                  })}
+                </div>
               </div>
             ))}
-          </div>
-          <div className="grid grid-flow-col grid-rows-7 gap-1">
-              {heatmapData.map((day) => (
-                <div 
-                  key={day.date.toISOString()}
-                  className={`w-3 h-3 rounded-sm ${getColor(day.count)} transition-all duration-300 ${day.count > 0 ? 'cursor-pointer hover:z-10 ring-0 hover:ring-2 ring-white/20' : 'cursor-default'}`}
-                  onClick={() => day.count > 0 && onDayClick?.(day.date)}
-                  onMouseEnter={(e) => handleMouseEnter(e, day)}
-                  onMouseLeave={() => setTooltip(null)}
-                >
-                </div>
-              ))}
           </div>
         </div>
       </div>
@@ -1215,7 +1318,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
       )}
 
       {/* 1. HEATMAP (Full Width) */}
-      <Heatmap dailyData={dailyData} totalPrs={totalPrs} onDayClick={onDayClick} effectiveNow={effectiveNow} />
+      <Heatmap
+        dailyData={dailyData}
+        streakInfo={dashboardInsights.streakInfo}
+        consistencySparkline={dashboardInsights.consistencySparkline}
+        onDayClick={onDayClick}
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 sm:gap-2">
         
@@ -1308,9 +1416,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
                   />
                 )}
               </InsightLine>
-              <div className="text-[11px] text-slate-500 leading-snug">
-                PRs per period show your "breakthrough pace." A steady rise usually means you’re progressing; dips often align with maintenance or deload phases.
-              </div>
+              <InsightText text="PRs per period show your breakthrough pace. A steady rise usually means you are progressing. Dips often align with maintenance or deload phases." />
             </ChartDescription>
         </div>
 
@@ -1494,9 +1600,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
                 <TrendBadge label="Need more data" tone="neutral" />
               )}
             </InsightLine>
-            <div className="text-[11px] text-slate-500 leading-snug">
-              Read this as your weekly set allocation. If the Top3 share is high, your volume is concentrated (great for specialization, but watch balance).
-            </div>
+            <InsightText text="Read this as your weekly set allocation. If the Top 3 share is high, your volume is concentrated. This is great for specialization, but watch balance." />
           </ChartDescription>
         </div>
       </div>
@@ -1596,9 +1700,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
                  <TrendBadge label="Need more data" tone="neutral" />
                )}
              </InsightLine>
-             <div className="text-[11px] text-slate-500 leading-snug">
-               Your rep ranges hint what you’re training for (strength vs size vs endurance). Big % shifts usually reflect a new block or focus.
-             </div>
+             <InsightText text="Your rep ranges hint what you are training for: strength, size, endurance. Big percent shifts usually reflect a new block or focus." />
           </ChartDescription>
         </div>
 
@@ -1759,11 +1861,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
               )}
             </InsightLine>
             <p>
-              <span className="font-semibold text-slate-300">Weighting:</span> <span className="text-emerald-400 font-semibold">Primary</span> = 1 set, <span className="text-cyan-400 font-semibold">Secondary</span> = 0.5 set. Cardio is ignored; Full Body adds 1 set to every group.
+              <span className="font-semibold text-slate-300">Weighting:</span> <span className="text-emerald-400 font-semibold">Primary</span>: 1 set, <span className="text-cyan-400 font-semibold">Secondary</span>: 0.5 set. Cardio is ignored. Full Body adds 1 set to every group.
             </p>
-            <p className="text-[11px] text-slate-500 leading-snug">
-              Use this to spot volume drift: if one area rises while others fade, you’re gradually specializing (intentional or accidental).
-            </p>
+            <InsightText text="Use this to spot volume drift. If one area rises while others fade, you are gradually specializing. This can be intentional, or accidental." />
           </ChartDescription>
         </div>
 
@@ -1825,9 +1925,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
                   <TrendBadge label="Need more data" tone="neutral" />
                 )}
               </InsightLine>
-              <div className="text-[11px] text-slate-500 leading-snug">
-                Read this as your training-day pattern. A flatter shape = steadier habit; big spikes mean your week depends on a couple of key days.
-              </div>
+              <InsightText text="Read this as your training day pattern. A flatter shape means a steadier habit. Big spikes mean your week depends on a couple of key days." />
             </ChartDescription>
           </div>
 
@@ -1945,9 +2043,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
                   <TrendBadge label="Need more data" tone="neutral" />
                 )}
               </InsightLine>
-              <div className="text-[11px] text-slate-500 leading-snug">
-                This chart is best read by the curve and the % change: rising density usually means you’re doing more work per set (intensity/work capacity trend).
-              </div>
+              <InsightText text="Read this chart by the curve and the percent change. Rising density usually means you are doing more work per set. This often reflects an intensity and work capacity trend." />
             </ChartDescription>
         </div>
       </div>
@@ -2068,17 +2164,22 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
                             const axisH = 18;
                             const padding = 8;
                             const available = 320 - headerH - axisH - padding;
-                            const gap = Math.max(6, Math.min(14, Math.floor(available * 0.06)));
-                            const rowH = Math.max(40, Math.floor((available - gap * (n - 1)) / n));
-                            const avatar = Math.min(rowH, 64);
+                            const gap = 12;
+                            const rowH = 48;
+                            const avatar = 40;
+                            const contentH = n * rowH + (n - 1) * gap;
+                            const verticalPad = Math.max(0, available - contentH);
 
                             return (
                               <div
                                 className="relative"
                                 style={{
-                                  display: 'grid',
-                                  rowGap: `${gap}px`,
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  gap: `${gap}px`,
                                   height: `${available}px`,
+                                  paddingTop: `${Math.floor(verticalPad / 2)}px`,
+                                  paddingBottom: `${Math.ceil(verticalPad / 2)}px`,
                                   overflow: 'hidden',
                                 }}
                               >
@@ -2126,8 +2227,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
                                     WebkitBackgroundClip: 'text',
                                     backgroundClip: 'text',
                                     color: 'transparent',
-                                    filter: 'drop-shadow(0 0 10px rgba(255,255,255,0.15))',
-                                    animation: 'textShimmer 1.05s linear infinite',
+                                    filter: 'drop-shadow(0 0 4px rgba(255,255,255,0.08))',
+                                    animation: 'textShimmer 2.4s linear infinite',
                                   }
                                 : undefined;
 
@@ -2151,6 +2252,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
                                       style={{
                                         height: `${rowH}px`,
                                         width: `${barWidthPct}%`,
+                                        minWidth: `${avatar + 72}px`,
                                         maxWidth: '100%',
                                       }}
                                     >
@@ -2166,12 +2268,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
                                   {medal && (
                                     <div
                                       className="absolute inset-0 rounded-full overflow-hidden pointer-events-none"
-                                      style={{ opacity: 0.95 }}
+                                      style={{ opacity: 0.45 }}
                                     >
                                       <div
-                                        className="absolute inset-y-0 w-1/2 bg-gradient-to-r from-transparent via-white/90 to-transparent"
+                                        className="absolute inset-y-0 w-1/3 bg-gradient-to-r from-transparent via-white/70 to-transparent"
                                         style={{
-                                          animation: 'medalShimmer 1.15s ease-in-out infinite',
+                                          animation: 'medalShimmer 2.2s ease-in-out infinite',
                                         }}
                                       />
                                     </div>
@@ -2180,7 +2282,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
                                     {/* Name inside the filled portion */}
                                     <div
                                       className="relative z-10 h-full flex items-center pl-4"
-                                      style={{ paddingRight: `${avatar + 10}px` }}
+                                      style={{ paddingRight: `${avatar + 14}px` }}
                                     >
                                       <div className="text-white font-semibold text-sm sm:text-base truncate">
                                         {medalEmoji ? `${medalEmoji} ${exercise.name}` : exercise.name}
@@ -2189,14 +2291,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
 
                                     {/* Avatar at the end of the filled bar */}
                                     <div
-                                      className={`absolute top-0 bottom-0 right-0 rounded-full overflow-hidden bg-white ${medalRing}`}
-                                      style={{ width: `${avatar}px` }}
+                                      className={`absolute top-1/2 -translate-y-1/2 right-1 rounded-full overflow-hidden bg-white ${medalRing}`}
+                                      style={{ width: `${avatar}px`, height: `${avatar}px` }}
                                     >
                                       {thumbnail ? (
                                         <img
                                           src={thumbnail}
                                           alt={exercise.name}
-                                          className="w-full h-full object-cover rounded-full"
+                                          className="w-full h-full object-cover object-center"
                                           loading="lazy"
                                         />
                                       ) : (
@@ -2226,6 +2328,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
                                       style={{
                                         height: `${rowH}px`,
                                         width: `${barWidthPct}%`,
+                                        minWidth: `${avatar + 72}px`,
                                         maxWidth: `calc(100% - ${countReservePx}px)`,
                                       }}
                                     >
@@ -2241,12 +2344,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
                                     {medal && (
                                       <div
                                         className="absolute inset-0 rounded-full overflow-hidden pointer-events-none"
-                                        style={{ opacity: 0.95 }}
+                                        style={{ opacity: 0.45 }}
                                       >
                                         <div
-                                          className="absolute inset-y-0 w-1/2 bg-gradient-to-r from-transparent via-white/90 to-transparent"
+                                          className="absolute inset-y-0 w-1/3 bg-gradient-to-r from-transparent via-white/70 to-transparent"
                                           style={{
-                                            animation: 'medalShimmer 1.15s ease-in-out infinite',
+                                            animation: 'medalShimmer 2.2s ease-in-out infinite',
                                           }}
                                         />
                                       </div>
@@ -2255,7 +2358,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
                                       {/* Name inside the filled portion */}
                                       <div
                                         className="relative z-10 h-full flex items-center pl-4"
-                                        style={{ paddingRight: `${avatar + 10}px` }}
+                                        style={{ paddingRight: `${avatar + 14}px` }}
                                       >
                                         <div className="text-white font-semibold text-sm sm:text-base truncate">
                                           {medalEmoji ? `${medalEmoji} ${exercise.name}` : exercise.name}
@@ -2264,14 +2367,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
 
                                       {/* Avatar at the end of the filled bar */}
                                       <div
-                                        className={`absolute top-0 bottom-0 right-0 rounded-full overflow-hidden bg-white ${medalRing}`}
-                                        style={{ width: `${avatar}px` }}
+                                        className={`absolute top-1/2 -translate-y-1/2 right-1 rounded-full overflow-hidden bg-white ${medalRing}`}
+                                        style={{ width: `${avatar}px`, height: `${avatar}px` }}
                                       >
                                         {thumbnail ? (
                                           <img
                                             src={thumbnail}
                                             alt={exercise.name}
-                                            className="w-full h-full object-cover rounded-full"
+                                            className="w-full h-full object-cover object-center"
                                             loading="lazy"
                                           />
                                         ) : (
@@ -2372,9 +2475,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
                 />
               ) : null}
             </InsightLine>
-            <div className="text-[11px] text-slate-500 leading-snug">
-              This highlights your staples. If one movement takes a very large share, you may be under-rotating variations (useful to manage overuse).
-            </div>
+            <InsightText text="This highlights your staples. If one movement takes a very large share, you may be rotating too little. More variation can help manage overuse." />
           </ChartDescription>
         </div>
 

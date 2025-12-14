@@ -3,6 +3,7 @@ import {
   TrendingUp, TrendingDown, Minus, Flame, Zap, Trophy, 
   Calendar, Target, AlertTriangle, Activity, Clock, Dumbbell
 } from 'lucide-react';
+import CountUp from './CountUp';
 import { 
   DashboardInsights, 
   SparklinePoint, 
@@ -17,7 +18,7 @@ import { convertWeight } from '../utils/units';
 import { formatDayYearContraction } from '../utils/dateUtils';
 
 // Mini Sparkline Component
-const Sparkline: React.FC<{ data: SparklinePoint[]; color?: string; height?: number }> = ({ 
+export const Sparkline: React.FC<{ data: SparklinePoint[]; color?: string; height?: number }> = ({ 
   data, 
   color = '#3b82f6',
   height = 24 
@@ -36,8 +37,25 @@ const Sparkline: React.FC<{ data: SparklinePoint[]; color?: string; height?: num
     return `${x},${y}`;
   }).join(' ');
 
+  const markerId = `sparkline-arrow-${String(color).replace(/[^a-zA-Z0-9]/g, '')}`;
+
   return (
     <svg width={width} height={height} className="overflow-visible">
+      <defs>
+        <marker
+          id={markerId}
+          viewBox="0 0 6 10"
+          refX="4.8"
+          refY="5"
+          markerWidth="5"
+          markerHeight="9"
+          orient="auto"
+          markerUnits="userSpaceOnUse"
+        >
+          <path d="M 0 0 L 6 5 L 0 10 z" fill={color} />
+        </marker>
+      </defs>
+
       <polyline
         points={points}
         fill="none"
@@ -45,18 +63,9 @@ const Sparkline: React.FC<{ data: SparklinePoint[]; color?: string; height?: num
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
+        markerEnd={`url(#${markerId})`}
         className="drop-shadow-sm"
       />
-      {/* End dot */}
-      {data.length > 0 && (
-        <circle
-          cx={(data.length - 1) / (data.length - 1) * width}
-          cy={height - ((data[data.length - 1].value - min) / range) * (height - 4) - 2}
-          r="3"
-          fill={color}
-          className="drop-shadow-md"
-        />
-      )}
     </svg>
   );
 };
@@ -98,7 +107,7 @@ const DeltaBadge: React.FC<{ delta: DeltaResult; suffix?: string; showPercent?: 
 };
 
 // Streak Badge Component  
-const StreakBadge: React.FC<{ streak: StreakInfo }> = ({ streak }) => {
+export const StreakBadge: React.FC<{ streak: StreakInfo }> = ({ streak }) => {
   const { currentStreak, streakType, isOnStreak } = streak;
   
   if (!isOnStreak && currentStreak === 0) {
@@ -183,6 +192,47 @@ export const KPICard: React.FC<KPICardProps> = ({
   badge,
   compact = false,
 }) => {
+  const valueClass = 'text-2xl font-bold text-white tracking-tight leading-none';
+
+  const renderValue = () => {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return (
+        <CountUp
+          from={0}
+          to={value}
+          separator="," 
+          direction="up"
+          duration={1}
+          className={valueClass}
+        />
+      );
+    }
+
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      const isPercent = trimmed.endsWith('%');
+      const numericPart = isPercent ? trimmed.slice(0, -1) : trimmed;
+      const parsed = Number(numericPart.replace(/,/g, ''));
+
+      if (Number.isFinite(parsed) && numericPart.length > 0) {
+        return (
+          <span className={valueClass}>
+            <CountUp
+              from={0}
+              to={parsed}
+              separator="," 
+              direction="up"
+              duration={1}
+            />
+            {isPercent ? '%' : ''}
+          </span>
+        );
+      }
+    }
+
+    return <span className={valueClass}>{value}</span>;
+  };
+
   return (
     <div className={`bg-black/70 border border-slate-700/50 rounded-xl ${compact ? 'p-3' : 'p-4'} hover:border-slate-600/50 transition-all group overflow-hidden`}>
       {/* Header row: icon + title + sparkline */}
@@ -202,7 +252,7 @@ export const KPICard: React.FC<KPICardProps> = ({
 
       {/* Value row */}
       <div className="flex items-baseline gap-2 flex-wrap">
-        <span className="text-2xl font-bold text-white tracking-tight leading-none">{value}</span>
+        {renderValue()}
         {subtitle && <span className="text-[11px] text-slate-500">{subtitle}</span>}
       </div>
 
@@ -275,7 +325,7 @@ export const InsightsPanel: React.FC<InsightsPanelProps> = memo(function Insight
   const { weekComparison, streakInfo, prInsights, volumeSparkline, workoutSparkline, prSparkline, setsSparkline, consistencySparkline } = insights;
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
+    <div className="grid grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
       {/* Workouts This Week */}
       <KPICard
         title="This Week"
@@ -312,18 +362,6 @@ export const InsightsPanel: React.FC<InsightsPanelProps> = memo(function Insight
         sparkline={prSparkline}
         sparklineColor="#eab308"
         badge={<PRStatusBadge prInsights={prInsights} />}
-      />
-
-      {/* Consistency */}
-      <KPICard
-        title="Consistency"
-        value={`${streakInfo.consistencyScore}%`}
-        subtitle={`${streakInfo.avgWorkoutsPerWeek}/wk avg`}
-        icon={Target}
-        iconColor="text-emerald-400"
-        sparkline={consistencySparkline}
-        sparklineColor="#10b981"
-        badge={<StreakBadge streak={streakInfo} />}
       />
     </div>
   );

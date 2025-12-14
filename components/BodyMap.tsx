@@ -158,7 +158,10 @@ export const BodyMap: React.FC<BodyMapProps> = ({
     : (viewMode === 'group' ? MaleBackBodyMapGroup : MaleBackBodyMapMuscle);
 
   return (
-    <div ref={containerRef} className={`flex justify-center items-center ${compact ? 'gap-0' : 'gap-4'} w-full`}>
+    <div
+      ref={containerRef}
+      className={`flex justify-center items-center ${compact ? 'gap-0' : 'gap-4'} w-full ${compactFill ? 'h-full' : ''}`}
+    >
       <FrontSvg className={svgClass} />
       <BackSvg className={svgClass} />
     </div>
