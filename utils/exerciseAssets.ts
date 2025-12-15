@@ -1,12 +1,13 @@
 import Papa from 'papaparse';
 
-const exerciseCSVUrl = new URL('../exercises_muscles_and_thumbnail_data.csv', import.meta.url).href;
+const exerciseCSVUrl = `${import.meta.env.BASE_URL}exercises_muscles_and_thumbnail_data.csv`;
 
 export interface ExerciseAsset {
   name: string;
   equipment?: string;
   primary_muscle?: string;
   secondary_muscle?: string;
+  video?: string;
   source?: string;
   sourceType?: string;
   thumbnail?: string;
@@ -17,6 +18,7 @@ interface ExerciseAssetRow {
   equipment?: string;
   primary_muscle?: string;
   secondary_muscle?: string;
+  video?: string;
   source?: string;
   sourceType?: string;
   thumbnail?: string;
@@ -28,14 +30,32 @@ let loadPromise: Promise<Map<string, ExerciseAsset>> | null = null;
 const parseRow = (row: ExerciseAssetRow): ExerciseAsset | null => {
   if (!row?.name) return null;
   const name = String(row.name);
+
+  const normalize = (v?: string): string | undefined => {
+    if (v === undefined || v === null) return undefined;
+    const s = String(v).trim();
+    if (!s) return undefined;
+    if (s.toLowerCase() === 'none') return undefined;
+    return s;
+  };
+
+  const video = normalize(row.video);
+  const thumbnail = normalize(row.thumbnail);
+  const source = normalize(row.source);
+  const sourceType = normalize(row.sourceType);
+
+  const effectiveSourceType = sourceType ?? (video ? 'video' : undefined);
+  const effectiveSource = video ?? source;
+
   return {
     name,
-    equipment: row.equipment || undefined,
-    primary_muscle: row.primary_muscle || undefined,
-    secondary_muscle: row.secondary_muscle || undefined,
-    source: row.source || undefined,
-    sourceType: row.sourceType || undefined,
-    thumbnail: row.thumbnail || undefined,
+    equipment: normalize(row.equipment),
+    primary_muscle: normalize(row.primary_muscle),
+    secondary_muscle: normalize(row.secondary_muscle),
+    video,
+    source: effectiveSource,
+    sourceType: effectiveSourceType,
+    thumbnail,
   };
 };
 

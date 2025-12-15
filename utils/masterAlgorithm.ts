@@ -99,7 +99,7 @@ const analyzeSameWeight = (
       transition, 'success', 0, repDropPct, currReps, `${prevReps}`,
       'Second Wind',
       `+${repDiff} reps vs lst`,
-      buildStructured(`+${repDiff}`, 'up', [
+      buildStructured(`+${repDiff} reps`, 'up', [
         line('Had reserves in lst set', 'gray'),
         line('Or took longer rest this time', 'gray'),
       ])
@@ -112,7 +112,7 @@ const analyzeSameWeight = (
       transition, 'success', 0, 0, currReps, `${prevReps}`,
       'Consistent',
       `Maintained ${currReps} reps`,
-      buildStructured('=', 'same', [
+      buildStructured('= reps', 'same', [
         line('Good pacing and recovery', 'green'),
         line('Rest time is working well', 'gray'),
       ])
@@ -128,7 +128,7 @@ const analyzeSameWeight = (
       transition, 'info', 0, repDropPct, currReps, `${prevReps}`,
       'Normal Fatigue',
       `-${dropAbs} reps (${roundTo(dropPctAbs, 0)}%)`,
-      buildStructured(`-${dropAbs}`, 'down', [
+      buildStructured(`-${dropAbs} reps`, 'down', [
         line('Normal fatigue between sets', 'blue'),
         line('Muscles recovering as expected', 'gray'),
       ])
@@ -145,7 +145,7 @@ const analyzeSameWeight = (
       transition, 'warning', 0, repDropPct, currReps, `${prevReps}`,
       'High Fatigue',
       `-${dropAbs} reps (${roundTo(dropPctAbs, 0)}%)`,
-      buildStructured(`-${dropAbs}`, 'down', why, [
+      buildStructured(`-${dropAbs} reps`, 'down', why, [
         line('Normal if training to failure', 'gray'),
         line('For more volume: rest 2-3 min', 'blue'),
       ])
@@ -161,7 +161,7 @@ const analyzeSameWeight = (
     transition, 'danger', 0, repDropPct, currReps, `${prevReps}`,
     'Significant Drop',
     `-${dropAbs} reps (${roundTo(dropPctAbs, 0)}%)`,
-    buildStructured(`-${dropAbs}`, 'down', why, [
+    buildStructured(`-${dropAbs} reps`, 'down', why, [
       line('If intentional: good intensity', 'green'),
       line('For more volume: leave 1-2 RIR', 'blue'),
     ])
@@ -193,7 +193,7 @@ const analyzeWeightIncrease = (
       transition, 'success', weightChangePct, volChangePct, currReps, `~${expectedRepsInt}`,
       'Strong Overload',
       `+${pct}% weight, ${currReps} reps`,
-      buildStructured(`+${pct}%`, 'up', [
+      buildStructured(`+${pct}% weight`, 'up', [
         line(`Got ${currReps} reps (expected ~${expectedRepsInt})`, 'green'),
         line('Strength gains showing', 'gray'),
       ])
@@ -206,7 +206,7 @@ const analyzeWeightIncrease = (
       transition, 'success', weightChangePct, volChangePct, currReps, `~${expectedRepsInt}`,
       'Good Overload',
       `+${pct}% weight, ${currReps} reps`,
-      buildStructured(`+${pct}%`, 'up', [
+      buildStructured(`+${pct}% weight`, 'up', [
         line(`Hit ${currReps} reps as expected`, 'green'),
         line('Progressive overload achieved', 'gray'),
       ])
@@ -219,7 +219,7 @@ const analyzeWeightIncrease = (
       transition, 'warning', weightChangePct, volChangePct, currReps, `~${expectedRepsInt}`,
       'Slightly Ambitious',
       `+${pct}% weight, ${currReps} reps`,
-      buildStructured(`+${pct}%`, 'up', [
+      buildStructured(`+${pct}% weight`, 'up', [
         line(`Got ${currReps} reps (expected ~${expectedRepsInt})`, 'yellow'),
         line('Weight jump may be slightly aggressive', 'gray'),
       ], [
@@ -234,7 +234,7 @@ const analyzeWeightIncrease = (
     transition, 'danger', weightChangePct, volChangePct, currReps, `~${expectedRepsInt}`,
     'Premature Jump',
     `+${pct}% weight, ${currReps} reps`,
-    buildStructured(`+${pct}%`, 'up', [
+    buildStructured(`+${pct}% weight`, 'up', [
       line(`Only ${currReps} reps (expected ~${expectedRepsInt})`, 'red'),
       line('Weight increase too aggressive', 'gray'),
     ], [
@@ -268,7 +268,7 @@ const analyzeWeightDecrease = (
       transition, 'success', weightChangePct, volChangePct, currReps, `~${expectedRepsInt}`,
       'Effective Backoff',
       `${pct}% weight, ${currReps} reps`,
-      buildStructured(`${pct}%`, 'down', [
+      buildStructured(`${pct}% weight`, 'down', [
         line('Smart backoff for volume', 'green'),
         line('Reduced neural fatigue while maintaining work', 'gray'),
       ])
@@ -281,7 +281,7 @@ const analyzeWeightDecrease = (
       transition, 'info', weightChangePct, volChangePct, currReps, `~${expectedRepsInt}`,
       'Fatigued Backoff',
       `${pct}% weight, ${currReps} reps`,
-      buildStructured(`${pct}%`, 'down', [
+      buildStructured(`${pct}% weight`, 'down', [
         line(`Got ${currReps} reps (expected ~${expectedRepsInt})`, 'yellow'),
         line('Accumulated fatigue from earlier sets', 'gray'),
       ])
@@ -293,7 +293,7 @@ const analyzeWeightDecrease = (
     transition, 'warning', weightChangePct, volChangePct, currReps, `~${expectedRepsInt}`,
     'Heavy Fatigue',
     `${pct}% weight, ${currReps} reps`,
-    buildStructured(`${pct}%`, 'down', [
+    buildStructured(`${pct}% weight`, 'down', [
       line(`Only ${currReps} reps (expected ~${expectedRepsInt})`, 'red'),
       line('High accumulated fatigue', 'gray'),
     ], [

@@ -45,6 +45,7 @@ import { LazyRender } from './LazyRender';
 import { ChartSkeleton } from './ChartSkeleton';
 import { summarizeExerciseHistory } from '../utils/exerciseTrend';
 import { formatNumber, formatSignedNumber } from '../utils/formatters';
+import { Tooltip as HoverTooltip, TooltipData } from './Tooltip';
 
 const formatSigned = (n: number) => formatSignedNumber(n, { maxDecimals: 2 });
 const formatSignedFixed = (n: number, digits: number) => {
@@ -213,50 +214,8 @@ interface DashboardProps {
 // --- SUB-COMPONENTS ---
 
 // 1. Custom Hover Tooltip for DOM elements (Heatmap)
-const DashboardTooltip: React.FC<{ data: { rect: DOMRect, title: string, body: string, footer?: string, status: 'success'|'info'|'default' } }> = ({ data }) => {
-  const { rect, title, body, footer, status } = data;
-  const TOOLTIP_WIDTH = 240;
-  const GAP = 12;
-  
-  // Smart positioning logic
-  const left = Math.min(window.innerWidth - TOOLTIP_WIDTH - 20, Math.max(20, rect.left + (rect.width / 2) - (TOOLTIP_WIDTH / 2)));
-  const spaceAbove = rect.top;
-  const isFlip = spaceAbove < 150; 
-
-  const style: React.CSSProperties = {
-    left: `${left}px`,
-    width: `${TOOLTIP_WIDTH}px`,
-  };
-
-  if (isFlip) {
-    style.top = `${rect.bottom + GAP}px`;
-  } else {
-    style.bottom = `${window.innerHeight - rect.top + GAP}px`;
-  }
-  
-  const colors = {
-    success: 'border-emerald-500/50 bg-emerald-950/95 text-emerald-100 shadow-[0_0_15px_rgba(16,185,129,0.2)]',
-    info: 'border-blue-500/50 bg-slate-900/95 text-slate-200 shadow-[0_0_15px_rgba(59,130,246,0.2)]',
-    default: 'border-slate-700/50 bg-slate-950/95 text-slate-300 shadow-xl'
-  };
-  const theme = colors[status] || colors.default;
-
-  return (
-    <div 
-      className="fixed z-[9999] pointer-events-none transition-all duration-200 animate-in fade-in zoom-in-95"
-      style={style}
-    >
-      <div className={`border rounded-xl backdrop-blur-md p-3 ${theme}`}>
-        <div className="flex items-center gap-2 mb-1 pb-1 border-b border-white/10">
-          <span className="font-bold uppercase text-[10px] tracking-wider">{title}</span>
-        </div>
-        <div className="text-xs leading-relaxed opacity-90 whitespace-pre-line">{body}</div>
-        {footer && (
-          <div className="mt-2 text-[10px] font-bold text-blue-400">{footer}</div>
-        )}
-      </div>
-    </div>
-  );
+const DashboardTooltip: React.FC<{ data: TooltipData }> = ({ data }) => {
+  return <HoverTooltip data={data} />;
 };
 
 // 2. Chart Interpretation Footer
@@ -479,7 +438,7 @@ const Heatmap = memo(({ dailyData, streakInfo, consistencySparkline, onDayClick,
     return blocks;
   }, [heatmapData]);
 
-  const [tooltip, setTooltip] = useState<any | null>(null);
+  const [tooltip, setTooltip] = useState<TooltipData | null>(null);
   const scrollContainerRef = React.useRef<HTMLDivElement>(null);
 
   // Auto-scroll to latest (rightmost) position
@@ -518,7 +477,7 @@ const Heatmap = memo(({ dailyData, streakInfo, consistencySparkline, onDayClick,
       title: formatHumanReadableDate(day.date, { now }),
       body: `${day.count} Sets${day.title ? `\n${day.title}` : ''}`,
       footer: 'Click to view details',
-      status: day.count > 30 ? 'success' : 'info'
+      status: (day.count > 30 ? 'success' : 'info') as TooltipData['status'],
     });
   };
 
@@ -1540,7 +1499,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
                     tone={getTrendBadgeTone(prTrendDelta.deltaPercent, { goodWhen: 'up' })}
                   />
                 ) : (
-                  <TrendBadge label="Need more data" tone="neutral" />
+                  <TrendBadge label="Building baseline" tone="neutral" />
                 )}
 
                 {prTrendDelta7d ? (
@@ -1657,7 +1616,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
             {weeklySetsView === 'radar' ? (
               compositionQuickData.length === 0 ? (
                 <div className="flex items-center justify-center h-[300px] text-slate-500 text-xs border border-dashed border-slate-800 rounded-lg">
-                  Not enough data to render Muscle Composition.
+                  No muscle composition for this period yet.
                 </div>
               ) : (
                 <LazyRender className="w-full" placeholder={<ChartSkeleton style={{ height: 300 }} />}>
@@ -1677,7 +1636,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
                 <div className="flex flex-col items-center justify-center h-[300px]">
                   {heatmapMuscleVolumes.volumes.size === 0 ? (
                     <div className="text-slate-500 text-xs border border-dashed border-slate-800 rounded-lg p-8">
-                      Not enough data to render Heat Map.
+                      No heatmap data for this period yet.
                   </div>
                   ) : (
                     <>
@@ -1745,7 +1704,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
                   <TrendBadge label={`Top3 ${weeklySetsInsight.top3Share.toFixed(0)}%`} tone={weeklySetsInsight.top3Share >= 70 ? 'bad' : weeklySetsInsight.top3Share >= 55 ? 'neutral' : 'good'} />
                 </>
               ) : (
-                <TrendBadge label="Need more data" tone="neutral" />
+                <TrendBadge label="Building baseline" tone="neutral" />
               )}
             </InsightLine>
             <InsightText text="Read this as your weekly set allocation. If the Top 3 share is high, your volume is concentrated. This is great for specialization, but watch balance." />
@@ -1847,7 +1806,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
                     ))}
                  </>
                ) : (
-                 <TrendBadge label="Need more data" tone="neutral" />
+                 <TrendBadge label="Building baseline" tone="neutral" />
                )}
              </InsightLine>
              <InsightText text="Your rep ranges hint what you are training for: strength, size, endurance. Big percent shifts usually reflect a new block or focus." />
@@ -2009,7 +1968,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
                   )}
                 </>
               ) : (
-                <TrendBadge label="Need more data" tone="neutral" />
+                <TrendBadge label="Building baseline" tone="neutral" />
               )}
             </InsightLine>
             <p>
@@ -2079,7 +2038,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
                     />
                   </>
                 ) : (
-                  <TrendBadge label="Need more data" tone="neutral" />
+                  <TrendBadge label="Building baseline" tone="neutral" />
                 )}
               </InsightLine>
               <InsightText text="Read this as your training day pattern. A flatter shape means a steadier habit. Big spikes mean your week depends on a couple of key days." />
@@ -2186,7 +2145,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
                     />
                   </>
                 ) : (
-                  <TrendBadge label="Need more data" tone="neutral" />
+                  <TrendBadge label="Building baseline" tone="neutral" />
                 )}
               </InsightLine>
               <InsightText text="Read this chart by the curve and the percent change. Rising density usually means you are doing more work per set. This often reflects an intensity and work capacity trend." />
@@ -2614,7 +2573,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
                       tone={getTrendBadgeTone(topExercisesInsight.delta.deltaPercent, { goodWhen: 'up' })}
                     />
                   ) : (
-                    <TrendBadge label="Need more data" tone="neutral" />
+                    <TrendBadge label="Building baseline" tone="neutral" />
                   )}
                   {topExercisesInsight.top && <TrendBadge label={<BadgeLabel main={`Top: ${topExercisesInsight.top.name}`} />} tone="neutral" />}
                   {topExercisesInsight.top && <TrendBadge label={<BadgeLabel main={`${topExercisesInsight.topShare.toFixed(0)}%`} meta="of shown" />} tone={topExercisesInsight.topShare >= 45 ? 'bad' : topExercisesInsight.topShare >= 30 ? 'neutral' : 'good'} />}

@@ -641,7 +641,7 @@ const BestMonthCard: React.FC<{
 
         {/* Header */}
         <h2 className={`text-xl sm:text-2xl font-bold ${textPrimary} mb-2`} style={FANCY_FONT}>
-          {bestMonth.workouts > 0 ? MONTH_NAMES[bestMonth.month] : 'No data yet'}
+          {bestMonth.workouts > 0 ? MONTH_NAMES[bestMonth.month] : 'Building baseline'}
         </h2>
         <p className={`text-sm ${textSecondary} mb-4`}>was your best month with</p>
 
@@ -728,7 +728,7 @@ const TopExercisesCard: React.FC<{
         {/* Most Frequent Exercises (minimal, proportional) */}
         {exercises.length === 0 ? (
           <div className={`flex items-center justify-center h-[220px] text-xs text-slate-500 border border-dashed ${isDark ? 'border-slate-800' : 'border-slate-200'} rounded-lg`}>
-            Not enough data to render Most Frequent Exercises.
+            Building baseline — log a few workouts to see your top exercises.
           </div>
         ) : (
           <div className="w-full flex-1 flex flex-col justify-center gap-3 px-1 sm:px-2 overflow-x-hidden">
@@ -1133,9 +1133,6 @@ const VolumeComparisonCard: React.FC<{
                 <h3 className={`text-lg sm:text-2xl font-bold ${textPrimary} mt-1`} style={FANCY_FONT}>
                   {comparison.item.label}
                 </h3>
-                <p className={`text-xs ${textMuted} mt-2 max-w-xs`}>
-                  {comparison.item.description.replace(/\s*\n+\s*/g, ' ').replace(/\s+/g, ' ').trim()}
-                </p>
               </div>
             </div>
           ) : null}

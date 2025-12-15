@@ -34,6 +34,7 @@ const App: React.FC = () => {
   const [parsedData, setParsedData] = useState<WorkoutSet[]>([]);
   const [activeTab, setActiveTab] = useState<Tab>(Tab.DASHBOARD);
   const [showCSVModal, setShowCSVModal] = useState(false);
+  const [csvImportError, setCsvImportError] = useState<string | null>(null);
   const [highlightedExercise, setHighlightedExercise] = useState<string | null>(null);
   const [initialMuscleForAnalysis, setInitialMuscleForAnalysis] = useState<{ muscleId: string; viewMode: 'muscle' | 'group' } | null>(null);
 
@@ -57,6 +58,11 @@ const App: React.FC = () => {
     el.addEventListener('scroll', onScroll, { passive: true } as any);
     return () => el.removeEventListener('scroll', onScroll as any);
   }, []);
+
+  const getErrorMessage = (err: unknown): string => {
+    if (err instanceof Error && err.message) return err.message;
+    return 'Failed to import CSV. Please export your workout data from the Hevy app and try again.';
+  };
 
   useEffect(() => {
     const el = mainRef.current;
@@ -177,10 +183,20 @@ const App: React.FC = () => {
             return identifyPersonalRecords(result);
           })
           .then(enriched => setParsedData(enriched))
-          .catch(() => {
+          .catch((err) => {
             // Fallback to sync parser if worker parsing fails
-            const fallback = identifyPersonalRecords(parseWorkoutCSV(storedCSV));
-            setParsedData(fallback);
+            try {
+              const fallback = identifyPersonalRecords(parseWorkoutCSV(storedCSV));
+              setParsedData(fallback);
+            } catch (syncErr) {
+              clearCSVData();
+              setCsvImportError(getErrorMessage(syncErr ?? err));
+              setShowCSVModal(true);
+              const result = parseWorkoutCSV(DEFAULT_CSV_DATA);
+              const enriched = identifyPersonalRecords(result);
+              setParsedData(enriched);
+              setRawData(DEFAULT_CSV_DATA);
+            }
           })
           .finally(() => {
             finishProgress(startedAt);
@@ -305,72 +321,74 @@ const App: React.FC = () => {
 
   const hasActiveCalendarFilter = !!selectedDay || selectedWeeks.length > 0 || !!selectedRange;
 
+  const calendarSummaryText = useMemo(() => {
+    if (selectedDay) return formatHumanReadableDate(selectedDay, { now: effectiveNow });
+    if (selectedRange) return `${formatDayYearContraction(selectedRange.start)} – ${formatDayYearContraction(selectedRange.end)}`;
+    if (selectedWeeks.length === 1) return `${formatDayYearContraction(selectedWeeks[0].start)} – ${formatDayYearContraction(selectedWeeks[0].end)}`;
+    if (selectedWeeks.length > 1) return `Weeks: ${selectedWeeks.length}`;
+    return 'No filter';
+  }, [effectiveNow, selectedDay, selectedRange, selectedWeeks]);
+
   const filterControls = (
     <div
       className={`relative flex items-center gap-2 rounded-lg px-3 py-2 h-10 shadow-sm transition-all duration-300 ${
         hasActiveCalendarFilter
-          ? 'bg-blue-950/40 border-2 border-blue-500/50 ring-2 ring-blue-500/20'
+          ? 'bg-black/70 border border-slate-600/60 ring-2 ring-white/10'
           : 'bg-black/70 border border-slate-700/50'
       }`}
     >
       <div className="flex-1 min-w-0 overflow-x-auto">
         <div className="flex items-center gap-2 flex-nowrap min-w-max">
-          {selectedDay ? (
+          {hasActiveCalendarFilter ? (
             <button
-              onClick={() => setSelectedDay(null)}
-              className="inline-flex items-center gap-2 h-8 px-2 rounded-md bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 transition-colors whitespace-nowrap"
-              title={formatDayYearContraction(selectedDay)}
+              type="button"
+              onClick={() => setCalendarOpen(true)}
+              className="inline-flex items-center gap-2 h-8 px-2.5 rounded-md bg-black/50 hover:bg-white/5 border border-slate-700/50 text-slate-200 text-xs font-semibold transition-colors whitespace-nowrap"
+              title={calendarSummaryText}
             >
-              <span>{formatHumanReadableDate(selectedDay, { now: effectiveNow })}</span>
-              <X className="w-3 h-3" />
+              <span className="w-1.5 h-1.5 rounded-full bg-slate-300/80" />
+              <span className="max-w-[220px] truncate">{calendarSummaryText}</span>
             </button>
-          ) : null}
-
-          {selectedRange ? (
-            <button
-              onClick={() => setSelectedRange(null)}
-              className="inline-flex items-center gap-2 h-8 px-2 rounded-md bg-purple-600 text-white text-xs font-semibold hover:bg-purple-700 transition-colors whitespace-nowrap"
-              title={`Range: ${formatDayYearContraction(selectedRange.start)} – ${formatDayYearContraction(selectedRange.end)}`}
-            >
-              <span>
-                Range: {formatDayYearContraction(selectedRange.start)} – {formatDayYearContraction(selectedRange.end)}
-              </span>
-              <X className="w-3 h-3" />
-            </button>
-          ) : null}
-
-          {selectedWeeks.length > 0 ? (
-            <button
-              onClick={() => setSelectedWeeks([])}
-              className="inline-flex items-center gap-2 h-8 px-2 rounded-md bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 transition-colors whitespace-nowrap"
-              title={
-                selectedWeeks.length === 1
-                  ? `${formatDayYearContraction(selectedWeeks[0].start)} – ${formatDayYearContraction(selectedWeeks[0].end)}`
-                  : ''
-              }
-            >
-              <span>
-                {selectedWeeks.length === 1
-                  ? `Week: ${formatDayYearContraction(selectedWeeks[0].start)} – ${formatDayYearContraction(selectedWeeks[0].end)}`
-                  : `Weeks: ${selectedWeeks.length}`}
-              </span>
-              <X className="w-3 h-3" />
-            </button>
-          ) : null}
-
-          {!hasActiveCalendarFilter ? (
+          ) : (
             <span className="text-xs text-slate-500 whitespace-nowrap">No filter</span>
-          ) : null}
+          )}
         </div>
       </div>
 
-      <button
-        onClick={() => setCalendarOpen(!calendarOpen)}
-        className="inline-flex items-center gap-2 h-8 px-2 rounded-md bg-black/50 hover:bg-black/60 text-xs font-semibold text-slate-200 whitespace-nowrap"
-      >
-        <Calendar className="w-4 h-4 text-slate-400" />
-        <span>Calendar</span>
-      </button>
+      {hasActiveCalendarFilter ? (
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => setCalendarOpen(true)}
+            className="inline-flex items-center justify-center w-8 h-8 rounded-md bg-black/50 hover:bg-white/5 border border-slate-700/50 text-slate-200 transition-colors"
+            title="Edit filter"
+            aria-label="Edit filter"
+          >
+            <Pencil className="w-4 h-4 text-slate-300" />
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedRange(null);
+              setSelectedDay(null);
+              setSelectedWeeks([]);
+            }}
+            className="inline-flex items-center justify-center w-8 h-8 rounded-md bg-black/50 hover:bg-white/5 border border-slate-700/50 text-slate-200 transition-colors"
+            title="Clear filter"
+            aria-label="Clear filter"
+          >
+            <X className="w-4 h-4 text-slate-300" />
+          </button>
+        </div>
+      ) : (
+        <button
+          onClick={() => setCalendarOpen(!calendarOpen)}
+          className="inline-flex items-center gap-2 h-8 px-2 rounded-md bg-black/50 hover:bg-white/5 border border-slate-700/50 text-xs font-semibold text-slate-200 whitespace-nowrap transition-colors"
+        >
+          <Calendar className="w-4 h-4 text-slate-400" />
+          <span>Calendar</span>
+        </button>
+      )}
     </div>
   );
 
@@ -398,27 +416,14 @@ const App: React.FC = () => {
   const handleModalFileSelect = (file: File, gender: BodyMapGender, unit: WeightUnit) => {
     setBodyMapGender(gender);
     setWeightUnit(unit);
+    setCsvImportError(null);
     processFile(file);
-    setShowCSVModal(false);
   };
 
   const handleOpenUpdateFlow = () => {
     // Re-open onboarding with persisted preferences preselected
+    setCsvImportError(null);
     setShowCSVModal(true);
-  };
-
-  const handleClearCSV = () => {
-    if (confirm('Are you sure you want to remove the CSV data? This will reset to the default data.')) {
-      clearCSVData();
-      // Reset to default data
-      const result = parseWorkoutCSV(DEFAULT_CSV_DATA);
-      const enriched = identifyPersonalRecords(result);
-      setParsedData(enriched);
-      setRawData(DEFAULT_CSV_DATA);
-      setSelectedMonth('all');
-      setSelectedDay(null);
-      setShowCSVModal(true);
-    }
   };
 
   const processFile = (file: File) => {
@@ -431,14 +436,20 @@ const App: React.FC = () => {
     reader.onload = (e) => {
       const text = e.target?.result;
       if (typeof text === 'string') {
-        saveCSVData(text);
-        setRawData(text);
+        setCsvImportError(null);
         setLoadingStep(1);
         parseWorkoutCSVAsync(text)
           .then(result => {
             setLoadingStep(2);
             const enriched = identifyPersonalRecords(result);
             setParsedData(enriched);
+            saveCSVData(text);
+            setRawData(text);
+            setShowCSVModal(false);
+          })
+          .catch((err) => {
+            setCsvImportError(getErrorMessage(err));
+            setShowCSVModal(true);
           })
           .finally(() => {
             // Reset filters on new upload
@@ -464,9 +475,10 @@ const App: React.FC = () => {
           initialUnit={weightUnit}
           onGenderChange={(g) => setBodyMapGender(g)}
           onUnitChange={(u) => setWeightUnit(u)}
-          onClose={() => setShowCSVModal(false)}
-          onClearData={() => {
-            handleClearCSV();
+          errorMessage={csvImportError}
+          onClose={() => {
+            setShowCSVModal(false);
+            setCsvImportError(null);
           }}
         />
       )}
@@ -564,7 +576,7 @@ const App: React.FC = () => {
                 setInitialMuscleForAnalysis(null);
                 navigateToTab(Tab.DASHBOARD, 'top');
               }}
-              className={`w-full flex items-center justify-center gap-2 px-2 sm:px-3 py-2 rounded-lg whitespace-nowrap ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border transition-all duration-200 ${activeTab === Tab.DASHBOARD ? 'bg-blue-600 border-blue-500/50 text-white shadow-lg shadow-blue-900/50' : 'bg-transparent border-black/70 text-slate-400 hover:border-white hover:text-white hover:bg-white/5'}`}
+              className={`w-full flex items-center justify-center gap-2 px-2 sm:px-3 py-2 rounded-lg whitespace-nowrap ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border transition-all duration-200 ${activeTab === Tab.DASHBOARD ? 'bg-black/60 border-slate-600/60 text-white ring-2 ring-white/10' : 'bg-transparent border-black/70 text-slate-400 hover:border-white hover:text-white hover:bg-white/5'}`}
             >
               <LayoutDashboard className="w-5 h-5" />
               <span className="hidden sm:inline font-medium">Dashboard</span>
@@ -575,7 +587,7 @@ const App: React.FC = () => {
                 setInitialMuscleForAnalysis(null);
                 navigateToTab(Tab.MUSCLE_ANALYSIS, 'top');
               }}
-              className={`w-full flex items-center justify-center gap-2 px-2 sm:px-3 py-2 rounded-lg whitespace-nowrap ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border transition-all duration-200 ${activeTab === Tab.MUSCLE_ANALYSIS ? 'bg-blue-600 border-blue-500/50 text-white shadow-lg shadow-blue-900/50' : 'bg-transparent border-black/70 text-slate-400 hover:border-white hover:text-white hover:bg-white/5'}`}
+              className={`w-full flex items-center justify-center gap-2 px-2 sm:px-3 py-2 rounded-lg whitespace-nowrap ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border transition-all duration-200 ${activeTab === Tab.MUSCLE_ANALYSIS ? 'bg-black/60 border-slate-600/60 text-white ring-2 ring-white/10' : 'bg-transparent border-black/70 text-slate-400 hover:border-white hover:text-white hover:bg-white/5'}`}
             >
               <BicepsFlexed className="w-5 h-5" />
               <span className="hidden sm:inline font-medium">Muscle</span>
@@ -586,7 +598,7 @@ const App: React.FC = () => {
                 setInitialMuscleForAnalysis(null);
                 navigateToTab(Tab.EXERCISES, 'top');
               }}
-              className={`w-full flex items-center justify-center gap-2 px-2 sm:px-3 py-2 rounded-lg whitespace-nowrap ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border transition-all duration-200 ${activeTab === Tab.EXERCISES ? 'bg-blue-600 border-blue-500/50 text-white shadow-lg shadow-blue-900/50' : 'bg-transparent border-black/70 text-slate-400 hover:border-white hover:text-white hover:bg-white/5'}`}
+              className={`w-full flex items-center justify-center gap-2 px-2 sm:px-3 py-2 rounded-lg whitespace-nowrap ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border transition-all duration-200 ${activeTab === Tab.EXERCISES ? 'bg-black/60 border-slate-600/60 text-white ring-2 ring-white/10' : 'bg-transparent border-black/70 text-slate-400 hover:border-white hover:text-white hover:bg-white/5'}`}
             >
               <Dumbbell className="w-5 h-5" />
               <span className="hidden sm:inline font-medium">Exercises</span>
@@ -597,7 +609,7 @@ const App: React.FC = () => {
                 setInitialMuscleForAnalysis(null);
                 navigateToTab(Tab.HISTORY, 'top');
               }}
-              className={`w-full flex items-center justify-center gap-2 px-2 sm:px-3 py-2 rounded-lg whitespace-nowrap ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border transition-all duration-200 ${activeTab === Tab.HISTORY ? 'bg-blue-600 border-blue-500/50 text-white shadow-lg shadow-blue-900/50' : 'bg-transparent border-black/70 text-slate-400 hover:border-white hover:text-white hover:bg-white/5'}`}
+              className={`w-full flex items-center justify-center gap-2 px-2 sm:px-3 py-2 rounded-lg whitespace-nowrap ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border transition-all duration-200 ${activeTab === Tab.HISTORY ? 'bg-black/60 border-slate-600/60 text-white ring-2 ring-white/10' : 'bg-transparent border-black/70 text-slate-400 hover:border-white hover:text-white hover:bg-white/5'}`}
             >
               <History className="w-5 h-5" />
               <span className="hidden sm:inline font-medium">History</span>
@@ -608,7 +620,7 @@ const App: React.FC = () => {
                 setInitialMuscleForAnalysis(null);
                 navigateToTab(Tab.FLEX, 'top');
               }}
-              className={`w-full flex items-center justify-center gap-2 px-2 sm:px-3 py-2 rounded-lg whitespace-nowrap ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border transition-all duration-200 ${activeTab === Tab.FLEX ? 'bg-blue-600 border-blue-500/50 text-white shadow-lg shadow-blue-900/50' : 'bg-transparent border-black/70 text-slate-400 hover:border-white hover:text-white hover:bg-white/5'}`}
+              className={`w-full flex items-center justify-center gap-2 px-2 sm:px-3 py-2 rounded-lg whitespace-nowrap ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border transition-all duration-200 ${activeTab === Tab.FLEX ? 'bg-black/60 border-slate-600/60 text-white ring-2 ring-white/10' : 'bg-transparent border-black/70 text-slate-400 hover:border-white hover:text-white hover:bg-white/5'}`}
             >
               <Sparkles className="w-5 h-5" />
               <span className="hidden sm:inline font-medium">Flex</span>
@@ -619,13 +631,13 @@ const App: React.FC = () => {
               onClick={() => setCalendarOpen((v) => !v)}
               className={`sm:hidden w-full h-full relative flex flex-col items-center justify-center px-2 py-2 rounded-lg transition-all duration-200 ${
                 (selectedDay || selectedWeeks.length > 0 || selectedRange)
-                  ? 'bg-blue-950/40 ring-2 ring-blue-500/20 border border-blue-500/50 text-white'
+                  ? 'bg-black/50 ring-2 ring-white/10 border border-slate-700/50 text-white'
                   : 'bg-black/30 hover:bg-black/60 text-slate-200'
               }`}
               title="Calendar"
               aria-label="Calendar"
             >
-              {calendarOpen ? <Pencil className="w-5 h-5" /> : <Calendar className="w-5 h-5" />}
+              {calendarOpen ? <Pencil className="w-5 h-5" /> : ((selectedDay || selectedWeeks.length > 0 || selectedRange) ? <Pencil className="w-5 h-5" /> : <Calendar className="w-5 h-5" />)}
               <span className="text-[10px] font-semibold leading-none mt-1">Calendar</span>
 
               {(selectedDay || selectedWeeks.length > 0 || selectedRange) && !calendarOpen ? (

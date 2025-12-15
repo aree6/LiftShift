@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { Upload, Check, X, Trash2 } from 'lucide-react';
+import { Upload, Check, X } from 'lucide-react';
 import MaleFrontBodyMapGroup from './MaleFrontBodyMapGroup';
 import FemaleFrontBodyMapGroup from './FemaleFrontBodyMapGroup';
 import type { BodyMapGender } from './BodyMap';
@@ -10,8 +10,8 @@ interface CSVImportModalProps {
   isLoading?: boolean;
   initialGender?: BodyMapGender;
   initialUnit?: WeightUnit;
+  errorMessage?: string | null;
   onClose?: () => void;
-  onClearData?: () => void;
   onGenderChange?: (gender: BodyMapGender) => void;
   onUnitChange?: (unit: WeightUnit) => void;
 }
@@ -21,8 +21,8 @@ export const CSVImportModal: React.FC<CSVImportModalProps> = ({
   isLoading = false,
   initialGender,
   initialUnit,
+  errorMessage,
   onClose,
-  onClearData,
   onGenderChange,
   onUnitChange,
 }) => {
@@ -30,20 +30,24 @@ export const CSVImportModal: React.FC<CSVImportModalProps> = ({
   const [selectedGender, setSelectedGender] = useState<BodyMapGender | null>(initialGender ?? null);
   const [selectedUnit, setSelectedUnit] = useState<WeightUnit | null>(initialUnit ?? null);
 
+  const showNonEnglishHevyDateHelp = Boolean(
+    errorMessage && errorMessage.includes("couldn't parse the workout dates")
+  );
+
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!selectedGender) {
-      alert('Please select your body type first');
+      alert('Choose a body type to continue');
       return;
     }
     if (!selectedUnit) {
-      alert('Please select your preferred weight unit first');
+      alert('Choose a weight unit to continue');
       return;
     }
     if (file && (file.type === 'text/csv' || file.name.endsWith('.csv'))) {
       onFileSelect(file, selectedGender, selectedUnit);
     } else {
-      alert('Please select a valid CSV file');
+      alert('Please choose a valid .csv file');
     }
   };
 
@@ -57,11 +61,11 @@ export const CSVImportModal: React.FC<CSVImportModalProps> = ({
     e.stopPropagation();
     
     if (!selectedGender) {
-      alert('Please select your body type first');
+      alert('Choose a body type to continue');
       return;
     }
     if (!selectedUnit) {
-      alert('Please select your preferred weight unit first');
+      alert('Choose a weight unit to continue');
       return;
     }
     
@@ -69,7 +73,7 @@ export const CSVImportModal: React.FC<CSVImportModalProps> = ({
     if (file && (file.type === 'text/csv' || file.name.endsWith('.csv'))) {
       onFileSelect(file, selectedGender, selectedUnit);
     } else {
-      alert('Please drop a valid CSV file');
+      alert('Drop a valid .csv file');
     }
   };
 
@@ -78,31 +82,22 @@ export const CSVImportModal: React.FC<CSVImportModalProps> = ({
       <div className="min-h-full w-full px-2 sm:px-3 py-4 sm:py-6">
         <div className="max-w-4xl mx-auto">
           <div className="flex items-start justify-between gap-4 mb-6">
-            <div className="min-w-0">
+            <div className="w-full flex justify-center">
               <div className="inline-flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-blue-600/20 flex items-center justify-center">
-                  <Upload className="w-5 h-5 text-blue-500" />
-                </div>
+                <img
+                  src="/HevyAnalytics.png"
+                  alt="HevyAnalytics"
+                  className="w-10 h-10 rounded-lg object-contain bg-black/20 border border-slate-700/50"
+                  loading="eager"
+                  decoding="async"
+                />
                 <div>
-                  <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Welcome to HevyAnalytics</h2>
-                  <p className="text-slate-400 text-xs sm:text-sm">Select your preferences, then drop your CSV to load your dashboard.</p>
+                  <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">HevyAnalytics</h2>
                 </div>
               </div>
             </div>
 
             <div className="flex items-center gap-2">
-              {onClearData ? (
-                <button
-                  type="button"
-                  onClick={onClearData}
-                  className="inline-flex items-center gap-2 h-9 px-3 rounded-md text-xs font-semibold bg-red-950/40 hover:bg-red-950/60 border border-red-500/30 text-red-200"
-                >
-                  <Trash2 className="w-4 h-4" />
-                  <span className="hidden sm:inline">Remove Data</span>
-                  <span className="sm:hidden">Remove</span>
-                </button>
-              ) : null}
-
               {onClose ? (
                 <button
                   type="button"
@@ -117,12 +112,29 @@ export const CSVImportModal: React.FC<CSVImportModalProps> = ({
           </div>
 
           <p className="text-slate-400 mb-6 text-center text-xs sm:text-sm">
-            Let's get started! First, select your body type for accurate muscle visualization.
+            Let’s get set up. Choose your body type and unit, then upload your Hevy export.
           </p>
+
+          {errorMessage ? (
+            <div className="mb-6 rounded-lg border border-red-500/30 bg-red-950/40 px-4 py-3 text-xs sm:text-sm text-red-200">
+              {errorMessage}
+              {showNonEnglishHevyDateHelp ? (
+                <div className="mt-3">
+                  <img
+                    src="/step5.png"
+                    className="w-full max-w-sm h-auto rounded-lg border border-red-500/20 mx-auto"
+                    alt="Hevy export language must be English"
+                    loading="lazy"
+                    decoding="async"
+                  />
+                </div>
+              ) : null}
+            </div>
+          ) : null}
 
           {/* Gender Selection with Body Map Preview */}
           <div className="w-full mb-6">
-            <p className="text-sm font-semibold text-slate-300 mb-3 text-center">Select Your Body Type</p>
+            <p className="text-sm font-semibold text-slate-300 mb-3 text-center">Choose your body type</p>
             <div className="grid grid-cols-2 gap-3">
             {/* Male Option */}
             <button
@@ -182,7 +194,7 @@ export const CSVImportModal: React.FC<CSVImportModalProps> = ({
 
           {/* Weight Unit Selection */}
           <div className="w-full mb-6">
-            <p className="text-sm font-semibold text-slate-300 mb-3 text-center">Select Your Preferred Weight Unit</p>
+            <p className="text-sm font-semibold text-slate-300 mb-3 text-center">Choose your weight unit</p>
             <div className="grid grid-cols-2 gap-3">
             {/* KG Option */}
             <button
@@ -257,10 +269,10 @@ export const CSVImportModal: React.FC<CSVImportModalProps> = ({
           >
             <Upload className={`w-6 h-6 sm:w-8 sm:h-8 mb-3 ${(selectedGender && selectedUnit) ? 'text-slate-500' : 'text-slate-600'}`} />
             <p className={`font-medium text-center text-sm sm:text-base ${(selectedGender && selectedUnit) ? 'text-slate-300' : 'text-slate-500'}`}>
-              {(selectedGender && selectedUnit) ? 'Drag and drop your CSV here' : 'Complete selections above first'}
+              {(selectedGender && selectedUnit) ? 'Drop your Hevy CSV here' : 'Choose body type + unit first'}
             </p>
             <p className="text-slate-500 text-xs sm:text-sm mt-1">
-              {(selectedGender && selectedUnit) ? 'or click to browse' : 'Then you can upload your CSV'}
+              {(selectedGender && selectedUnit) ? 'or click to choose a file' : 'Then upload your CSV'}
             </p>
           </div>
 
@@ -275,7 +287,7 @@ export const CSVImportModal: React.FC<CSVImportModalProps> = ({
 
           {/* Welcome Steps */}
           <div className="w-full mb-4">
-            <p className="text-xs text-slate-500 mb-2 text-center">How to export from Hevy:</p>
+            <p className="text-xs text-slate-500 mb-2 text-center">Export from Hevy (steps):</p>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               <div className="flex flex-col items-center">
                 <img src="/Step1.png" className="w-full h-auto rounded-lg border border-slate-700" alt="Step 1" loading="lazy" decoding="async" />
@@ -294,7 +306,7 @@ export const CSVImportModal: React.FC<CSVImportModalProps> = ({
 
           {isLoading && (
             <p className="text-slate-400 text-xs sm:text-sm text-center">
-              Loading your data...
+              Importing your data...
             </p>
           )}
         </div>

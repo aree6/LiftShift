@@ -82,9 +82,13 @@ const DeltaBadge: React.FC<{ delta: DeltaResult; suffix?: string; showPercent?: 
   
   if (direction === 'same') {
     return (
-      <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-500">
+      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-500/10 text-slate-400">
         <Minus className="w-3 h-3" />
-        No change
+        <span className="text-[10px] font-bold">
+          Stable
+          {showPercent ? ` (${deltaPercent}%)` : ''}
+        </span>
+        {context && <span className="text-[9px] opacity-75">{context}</span>}
       </span>
     );
   }
@@ -115,7 +119,7 @@ export const StreakBadge: React.FC<{ streak: StreakInfo }> = ({ streak }) => {
     return (
       <div className="inline-flex items-center gap-1 text-slate-500">
         <div className="w-1.5 h-1.5 rounded-full bg-slate-600 flex-shrink-0" />
-        <span className="text-[10px] font-medium">No streak</span>
+        <span className="text-[10px] font-medium">Start a streak</span>
       </div>
     );
   }
@@ -142,7 +146,7 @@ const PRStatusBadge: React.FC<{ prInsights: PRInsights }> = ({ prInsights }) => 
 
   if (daysSinceLastPR < 0) {
     return (
-      <span className="text-[10px] text-slate-500">No PRs yet</span>
+      <span className="text-[10px] text-slate-500">Chase your first PR</span>
     );
   }
 

@@ -16,7 +16,7 @@ import {
   SVG_MUSCLE_NAMES
 } from '../utils/muscleMapping';
 import { ViewHeader } from './ViewHeader';
-import { FANCY_FONT, TOOLTIP_THEMES, calculateTooltipPosition } from '../utils/uiConstants';
+import { FANCY_FONT, TOOLTIP_THEMES, calculateCenteredTooltipPosition } from '../utils/uiConstants';
 import { format } from 'date-fns';
 import { WeightUnit } from '../utils/localStorage';
 import { convertWeight, convertVolume } from '../utils/units';
@@ -280,7 +280,7 @@ const TREND_COLORS = {
 
 const TooltipPortal: React.FC<{ data: TooltipState }> = ({ data }) => {
   const { rect, title, body, status, metrics, structured } = data;
-  const positionStyle = calculateTooltipPosition(rect, HISTORY_TOOLTIP_WIDTH);
+  const positionStyle = calculateCenteredTooltipPosition(rect, HISTORY_TOOLTIP_WIDTH);
   const theme = TOOLTIP_THEMES[status] || TOOLTIP_THEMES.info;
 
   // Render a single tooltip line with color
@@ -298,7 +298,10 @@ const TooltipPortal: React.FC<{ data: TooltipState }> = ({ data }) => {
       className="fixed z-[9999] pointer-events-none transition-all duration-200 animate-in fade-in zoom-in-95"
       style={positionStyle}
     >
-      <div className={`border rounded-xl p-4 ${theme}`} style={{ width: HISTORY_TOOLTIP_WIDTH }}>
+      <div
+        className={`border rounded-xl p-4 ${theme} inline-block w-fit`}
+        style={{ maxWidth: HISTORY_TOOLTIP_WIDTH }}
+      >
         {/* Header with title and trend */}
         <div className="flex items-center justify-between gap-2 mb-3 pb-2 border-b border-white/10">
           <span className="font-bold uppercase text-xs tracking-wider">{title}</span>
@@ -335,7 +338,7 @@ const TooltipPortal: React.FC<{ data: TooltipState }> = ({ data }) => {
           </div>
         ) : (
           /* Fallback to simple body text */
-          <div className="text-sm leading-relaxed opacity-90">{body}</div>
+          <div className="text-sm leading-relaxed opacity-90 break-words">{body}</div>
         )}
         
         {/* Metrics footer */}
@@ -724,7 +727,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ data, filtersSlot, wei
                       <div
                         className="grid grid-cols-[2.5rem_1fr] grid-rows-2 gap-x-3 gap-y-1 mb-4 cursor-pointer select-none sm:flex sm:items-center sm:gap-3"
                         onClick={() => onExerciseClick?.(group.exerciseName)}
-                        title="Open exercise analysis"
+                        title="Open exercise details"
                       >
                         {(() => {
                           const asset = assetsMap?.get(group.exerciseName);

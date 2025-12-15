@@ -21,13 +21,14 @@ import {
   Area,
   XAxis,
   YAxis,
-  Tooltip,
+  Tooltip as RechartsTooltip,
   ResponsiveContainer,
 } from 'recharts';
 import { TrendingUp, TrendingDown, Dumbbell, X, Activity, Layers, PersonStanding, BicepsFlexed } from 'lucide-react';
 import { normalizeMuscleGroup, NormalizedMuscleGroup } from '../utils/muscleAnalytics';
 import { LazyRender } from './LazyRender';
 import { ChartSkeleton } from './ChartSkeleton';
+import { Tooltip as HoverTooltip, TooltipData } from './Tooltip';
 import {
   SVG_TO_MUSCLE_GROUP,
   MUSCLE_GROUP_ORDER,
@@ -64,6 +65,7 @@ export const MuscleAnalysis: React.FC<MuscleAnalysisProps> = ({ data, filtersSlo
   const [trendPeriodOverride, setTrendPeriodOverride] = useState<TrendPeriod | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('muscle');
   const [activeQuickFilter, setActiveQuickFilter] = useState<QuickFilterCategory | null>(null);
+  const [hoverTooltip, setHoverTooltip] = useState<TooltipData | null>(null);
 
   // Calculate date range span for smart filter
   const spanDays = useMemo(() => {
@@ -445,9 +447,46 @@ export const MuscleAnalysis: React.FC<MuscleAnalysisProps> = ({ data, filtersSlo
     }
   }, [viewMode]);
 
-  const handleMuscleHover = useCallback((muscleId: string | null) => {
+  const handleMuscleHover = useCallback((muscleId: string | null, e?: MouseEvent) => {
     setHoveredMuscle(muscleId);
-  }, []);
+    if (!muscleId || !e) {
+      setHoverTooltip(null);
+      return;
+    }
+
+    const target = e.target as Element | null;
+    const groupEl = target?.closest?.('g[id]') as Element | null;
+    const rect = groupEl?.getBoundingClientRect?.() as DOMRect | undefined;
+    if (!rect) {
+      setHoverTooltip(null);
+      return;
+    }
+
+    // Compute tooltip content inline (avoid relying on hoveredTooltipMeta which is async)
+    if (viewMode === 'group') {
+      const groupName = MUSCLE_GROUP_DISPLAY[muscleId];
+      if (!groupName || groupName === 'Other') {
+        setHoverTooltip(null);
+        return;
+      }
+      const sets = muscleGroupVolumes.get(groupName as any) || 0;
+      setHoverTooltip({
+        rect,
+        title: groupName,
+        body: `${Math.round(sets * 10) / 10} sets`,
+        status: sets > 0 ? 'success' : 'default',
+      });
+      return;
+    }
+
+    const sets = muscleVolumes.get(muscleId) || 0;
+    setHoverTooltip({
+      rect,
+      title: SVG_MUSCLE_NAMES[muscleId] ?? muscleId,
+      body: `${Math.round(sets * 10) / 10} sets`,
+      status: sets > 0 ? 'success' : 'default',
+    });
+  }, [muscleGroupVolumes, muscleVolumes, viewMode]);
 
   const selectedBodyMapIds = useMemo(() => {
     // Quick filter takes precedence for highlighting (works in both view modes)
@@ -653,16 +692,7 @@ export const MuscleAnalysis: React.FC<MuscleAnalysisProps> = ({ data, filtersSlo
           </div>
 
           {/* Hover Tooltip */}
-          {hoveredTooltipMeta && (
-            <div className="absolute top-24 sm:top-28 left-1/2 -translate-x-1/2 bg-black/90 border border-slate-700/50 rounded-lg px-4 py-2 shadow-xl pointer-events-none z-20">
-              <div className="font-medium text-sm text-center whitespace-nowrap" style={{ color: hoveredTooltipMeta.accent }}>
-                {hoveredTooltipMeta.name}
-              </div>
-              <div className="text-xs text-center whitespace-nowrap" style={{ color: hoveredTooltipMeta.accent }}>
-                {Math.round(hoveredTooltipMeta.sets * 10) / 10} sets
-              </div>
-            </div>
-          )}
+          {hoverTooltip && <HoverTooltip data={hoverTooltip} />}
         </div>
 
         {/* Right: Detail Panel - Always visible */}
@@ -759,7 +789,7 @@ export const MuscleAnalysis: React.FC<MuscleAnalysisProps> = ({ data, filtersSlo
                           interval="preserveStartEnd"
                         />
                         <YAxis hide />
-                        <Tooltip
+                        <RechartsTooltip
                           contentStyle={{
                             backgroundColor: '#1e293b',
                             border: '1px solid #334155',
@@ -781,7 +811,7 @@ export const MuscleAnalysis: React.FC<MuscleAnalysisProps> = ({ data, filtersSlo
                   </LazyRender>
                 ) : (
                   <div className="flex items-center justify-center h-full text-slate-500 text-sm">
-                    No data for this period
+                    No muscle data for this period yet
                   </div>
                 )}
               </div>

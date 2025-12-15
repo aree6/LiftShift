@@ -32,6 +32,24 @@
 
 ---
 
+## 🛠️ Troubleshooting
+
+If you see this error:
+
+> "We detected a Hevy workout CSV, but couldn't parse the workout dates. This usually happens when the Hevy export language isn't English. Please switch Hevy app language to English, export again, and re-upload."
+
+Do the following:
+
+1. Switch your Hevy app language to **English**
+2. Export your workout CSV again
+3. Re-upload it to HevyAnalytics
+
+<div align="center">
+  <img src="https://raw.githubusercontent.com/aree6/HevyAnalytics/main/public/step5.png" alt="Set Hevy export language to English" width="260" />
+</div>
+
+---
+
 > ⚡ **Pro Tip:** Don’t forget to visit the live site for instant access:  
 [**Open HevyAnalytics Live**](https://hevyanalytics.netlify.app)
 

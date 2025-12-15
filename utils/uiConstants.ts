@@ -35,11 +35,11 @@ export const CHART_COLORS: readonly string[] = [
 
 /** Tooltip theme classes by status - transparent (no blur, no black block) */
 export const TOOLTIP_THEMES: Readonly<Record<AnalysisStatus | 'default', string>> = {
-  success: 'border-emerald-500/35 bg-emerald-950/75 text-emerald-100 shadow-[0_0_18px_rgba(16,185,129,0.14)]',
-  warning: 'border-orange-500/35 bg-orange-950/75 text-orange-100 shadow-[0_0_18px_rgba(249,115,22,0.14)]',
-  danger: 'border-rose-500/35 bg-rose-950/75 text-rose-100 shadow-[0_0_18px_rgba(244,63,94,0.14)]',
-  info: 'border-blue-500/35 bg-slate-900/75 text-slate-200 shadow-[0_0_18px_rgba(59,130,246,0.14)]',
-  default: 'border-slate-700/35 bg-slate-950/75 text-slate-300 shadow-xl',
+  success: 'border-emerald-500/35 bg-emerald-950/85 text-emerald-100 shadow-[0_0_18px_rgba(16,185,129,0.14)]',
+  warning: 'border-orange-500/35 bg-orange-950/85 text-orange-100 shadow-[0_0_18px_rgba(249,115,22,0.14)]',
+  danger: 'border-rose-500/35 bg-rose-950/85 text-rose-100 shadow-[0_0_18px_rgba(244,63,94,0.14)]',
+  info: 'border-blue-500/35 bg-slate-900/85 text-slate-200 shadow-[0_0_18px_rgba(59,130,246,0.14)]',
+  default: 'border-slate-700/35 bg-slate-950/85 text-slate-300 shadow-xl',
 };
 
 /** Animation keyframes as CSS string for inline style injection */
@@ -84,7 +84,31 @@ export const calculateTooltipPosition = (
 
   const style: React.CSSProperties = {
     left: `${left}px`,
-    width: `${width}px`,
+  };
+
+  if (shouldFlip) {
+    style.top = `${rect.bottom + TOOLTIP_CONFIG.GAP}px`;
+  } else {
+    style.bottom = `${window.innerHeight - rect.top + TOOLTIP_CONFIG.GAP}px`;
+  }
+
+  return style;
+};
+
+export const calculateCenteredTooltipPosition = (
+  rect: DOMRect,
+  maxWidth: number = TOOLTIP_CONFIG.WIDTH
+): React.CSSProperties => {
+  const center = rect.left + rect.width / 2;
+  const minCenter = 20 + maxWidth / 2;
+  const maxCenter = window.innerWidth - 20 - maxWidth / 2;
+  const clampedCenter = Math.min(maxCenter, Math.max(minCenter, center));
+
+  const shouldFlip = rect.top < TOOLTIP_CONFIG.FLIP_THRESHOLD;
+
+  const style: React.CSSProperties = {
+    left: `${clampedCenter}px`,
+    transform: 'translateX(-50%)',
   };
 
   if (shouldFlip) {

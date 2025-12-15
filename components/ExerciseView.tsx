@@ -410,7 +410,7 @@ export const ExerciseView: React.FC<ExerciseViewProps> = ({ stats, filtersSlot, 
 
     const parts: string[] = [];
     if (tooOld) parts.push('You haven\'t trained this exercise recently');
-    if (notEnoughData) parts.push('Not enough data to generate meaningful insights yet');
+    if (notEnoughData) parts.push('Building baseline (need a few more sessions)');
 
     return {
       parts,
@@ -675,8 +675,8 @@ export const ExerciseView: React.FC<ExerciseViewProps> = ({ stats, filtersSlot, 
 
   const bestRepsImprovement = useMemo(() => {
     if (selectedSessions.length === 0) return 0;
-    const reps = selectedSessions.map(s => s.maxReps);
-    const unique = [...new Set(reps)].sort((a, b) => b - a);
+    const reps: number[] = selectedSessions.map((s) => s.maxReps);
+    const unique: number[] = Array.from(new Set<number>(reps)).sort((a, b) => b - a);
     if (unique.length < 2) return 0;
     return unique[0] - unique[1];
   }, [selectedSessions]);
@@ -831,16 +831,6 @@ export const ExerciseView: React.FC<ExerciseViewProps> = ({ stats, filtersSlot, 
               
               {/* 1. Header with exercise image and mini heatmap */}
               <div className="inline-flex items-start gap-4 shrink-0 bg-white rounded-xl p-3 self-start w-fit max-w-full">
-                {/* Exercise Image */}
-                {assetsMap && selectedStats && (() => {
-                  const a = assetsMap.get(selectedStats.name);
-                  if (!a) return null;
-                  const imgSrc = a.sourceType === 'video' ? a.thumbnail : (a.thumbnail || a.source);
-                  return imgSrc ? (
-                    <img src={imgSrc} alt={selectedStats.name} className="w-20 h-20 rounded-lg object-cover " loading="lazy" decoding="async" />
-                  ) : null;
-                })()}
-                
                 {/* Mini Body Map showing muscles this exercise targets */}
                 <div className="flex items-start gap-3">
                   <div className="w-24 h-20 flex items-center justify-center rounded-lg ">
@@ -898,6 +888,36 @@ export const ExerciseView: React.FC<ExerciseViewProps> = ({ stats, filtersSlot, 
                     </div>
                   )}
                 </div>
+
+                {assetsMap && selectedStats && (() => {
+                  const a = assetsMap.get(selectedStats.name);
+                  if (!a) return null;
+
+                  const videoSrc = (a.sourceType === 'video' ? (a.video ?? a.source) : undefined) ?? undefined;
+                  const imgSrc = a.sourceType === 'video' ? a.thumbnail : (a.thumbnail || a.source);
+
+                  if (videoSrc) {
+                    return (
+                      <video
+                        key={videoSrc}
+                        width={80}
+                        height={80}
+                        className="w-20 h-20 rounded-lg object-cover"
+                        poster={a.thumbnail}
+                        src={videoSrc}
+                        autoPlay
+                        loop
+                        muted
+                        playsInline
+                        preload="metadata"
+                      />
+                    );
+                  }
+
+                  return imgSrc ? (
+                    <img src={imgSrc} alt={selectedStats.name} className="w-20 h-20 rounded-lg object-cover" loading="lazy" decoding="async" />
+                  ) : null;
+                })()}
               </div>
 
               {/* 2. Key Metrics Grid (Bottom Half - Fills Remaining Height) */}
@@ -1065,7 +1085,7 @@ export const ExerciseView: React.FC<ExerciseViewProps> = ({ stats, filtersSlot, 
           <div className="w-full flex-1 min-h-0">
             {chartData.length === 0 ? (
               <div className="w-full h-full min-h-[260px] flex items-center justify-center text-slate-500 text-xs border border-dashed border-slate-800 rounded-lg">
-                Not enough data to render Strength Progression.
+                Building baseline — log a few more sessions to see Strength Progression.
               </div>
             ) : (
             <LazyRender className="w-full h-full" placeholder={<ChartSkeleton className="h-full min-h-[260px]" />}>

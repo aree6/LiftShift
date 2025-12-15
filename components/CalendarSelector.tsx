@@ -12,11 +12,16 @@ type SelectionStatus = 'full' | 'partial' | 'none';
 interface CalendarSelectorProps {
   mode?: 'day' | 'week' | 'both';
   initialMonth?: Date | null;
+  initialRange?: Range | null;
   minDate?: Date | null;
   maxDate?: Date | null;
   availableDates?: Set<string> | null;
   multipleWeeks?: boolean;
   onSelectWeek?: (range: Range) => void;
+  onSelectWeeks?: (ranges: Range[]) => void;
+  onSelectDay?: (day: Date) => void;
+  onSelectMonth?: (range: Range) => void;
+  onSelectYear?: (range: Range) => void;
   onClear?: () => void;
   onClose?: () => void;
   onApply?: (selection: { range: Range | null }) => void;
@@ -47,18 +52,18 @@ const StartEndTooltip: React.FC<{
   };
 
   return (
-    <div className={`absolute z-50 ${positionClasses[position]} flex gap-1 bg-slate-900 border border-slate-600 rounded-lg p-1 shadow-xl`}>
+    <div className={`absolute z-50 ${positionClasses[position]} flex gap-1 bg-slate-950/75 border border-slate-700/35 rounded-xl p-1.5 shadow-xl`}>
       <button
         onClick={onStart}
-        className="px-2 py-1 text-[10px] font-bold rounded bg-green-700 hover:bg-green-600 text-white whitespace-nowrap"
+        className="px-2.5 py-1.5 text-[10px] font-semibold rounded-lg bg-black/40 hover:bg-white/5 border border-emerald-500/30 text-emerald-200 whitespace-nowrap transition-colors"
       >
-        Start
+        Set start
       </button>
       <button
         onClick={onEnd}
-        className="px-2 py-1 text-[10px] font-bold rounded bg-red-700 hover:bg-red-600 text-white whitespace-nowrap"
+        className="px-2.5 py-1.5 text-[10px] font-semibold rounded-lg bg-black/40 hover:bg-white/5 border border-rose-500/30 text-rose-200 whitespace-nowrap transition-colors"
       >
-        End
+        Set end
       </button>
     </div>
   );
@@ -73,7 +78,7 @@ const CheckmarkIcon: React.FC<{ className?: string }> = ({ className = 'w-3 h-3'
 
 /** Dot indicator for partial selection */
 const PartialDot: React.FC<{ className?: string }> = ({ className = 'w-2 h-2' }) => (
-  <span className={`${className} rounded-full bg-blue-400`} />
+  <span className={`${className} rounded-full bg-slate-300`} />
 );
 
 // ============================================================================
@@ -83,11 +88,16 @@ const PartialDot: React.FC<{ className?: string }> = ({ className = 'w-2 h-2' })
 export const CalendarSelector: React.FC<CalendarSelectorProps> = ({ 
   mode = 'both', 
   initialMonth = null, 
+  initialRange = null,
   minDate = null, 
   maxDate = null, 
   availableDates = null, 
   multipleWeeks = false, 
   onSelectWeek,
+  onSelectWeeks,
+  onSelectDay,
+  onSelectMonth,
+  onSelectYear,
   onClear,
   onClose,
   onApply
@@ -95,12 +105,14 @@ export const CalendarSelector: React.FC<CalendarSelectorProps> = ({
   // ---------------------------------------------------------------------------
   // State
   // ---------------------------------------------------------------------------
-  const [viewMonth, setViewMonth] = useState<Date>(initialMonth ?? new Date());
-  const [rangeStart, setRangeStart] = useState<Date | null>(null);
-  const [rangeEnd, setRangeEnd] = useState<Date | null>(null);
+  const [viewMonth, setViewMonth] = useState<Date>(() => initialMonth ?? initialRange?.start ?? new Date());
+  const [rangeStart, setRangeStart] = useState<Date | null>(() => initialRange?.start ?? null);
+  const [rangeEnd, setRangeEnd] = useState<Date | null>(() => initialRange?.end ?? null);
   const [tooltipDay, setTooltipDay] = useState<Date | null>(null);
   const [tooltipWeek, setTooltipWeek] = useState<{ start: Date; end: Date } | null>(null);
   const [tooltipMonth, setTooltipMonth] = useState<number | null>(null);
+  const [tooltipYear, setTooltipYear] = useState(false);
+  const [jumpHighlightDay, setJumpHighlightDay] = useState<Date | null>(null);
 
   const today = useMemo(() => new Date(), []);
   const viewYear = viewMonth.getFullYear();
@@ -118,6 +130,10 @@ export const CalendarSelector: React.FC<CalendarSelectorProps> = ({
       .filter(d => d <= today && (!minDate || d >= minDate) && (!maxDate || d <= maxDate))
       .sort((a, b) => a.getTime() - b.getTime());
   }, [availableDates, today, minDate, maxDate]);
+
+  const yearHasData = useMemo(() => {
+    return sortedValidDates.some((d) => d.getFullYear() === viewYear);
+  }, [sortedValidDates, viewYear]);
 
   /** Set for O(1) lookup of valid dates */
   const validDateSet = useMemo(() => {
@@ -249,6 +265,9 @@ export const CalendarSelector: React.FC<CalendarSelectorProps> = ({
   // Day handlers
   const handleDayClick = (day: Date) => {
     if (!isValidGymDay(day)) return;
+    setTooltipWeek(null);
+    setTooltipMonth(null);
+    setTooltipYear(false);
     setTooltipDay(tooltipDay && isSameDay(tooltipDay, day) ? null : day);
   };
 
@@ -257,6 +276,9 @@ export const CalendarSelector: React.FC<CalendarSelectorProps> = ({
 
   // Week handlers
   const handleWeekClick = (weekStart: Date) => {
+    setTooltipDay(null);
+    setTooltipMonth(null);
+    setTooltipYear(false);
     setTooltipWeek(tooltipWeek && isSameDay(tooltipWeek.start, weekStart) 
       ? null 
       : { start: weekStart, end: addDays(weekStart, 6) });
@@ -279,6 +301,9 @@ export const CalendarSelector: React.FC<CalendarSelectorProps> = ({
       setViewMonth(new Date(viewYear, monthIndex, 1));
       return;
     }
+    setTooltipDay(null);
+    setTooltipWeek(null);
+    setTooltipYear(false);
     setTooltipMonth(tooltipMonth === monthIndex ? null : monthIndex);
   };
 
@@ -296,31 +321,37 @@ export const CalendarSelector: React.FC<CalendarSelectorProps> = ({
   const handleYearClick = () => {
     const { first, last } = getYearValidRange(viewYear);
     if (!first || !last) return;
+    setTooltipDay(null);
+    setTooltipWeek(null);
+    setTooltipMonth(null);
+    setTooltipYear((v) => !v);
+  };
 
-    if (!rangeStart || !rangeEnd) {
-      setRangeStart(first);
-      setRangeEnd(last);
-      return;
-    }
+  const handleSetYearAsStart = () => {
+    const { first } = getYearValidRange(viewYear);
+    if (first) setAsStart(first, () => setTooltipYear(false));
+  };
 
-    const yearStatus = getYearStatus();
-    if (yearStatus === 'full') {
-      setRangeStart(null);
-      setRangeEnd(null);
-    } else {
-      const newStart = first < rangeStart ? first : rangeStart;
-      const newEnd = last > rangeEnd ? last : rangeEnd;
-      setRangeStart(newStart);
-      setRangeEnd(newEnd);
-    }
+  const handleSetYearAsEnd = () => {
+    const { last } = getYearValidRange(viewYear);
+    if (last) setAsEnd(last, () => setTooltipYear(false));
   };
 
   // Clear and Apply
   const handleClear = () => {
     setRangeStart(null);
     setRangeEnd(null);
-    setViewMonth(new Date());
     onClear?.();
+  };
+
+  const handleGoToToday = () => {
+    setViewMonth(startOfMonth(new Date()));
+    setTooltipDay(null);
+    setTooltipWeek(null);
+    setTooltipMonth(null);
+    setTooltipYear(false);
+    setJumpHighlightDay(new Date());
+    setTimeout(() => setJumpHighlightDay(null), 1200);
   };
 
   const handleApply = () => {
@@ -328,6 +359,12 @@ export const CalendarSelector: React.FC<CalendarSelectorProps> = ({
   };
 
   const yearStatus = getYearStatus();
+
+  const jumpToDate = (d: Date) => {
+    setViewMonth(startOfMonth(d));
+    setJumpHighlightDay(d);
+    setTimeout(() => setJumpHighlightDay(null), 1200);
+  };
 
   // ---------------------------------------------------------------------------
   // Render
@@ -348,29 +385,62 @@ export const CalendarSelector: React.FC<CalendarSelectorProps> = ({
 
       {/* Range display banner */}
       {hasSelection && (
-        <div className="mb-3 px-3 py-2 bg-blue-950/50 border border-blue-500/30 rounded-lg text-center">
-          <div className="text-[10px] text-blue-300 uppercase tracking-wide mb-1">Selected Range</div>
-          <div className="flex items-center justify-center gap-2 text-sm font-semibold">
-            <button
-              onClick={() => setViewMonth(startOfMonth(rangeStart!))}
-              className="px-2 py-0.5 rounded bg-green-900/50 hover:bg-green-800/60 border border-green-500/40 text-green-200 hover:text-green-100 transition-colors"
-              title="Go to start date"
-            >
-              {formatDayYearContraction(rangeStart!)}
-            </button>
-            {!isSameDay(rangeStart!, rangeEnd!) && (
-              <>
-                <span className="text-blue-400">→</span>
+        <div className="mb-3 px-2">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-[10px] text-slate-400 uppercase tracking-wide mb-1">Selected Range</div>
+              <div className="flex items-center gap-2 text-sm font-semibold">
                 <button
-                  onClick={() => setViewMonth(startOfMonth(rangeEnd!))}
-                  className="px-2 py-0.5 rounded bg-red-900/50 hover:bg-red-800/60 border border-red-500/40 text-red-200 hover:text-red-100 transition-colors"
-                  title="Go to end date"
+                  onClick={() => jumpToDate(rangeStart!)}
+                  className="px-2 py-0.5 rounded-md bg-black/50 hover:bg-white/5 text-slate-200 transition-colors"
+                  title="Go to start date"
                 >
-                  {formatDayYearContraction(rangeEnd!)}
+                  {formatDayYearContraction(rangeStart!)}
                 </button>
-              </>
-            )}
+                {!isSameDay(rangeStart!, rangeEnd!) && (
+                  <>
+                    <span className="text-slate-500">↔</span>
+                    <button
+                      onClick={() => jumpToDate(rangeEnd!)}
+                      className="px-2 py-0.5 rounded-md bg-black/50 hover:bg-white/5 text-slate-200 transition-colors"
+                      title="Go to end date"
+                    >
+                      {formatDayYearContraction(rangeEnd!)}
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={handleClear}
+                className="text-[11px] px-2.5 py-1.5 rounded-lg bg-black/60 hover:bg-white/5 text-slate-200 font-semibold transition-colors"
+                title="Clear selection"
+              >
+                Clear
+              </button>
+              <button
+                onClick={handleGoToToday}
+                className="text-[11px] px-2.5 py-1.5 rounded-lg bg-black/60 hover:bg-white/5 text-slate-200 font-semibold transition-colors"
+                title="Go to today"
+              >
+                Today
+              </button>
+            </div>
           </div>
+        </div>
+      )}
+
+      {!hasSelection && (
+        <div className="mb-3 px-2 flex justify-end">
+          <button
+            onClick={handleGoToToday}
+            className="text-[11px] px-2.5 py-1.5 rounded-lg bg-black/60 hover:bg-white/5 text-slate-200 font-semibold transition-colors"
+            title="Go to today"
+          >
+            Today
+          </button>
         </div>
       )}
 
@@ -379,23 +449,34 @@ export const CalendarSelector: React.FC<CalendarSelectorProps> = ({
         <button
           onClick={() => setViewMonth(addYears(viewMonth, -1))}
           className="px-3 py-2 rounded-lg bg-black/70 hover:bg-black/60 text-base font-bold text-slate-200 border border-slate-700/50"
-          title="lst yr"
+          title="Previous year"
         >
           ‹
         </button>
-        <button
-          onClick={handleYearClick}
-          className={`relative px-4 py-1.5 rounded-lg font-bold text-sm border-2 transition-all duration-200 min-w-[80px] ${
-            yearStatus === 'full' ? 'border-blue-500 bg-blue-500 text-white'
-              : yearStatus === 'partial' ? 'border-blue-400 bg-blue-900/60 text-blue-200'
-              : 'border-slate-600 bg-slate-800 text-white hover:border-blue-400'
-          }`}
-          title="Click to select/deselect entire year"
-        >
-          {yearStatus === 'full' && <CheckmarkIcon className="absolute -top-1.5 -right-1.5 w-4 h-4 text-blue-300" />}
-          {yearStatus === 'partial' && <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-blue-400" />}
-          {viewYear}
-        </button>
+        <div className="relative">
+          <button
+            onClick={handleYearClick}
+            className={`relative px-4 py-1.5 rounded-lg font-bold text-sm border transition-all duration-200 min-w-[80px] ${
+              yearStatus === 'full'
+                ? 'border-slate-500/60 bg-white/10 text-white'
+                : yearStatus === 'partial'
+                  ? 'border-slate-600/60 bg-white/5 text-slate-200'
+                  : (yearHasData ? 'border-emerald-500/30 bg-emerald-500/10 text-slate-100 hover:bg-emerald-500/15' : 'border-slate-700/50 bg-black/70 text-slate-200 hover:bg-white/5')
+            } ${tooltipYear ? 'ring-2 ring-slate-300/30' : ''}`}
+            title="Click again to set start/end for the year"
+          >
+            {yearStatus === 'full' && <CheckmarkIcon className="absolute -top-1.5 -right-1.5 w-4 h-4 text-slate-200" />}
+            {yearStatus === 'partial' && <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-slate-300" />}
+            {viewYear}
+          </button>
+          {tooltipYear && (
+            <StartEndTooltip
+              position="bottom"
+              onStart={(e) => { e.stopPropagation(); handleSetYearAsStart(); }}
+              onEnd={(e) => { e.stopPropagation(); handleSetYearAsEnd(); }}
+            />
+          )}
+        </div>
         <button
           onClick={() => setViewMonth(addYears(viewMonth, 1))}
           className="px-3 py-2 rounded-lg bg-black/70 hover:bg-black/60 text-base font-bold text-slate-200 border border-slate-700/50"
@@ -420,18 +501,17 @@ export const CalendarSelector: React.FC<CalendarSelectorProps> = ({
                 onClick={() => !disabled && hasDataInMonth && handleMonthClick(idx)}
                 disabled={disabled || !hasDataInMonth}
                 className={`group relative aspect-square w-full rounded-md flex items-center justify-center text-[11px] font-semibold border-2 transition-all duration-200
-                  ${status === 'full' ? 'border-blue-500 bg-blue-500 text-white' 
-                    : status === 'partial' ? 'border-blue-400 bg-blue-900/60 text-blue-200'
-                    : isCurrentView ? 'border-blue-400 bg-blue-900/40 text-blue-200'
-                    : 'border-slate-700 bg-slate-800 text-slate-300 hover:border-blue-400'}
+                  ${status === 'full' ? 'border-slate-500/60 bg-white/10 text-white' 
+                    : status === 'partial' ? 'border-slate-600/60 bg-white/5 text-slate-200'
+                    : isCurrentView ? (hasDataInMonth ? 'border-emerald-500/30 bg-emerald-500/10 text-slate-100' : 'border-slate-600/60 bg-black/50 text-slate-200')
+                    : (hasDataInMonth ? 'border-emerald-500/20 bg-emerald-500/5 text-slate-200 hover:bg-emerald-500/10' : 'border-slate-700/50 bg-black/70 text-slate-300 hover:bg-white/5')}
                   ${disabled || !hasDataInMonth ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer hover:scale-105'}
                   ${showTooltip ? 'ring-2 ring-yellow-400' : ''}
                 `}
                 title={`${MONTH_NAMES[idx]}${isCurrentView ? ' (click again to select)' : ''}`}
               >
-                {status === 'full' && <span className="absolute inset-0 bg-gradient-to-br from-white/20 to-white/5 rounded-md" />}
                 <span className="relative z-10">{label}</span>
-                {status === 'full' && <CheckmarkIcon className="absolute -top-1 -right-1 w-3 h-3 text-blue-300" />}
+                {status === 'full' && <CheckmarkIcon className="absolute -top-1 -right-1 w-3 h-3 text-slate-200" />}
                 {status === 'partial' && <PartialDot className="absolute -top-0.5 -right-0.5 w-2 h-2" />}
               </button>
               {showTooltip && (
@@ -462,7 +542,7 @@ export const CalendarSelector: React.FC<CalendarSelectorProps> = ({
           const showWeekTooltip = tooltipWeek && isSameDay(tooltipWeek.start, weekStart);
 
           return (
-            <div key={weekIdx} className={`flex items-center gap-1 ${weekStatus === 'full' ? 'rounded-md bg-blue-900/10' : ''}`}>
+            <div key={weekIdx} className={`flex items-center gap-1 ${weekStatus === 'full' ? 'rounded-md bg-white/5' : enabledWeek ? 'rounded-md bg-emerald-500/5' : ''}`}>
               {/* Week checkbox */}
               {mode !== 'day' && (
                 multipleWeeks ? (
@@ -470,9 +550,9 @@ export const CalendarSelector: React.FC<CalendarSelectorProps> = ({
                     <button 
                       className={`group flex items-center justify-center cursor-pointer shrink-0 w-6 h-6 rounded-md border-2 transition-all duration-200
                         ${!enabledWeek ? 'opacity-40 cursor-not-allowed border-slate-700 bg-slate-800' : ''}
-                        ${weekStatus === 'full' ? 'border-blue-500 bg-blue-500' : ''}
-                        ${weekStatus === 'partial' ? 'border-blue-400 bg-blue-900/60' : ''}
-                        ${weekStatus === 'none' && enabledWeek ? 'border-slate-600 bg-slate-800 hover:border-blue-400 hover:scale-105' : ''}
+                        ${weekStatus === 'full' ? 'border-slate-500/60 bg-white/10' : ''}
+                        ${weekStatus === 'partial' ? 'border-slate-600/60 bg-white/5' : ''}
+                        ${weekStatus === 'none' && enabledWeek ? 'border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/15 hover:scale-105' : ''}
                         ${showWeekTooltip ? 'ring-2 ring-yellow-400' : ''}
                       `}
                       onClick={() => enabledWeek && handleWeekClick(weekStart)}
@@ -515,6 +595,7 @@ export const CalendarSelector: React.FC<CalendarSelectorProps> = ({
                   const isStart = edge === 'start';
                   const isEnd = edge === 'end';
                   const showDayTooltip = tooltipDay && isSameDay(tooltipDay, day);
+                  const isJumpTarget = jumpHighlightDay && isSameDay(jumpHighlightDay, day);
                   
                   return (
                     <div key={day.toISOString()} className="relative">
@@ -524,13 +605,14 @@ export const CalendarSelector: React.FC<CalendarSelectorProps> = ({
                         className={`relative w-full h-7 rounded flex items-center justify-center text-[11px] border-2 transition-colors
                           ${inRange
                             ? isStart || isEnd
-                              ? 'border-blue-400 bg-blue-500 text-white font-bold shadow-md'
-                              : 'border-blue-500 bg-blue-600 text-white font-medium'
+                              ? 'border-sky-400/70 bg-sky-500/25 text-white font-bold shadow-md'
+                              : 'border-sky-500/30 bg-sky-500/15 text-white font-medium'
                             : inMonth 
-                              ? hasWorkout ? 'border-blue-600 bg-blue-900/40 text-blue-200 hover:bg-blue-700' : 'border-slate-700/50 text-slate-500'
+                              ? hasWorkout ? 'border-emerald-500/35 bg-emerald-500/12 text-slate-100 hover:bg-emerald-500/18 ring-1 ring-emerald-500/15' : 'border-slate-800/60 bg-black/40 text-slate-500'
                               : 'border-slate-800 text-slate-500'
                           }
-                          ${isToday ? 'ring-1 ring-sky-400' : ''}
+                          ${isToday ? 'ring-1 ring-sky-300/70' : ''}
+                          ${isJumpTarget ? 'ring-2 ring-sky-300/70' : ''}
                           ${disabled || !hasWorkout ? 'opacity-30 cursor-not-allowed' : ''}
                           ${showDayTooltip ? 'ring-2 ring-yellow-400' : ''}
                         `}
@@ -545,7 +627,7 @@ export const CalendarSelector: React.FC<CalendarSelectorProps> = ({
                       </button>
                       {showDayTooltip && (
                         <StartEndTooltip
-                          position="top"
+                          position={weekIdx < 2 ? 'bottom' : 'top'}
                           onStart={(e) => { e.stopPropagation(); handleSetDayAsStart(day); }}
                           onEnd={(e) => { e.stopPropagation(); handleSetDayAsEnd(day); }}
                         />
@@ -562,16 +644,10 @@ export const CalendarSelector: React.FC<CalendarSelectorProps> = ({
       {/* Footer buttons */}
       <div className="mt-3 flex gap-2">
         <button
-          onClick={handleClear}
-          className="flex-1 text-[11px] px-3 py-2 rounded-lg bg-amber-950/40 hover:bg-amber-950/60 border border-amber-500/30 text-amber-200 font-semibold transition-colors"
-        >
-          Reset
-        </button>
-        <button
           onClick={handleApply}
           disabled={!hasSelection}
           className={`flex-1 text-[11px] px-3 py-2 rounded-lg font-semibold transition-colors ${
-            hasSelection ? 'bg-blue-600 hover:bg-blue-500 text-white' : 'bg-slate-800 text-slate-500 cursor-not-allowed'
+            hasSelection ? 'bg-white/10 hover:bg-white/15 border border-slate-600/60 text-white' : 'bg-black/40 border border-slate-800/60 text-slate-500 cursor-not-allowed'
           }`}
         >
           Apply

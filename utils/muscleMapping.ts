@@ -169,7 +169,7 @@ export const loadExerciseMuscleData = async (): Promise<Map<string, ExerciseMusc
   if (exerciseMuscleCache) return exerciseMuscleCache;
   
   try {
-    const response = await fetch('/exercises_muscles_and_thumbnail_data.csv');
+    const response = await fetch(`${import.meta.env.BASE_URL}exercises_muscles_and_thumbnail_data.csv`);
     const text = await response.text();
     const lines = text.split('\n');
     const map = new Map<string, ExerciseMuscleData>();
