@@ -15,7 +15,8 @@ import {
 import { getExerciseAssets, ExerciseAsset } from '../utils/exerciseAssets';
 import { WeightUnit } from '../utils/localStorage';
 import { convertWeight } from '../utils/units';
-import { formatDayYearContraction } from '../utils/dateUtils';
+import { formatHumanReadableDate } from '../utils/dateUtils';
+import { formatNumber } from '../utils/formatters';
 
 // Mini Sparkline Component
 export const Sparkline: React.FC<{ data: SparklinePoint[]; color?: string; height?: number }> = ({ 
@@ -98,7 +99,7 @@ const DeltaBadge: React.FC<{ delta: DeltaResult; suffix?: string; showPercent?: 
       <Icon className="w-3 h-3" />
       <span className="text-[10px] font-bold">
         {isUp ? '+' : ''}
-        {showPercent ? `${deltaPercent}%` : delta.delta}
+        {showPercent ? `${deltaPercent}%` : formatNumber(delta.delta, { maxDecimals: 2 })}
         {suffix}
       </span>
       {context && <span className="text-[9px] opacity-75">{context}</span>}
@@ -322,19 +323,19 @@ interface InsightsPanelProps {
 
 export const InsightsPanel: React.FC<InsightsPanelProps> = memo(function InsightsPanel(props) {
   const { insights, totalWorkouts, totalSets, totalPRs } = props;
-  const { weekComparison, streakInfo, prInsights, volumeSparkline, workoutSparkline, prSparkline, setsSparkline, consistencySparkline } = insights;
+  const { rolling7d, streakInfo, prInsights, volumeSparkline, workoutSparkline, prSparkline, setsSparkline, consistencySparkline } = insights;
 
   return (
     <div className="grid grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
       {/* Workouts This Week */}
       <KPICard
-        title="This Week"
-        value={weekComparison.workouts.current}
+        title="Last 7d"
+        value={rolling7d.current.totalWorkouts}
         subtitle="workouts"
         icon={Calendar}
         iconColor="text-blue-400"
-        delta={weekComparison.workouts}
-        deltaContext="vs lst wk"
+        delta={rolling7d.workouts ?? undefined}
+        deltaContext="vs prev 7d"
         sparkline={workoutSparkline}
         sparklineColor="#3b82f6"
       />
@@ -342,12 +343,12 @@ export const InsightsPanel: React.FC<InsightsPanelProps> = memo(function Insight
       {/* Sets This Week */}
       <KPICard
         title="Sets"
-        value={weekComparison.sets.current}
-        subtitle="this week"
+        value={rolling7d.current.totalSets}
+        subtitle="last 7d"
         icon={Dumbbell}
         iconColor="text-purple-400"
-        delta={weekComparison.sets}
-        deltaContext="vs lst wk"
+        delta={rolling7d.sets ?? undefined}
+        deltaContext="vs prev 7d"
         sparkline={setsSparkline}
         sparklineColor="#a855f7"
       />
@@ -370,16 +371,22 @@ export const InsightsPanel: React.FC<InsightsPanelProps> = memo(function Insight
 // Compact Alert Card for Plateaus
 interface PlateauAlertProps {
   exerciseName: string;
-  weeksStuck: number;
   suggestion: string;
   asset?: ExerciseAsset;
+  onClick?: () => void;
 }
 
-export const PlateauAlert: React.FC<PlateauAlertProps> = ({ exerciseName, weeksStuck, suggestion, asset }) => {
+export const PlateauAlert: React.FC<PlateauAlertProps> = ({ exerciseName, suggestion, asset, onClick }) => {
   const imgSrc = asset?.sourceType === 'video' ? asset.thumbnail : (asset?.thumbnail || asset?.source);
+  const clickable = typeof onClick === 'function';
   
   return (
-    <div className="flex items-start gap-3 p-3 bg-amber-500/5 border border-amber-500/20 rounded-lg">
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={!clickable}
+      className={`w-full flex items-start gap-3 p-3 bg-amber-500/5 border border-amber-500/20 rounded-lg text-left ${clickable ? 'cursor-pointer hover:bg-amber-500/10 transition-colors' : 'cursor-default'}`}
+    >
       {imgSrc ? (
         <img src={imgSrc} alt="" className="w-9 h-9 rounded-lg object-cover border border-amber-500/30 flex-shrink-0" loading="lazy" />
       ) : (
@@ -390,13 +397,10 @@ export const PlateauAlert: React.FC<PlateauAlertProps> = ({ exerciseName, weeksS
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <span className="text-sm font-semibold text-white truncate">{exerciseName}</span>
-          <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 font-bold">
-            {weeksStuck}+ weeks
-          </span>
         </div>
-        <p className="text-xs text-slate-400 mt-0.5">{suggestion}</p>
+        <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">{suggestion}</p>
       </div>
-    </div>
+    </button>
   );
 };
 
@@ -406,14 +410,22 @@ interface RecentPRCardProps {
   isLatest?: boolean;
   asset?: ExerciseAsset;
   weightUnit?: WeightUnit;
+  now?: Date;
+  onExerciseClick?: (exerciseName: string) => void;
 }
 
-export const RecentPRCard: React.FC<RecentPRCardProps> = ({ pr, isLatest, asset, weightUnit = 'kg' }) => {
+export const RecentPRCard: React.FC<RecentPRCardProps> = ({ pr, isLatest, asset, weightUnit = 'kg', now, onExerciseClick }) => {
   const { exercise, weight, reps, date, improvement } = pr;
   const imgSrc = asset?.sourceType === 'video' ? asset.thumbnail : (asset?.thumbnail || asset?.source);
+  const clickable = typeof onExerciseClick === 'function';
   
   return (
-    <div className={`flex items-center gap-3 p-2 rounded-lg ${isLatest ? 'bg-emerald-500/10 border border-emerald-500/20' : 'bg-black/50'}`}>
+    <button
+      type="button"
+      onClick={() => onExerciseClick?.(exercise)}
+      disabled={!clickable}
+      className={`w-full flex items-center gap-3 p-2 rounded-lg text-left ${isLatest ? 'bg-emerald-500/10 border border-emerald-500/20' : 'bg-black/50'} ${clickable ? 'cursor-pointer hover:bg-black/60 transition-colors' : 'cursor-default'}`}
+    >
       {imgSrc ? (
         <img src={imgSrc} alt="" className="w-9 h-9 rounded-lg object-cover border border-slate-700 flex-shrink-0" loading="lazy" />
       ) : (
@@ -423,7 +435,7 @@ export const RecentPRCard: React.FC<RecentPRCardProps> = ({ pr, isLatest, asset,
       )}
       <div className="flex-1 min-w-0">
         <div className="text-sm font-medium text-white truncate">{exercise}</div>
-        <div className="text-[10px] text-slate-500">{formatDayYearContraction(date)}</div>
+        <div className="text-[10px] text-slate-500">{formatHumanReadableDate(date, { now })}</div>
       </div>
       <div className="text-right">
         <div className="text-sm font-bold text-white">{convertWeight(weight, weightUnit)}{weightUnit}</div>
@@ -435,7 +447,7 @@ export const RecentPRCard: React.FC<RecentPRCardProps> = ({ pr, isLatest, asset,
           <div className="text-[10px] text-slate-500">×{reps}</div>
         )}
       </div>
-    </div>
+    </button>
   );
 };
 
@@ -443,9 +455,11 @@ export const RecentPRCard: React.FC<RecentPRCardProps> = ({ pr, isLatest, asset,
 interface RecentPRsPanelProps {
   prInsights: PRInsights;
   weightUnit?: WeightUnit;
+  now?: Date;
+  onExerciseClick?: (exerciseName: string) => void;
 }
 
-export const RecentPRsPanel: React.FC<RecentPRsPanelProps> = memo(function RecentPRsPanel({ prInsights, weightUnit = 'kg' }) {
+export const RecentPRsPanel: React.FC<RecentPRsPanelProps> = memo(function RecentPRsPanel({ prInsights, weightUnit = 'kg', now, onExerciseClick }) {
   const { recentPRs, daysSinceLastPR, prDrought, prFrequency } = prInsights;
   const [assetsMap, setAssetsMap] = useState<Map<string, ExerciseAsset> | null>(null);
 
@@ -489,6 +503,8 @@ export const RecentPRsPanel: React.FC<RecentPRsPanelProps> = memo(function Recen
                 isLatest={idx === 0}
                 asset={assetsMap?.get(pr.exercise)}
                 weightUnit={weightUnit}
+                now={now}
+                onExerciseClick={onExerciseClick}
               />
             </div>
           ))}

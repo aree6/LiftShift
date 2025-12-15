@@ -7,7 +7,7 @@ import {
   getPrsOverTime,
   getTopExercisesOverTime
 } from '../utils/analytics';
-import { getMuscleVolumeTimeSeries, getDetailedMuscleCompositionLatest, normalizeMuscleGroup, getMuscleVolumeTimeSeriesDetailed } from '../utils/muscleAnalytics';
+import { normalizeMuscleGroup, getMuscleVolumeTimeSeriesCalendar, getMuscleVolumeTimeSeriesDetailedCalendar } from '../utils/muscleAnalytics';
 import { CSV_TO_SVG_MUSCLE_MAP, SVG_MUSCLE_NAMES, getVolumeColor } from '../utils/muscleMapping';
 import { BodyMap, BodyMapGender } from './BodyMap';
 import { MUSCLE_COLORS } from '../utils/categories';
@@ -34,27 +34,36 @@ import {
   Grid3X3, Scan, Square, ChartBarStacked, ChartColumnStacked, BicepsFlexed
 } from 'lucide-react';
 import { Target } from 'lucide-react';
-import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addMonths, eachDayOfInterval, subDays, differenceInCalendarDays } from 'date-fns';
-import { formatDayContraction, formatDayYearContraction, formatWeekContraction, formatMonthYearContraction } from '../utils/dateUtils';
+import { format, startOfDay, endOfDay, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addMonths, eachDayOfInterval, subDays, differenceInCalendarDays } from 'date-fns';
+import { formatDayContraction, formatDayYearContraction, formatHumanReadableDate, formatWeekContraction, formatMonthYearContraction, getEffectiveNowFromWorkoutData } from '../utils/dateUtils';
 import { getExerciseAssets, ExerciseAsset } from '../utils/exerciseAssets';
 import { ViewHeader } from './ViewHeader';
 import { calculateDashboardInsights, detectPlateaus, calculateDelta, DashboardInsights, PlateauAnalysis, SparklinePoint, StreakInfo } from '../utils/insights';
 import { InsightsPanel, PlateauAlert, RecentPRsPanel, Sparkline, StreakBadge } from './InsightCards';
 import { computationCache } from '../utils/computationCache';
+import { LazyRender } from './LazyRender';
+import { ChartSkeleton } from './ChartSkeleton';
+import { summarizeExerciseHistory } from '../utils/exerciseTrend';
+import { formatNumber, formatSignedNumber } from '../utils/formatters';
 
-const formatSigned = (n: number) => (n > 0 ? `+${n}` : `${n}`);
-const formatSignedFixed = (n: number, digits: number) => (n > 0 ? `+${n.toFixed(digits)}` : n.toFixed(digits));
+const formatSigned = (n: number) => formatSignedNumber(n, { maxDecimals: 2 });
+const formatSignedFixed = (n: number, digits: number) => {
+  const d = Math.min(Math.max(digits, 0), 2);
+  return formatSignedNumber(n, { maxDecimals: d, minDecimals: 0 });
+};
+const formatSignedPctWithNoun = (pct: number, noun: string) => `${formatSignedNumber(pct, { maxDecimals: 0 })}% ${noun}`;
 const formatDeltaShort = (
   current: number,
   previous: number,
   opts?: { unit?: string; digits?: number; hidePercentIfNoBaseline?: boolean }
-) => {
+): string => {
   const { unit = '', digits = 0, hidePercentIfNoBaseline = true } = opts || {};
+  const d = Math.min(Math.max(digits, 0), 2);
   const delta = calculateDelta(current, previous);
-  const currText = digits > 0 ? current.toFixed(digits) : Math.round(current).toString();
-  const deltaText = digits > 0 ? formatSignedFixed(delta.delta, digits) : formatSigned(delta.delta);
-  const pctText = hidePercentIfNoBaseline && delta.previous <= 0 ? '' : `, ${formatSigned(delta.deltaPercent)}%`;
-  return `${currText}${unit} (${deltaText}${unit}${pctText} vs prior)`;
+  const currText = d > 0 ? formatNumber(current, { maxDecimals: d }) : formatNumber(Math.round(current), { maxDecimals: 0 });
+  const deltaText = d > 0 ? formatSignedFixed(delta.delta, d) : formatSignedNumber(delta.delta, { maxDecimals: 0 });
+  const pctText = hidePercentIfNoBaseline && delta.previous <= 0 ? '' : `, ${formatSignedNumber(delta.deltaPercent, { maxDecimals: 0 })}%`;
+  return `${currText}${unit} (${deltaText}${unit}${pctText} vs prev)`;
 };
 
 const safePct = (n: number, d: number) => (d > 0 ? (n / d) * 100 : 0);
@@ -64,13 +73,6 @@ const modeToPeriodLabel = (mode?: TimeFilterMode) => {
   if (mode === 'weekly') return 'this week';
   if (mode === 'all') return 'latest';
   return 'latest';
-};
-
-const modeToVsLabel = (mode?: TimeFilterMode) => {
-  if (mode === 'monthly') return 'vs lst mo';
-  if (mode === 'weekly') return 'vs lst wk';
-  if (mode === 'all') return 'vs prior period';
-  return 'vs prior period';
 };
 
 const TrendIcon = ({ direction }: { direction: 'up' | 'down' | 'same' }) => {
@@ -398,7 +400,7 @@ const ChartHeader = ({
 );
 
 // 4. Heatmap Component - Memoized to prevent unnecessary re-renders
-const Heatmap = memo(({ dailyData, streakInfo, consistencySparkline, onDayClick }: { dailyData: DailySummary[], streakInfo: StreakInfo, consistencySparkline: SparklinePoint[], onDayClick?: (date: Date) => void }) => {
+const Heatmap = memo(({ dailyData, streakInfo, consistencySparkline, onDayClick, now }: { dailyData: DailySummary[], streakInfo: StreakInfo, consistencySparkline: SparklinePoint[], onDayClick?: (date: Date) => void, now?: Date }) => {
   // Cache heatmap data across tab switches
   const heatmapData = useMemo(() => {
     return computationCache.getOrCompute(
@@ -513,7 +515,7 @@ const Heatmap = memo(({ dailyData, streakInfo, consistencySparkline, onDayClick 
     const rect = e.currentTarget.getBoundingClientRect();
     setTooltip({
       rect,
-      title: formatDayYearContraction(day.date),
+      title: formatHumanReadableDate(day.date, { now }),
       body: `${day.count} Sets${day.title ? `\n${day.title}` : ''}`,
       footer: 'Click to view details',
       status: day.count > 30 ? 'success' : 'info'
@@ -590,23 +592,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
   // State to control animation retriggering on mount
   const [isMounted, setIsMounted] = useState(false);
 
-  const effectiveNow = useMemo(() => {
-    let maxTs = 0;
-    for (const s of fullData) {
-      const ts = s.parsedDate?.getTime?.() ?? 0;
-      if (ts > maxTs) maxTs = ts;
-    }
-    const today = new Date();
-    const maxInData = maxTs > 0 ? new Date(maxTs) : null;
-    return maxInData ? (maxInData > today ? today : maxInData) : today;
-  }, [fullData]);
+  const effectiveNow = useMemo(() => getEffectiveNowFromWorkoutData(fullData, new Date(0)), [fullData]);
 
   // Calculate date range span for smart filter
   const spanDays = useMemo(() => {
-    const dates: number[] = [];
-    for (const s of fullData) {
-      if (s.parsedDate) dates.push(s.parsedDate.getTime());
-    }
+    if (!fullData.length) return 0;
+    const dates = fullData.map(s => s.parsedDate?.getTime() || 0).filter(t => t > 0);
     if (dates.length === 0) return 0;
     const min = Math.min(...dates);
     const max = Math.max(...dates);
@@ -719,6 +710,25 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
       { ttl: 10 * 60 * 1000 }
     );
   }, [fullData, exerciseStats, effectiveNow]);
+
+  const exerciseStatsMap = useMemo(() => {
+    const m = new Map<string, ExerciseStats>();
+    for (const s of exerciseStats) m.set(s.name, s);
+    return m;
+  }, [exerciseStats]);
+
+  const activePlateauExercises = useMemo(() => {
+    const activeSince = subDays(effectiveNow, 60);
+    return plateauAnalysis.plateauedExercises.filter((p) => {
+      const stat = exerciseStatsMap.get(p.exerciseName);
+      if (!stat) return false;
+      const sessions = summarizeExerciseHistory(stat.history);
+      const lastDate = sessions[0]?.date ?? null;
+      if (!lastDate) return false;
+      if (sessions.length < 5) return false;
+      return lastDate >= activeSince;
+    });
+  }, [plateauAnalysis.plateauedExercises, exerciseStatsMap, effectiveNow]);
   
   // 1. PRs Over Time Data
   type PrsOverTimePoint = {
@@ -730,23 +740,43 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
 
   const prsData = useMemo<PrsOverTimePoint[]>(() => {
     const mode = chartModes.prTrend === 'all' ? 'daily' : chartModes.prTrend;
-    return getPrsOverTime(fullData, mode as any) as PrsOverTimePoint[];
-  }, [fullData, chartModes.prTrend]);
+    const data = getPrsOverTime(fullData, mode as any) as PrsOverTimePoint[];
+
+    // Add tooltip labels and mark the current (in-progress) bucket as "to date".
+    const now = effectiveNow;
+    const currentStart =
+      mode === 'weekly'
+        ? startOfWeek(now, { weekStartsOn: 1 })
+        : mode === 'monthly'
+          ? startOfMonth(now)
+          : startOfDay(now);
+
+    return data.map((p, idx) => {
+      const ts = p.timestamp ?? 0;
+      const isCurrent = ts > 0 && ts === currentStart.getTime();
+      const baseLabel =
+        mode === 'weekly'
+          ? `wk of ${formatDayYearContraction(new Date(ts))}`
+          : mode === 'monthly'
+            ? format(new Date(ts), 'MMMM yyyy')
+            : formatDayYearContraction(new Date(ts));
+
+      return {
+        ...p,
+        tooltipLabel: `${baseLabel}${isCurrent ? ' (to date)' : ''}`,
+      };
+    });
+  }, [fullData, chartModes.prTrend, effectiveNow]);
 
   const prTrendDelta = useMemo(() => {
-    if (prsData.length < 2) return null;
-    const last = prsData[prsData.length - 1];
-    const prev = prsData[prsData.length - 2];
-    return { last, prev, delta: calculateDelta(last.count, prev.count) };
-  }, [prsData]);
+    const d = dashboardInsights?.rolling28d;
+    return d?.prs ? d.prs : null;
+  }, [dashboardInsights]);
 
-  const prTrendDelta4 = useMemo(() => {
-    if (prsData.length < 5) return null;
-    const last = prsData[prsData.length - 1];
-    const prev4Sum = sumLastN<PrsOverTimePoint>(prsData.slice(0, -1), 4, (d) => d.count);
-    if (prev4Sum == null) return null;
-    return calculateDelta(last.count, prev4Sum / 4);
-  }, [prsData]);
+  const prTrendDelta7d = useMemo(() => {
+    const d = dashboardInsights?.rolling7d;
+    return d?.prs ? d.prs : null;
+  }, [dashboardInsights]);
 
   // 2. Intensity Evolution Data
   const intensityData = useMemo(() => {
@@ -756,23 +786,40 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
   }, [fullData, chartModes.intensityEvo]);
 
   const intensityInsight = useMemo(() => {
-    if (!intensityData || intensityData.length < 2) return null;
-    const last = intensityData[intensityData.length - 1];
-    const prev = intensityData[intensityData.length - 2];
+    const now = effectiveNow;
+    const currStart = startOfDay(subDays(now, 27));
+    const prevStart = startOfDay(subDays(currStart, 28));
+    const prevEnd = endOfDay(subDays(currStart, 1));
 
-    const lastTotal = (last.Strength || 0) + (last.Hypertrophy || 0) + (last.Endurance || 0);
-    const prevTotal = (prev.Strength || 0) + (prev.Hypertrophy || 0) + (prev.Endurance || 0);
+    const countStyles = (start: Date, end: Date) => {
+      const counts = { Strength: 0, Hypertrophy: 0, Endurance: 0 };
+      for (const s of fullData) {
+        const d = s.parsedDate;
+        if (!d) continue;
+        if (d < start || d > end) continue;
+        const reps = s.reps || 8;
+        if (reps <= 5) counts.Strength += 1;
+        else if (reps <= 12) counts.Hypertrophy += 1;
+        else counts.Endurance += 1;
+      }
+      return counts;
+    };
+
+    const last = countStyles(currStart, now);
+    const prev = countStyles(prevStart, prevEnd);
+    const lastTotal = last.Strength + last.Hypertrophy + last.Endurance;
+    const prevTotal = prev.Strength + prev.Hypertrophy + prev.Endurance;
     if (lastTotal <= 0 || prevTotal <= 0) return null;
 
     const shares = {
-      Strength: safePct(last.Strength || 0, lastTotal),
-      Hypertrophy: safePct(last.Hypertrophy || 0, lastTotal),
-      Endurance: safePct(last.Endurance || 0, lastTotal),
+      Strength: safePct(last.Strength, lastTotal),
+      Hypertrophy: safePct(last.Hypertrophy, lastTotal),
+      Endurance: safePct(last.Endurance, lastTotal),
     } as const;
     const prevShares = {
-      Strength: safePct(prev.Strength || 0, prevTotal),
-      Hypertrophy: safePct(prev.Hypertrophy || 0, prevTotal),
-      Endurance: safePct(prev.Endurance || 0, prevTotal),
+      Strength: safePct(prev.Strength, prevTotal),
+      Hypertrophy: safePct(prev.Hypertrophy, prevTotal),
+      Endurance: safePct(prev.Endurance, prevTotal),
     } as const;
 
     const entries = (Object.entries(shares) as Array<[keyof typeof shares, number]>).sort((a, b) => b[1] - a[1]);
@@ -798,9 +845,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
         k: secondary[0],
         pct: secondary[1],
       },
-      period: last.dateFormatted,
+      period: 'Last 28d',
     };
-  }, [intensityData]);
+  }, [fullData, effectiveNow]);
 
   // 3. Volume Density Data (volume done per set)
   const volumeDurationData = useMemo(() => {
@@ -810,7 +857,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
       return dailyData.map(d => ({
         ...d,
         dateFormatted: formatDayContraction(new Date(d.timestamp)),
-        tooltipLabel: format(new Date(d.timestamp), 'MMM d, yyyy'),
+        tooltipLabel: formatDayYearContraction(new Date(d.timestamp)),
         volumePerSet: d.sets > 0 ? convertVolume(Math.round(d.totalVolume / d.sets), weightUnit) : 0
       }));
     }
@@ -828,14 +875,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
         weeklyData[weekKey].count += 1;
       });
       return Object.values(weeklyData).sort((a,b) => a.timestamp - b.timestamp).map(w => {
-        const avgVol = Math.round(w.volSum / w.count);
-        const avgSets = Math.round(w.setSum / w.count);
+        const isCurrent = w.timestamp === startOfWeek(effectiveNow, { weekStartsOn: 1 }).getTime();
+        const totalVol = Math.round(w.volSum);
+        const totalSets = Math.round(w.setSum);
         return {
           dateFormatted: formatWeekContraction(new Date(w.timestamp)),
-          tooltipLabel: `wk of ${format(new Date(w.timestamp), 'MMM d, yyyy')}`,
-          totalVolume: convertVolume(avgVol, weightUnit),
-          sets: avgSets,
-          volumePerSet: avgSets > 0 ? convertVolume(Math.round(avgVol / avgSets), weightUnit) : 0
+          tooltipLabel: `wk of ${formatDayYearContraction(new Date(w.timestamp))}${isCurrent ? ' (to date)' : ''}`,
+          totalVolume: convertVolume(totalVol, weightUnit),
+          sets: totalSets,
+          volumePerSet: totalSets > 0 ? convertVolume(Math.round(totalVol / totalSets), weightUnit) : 0
         };
       });
     }
@@ -853,36 +901,29 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
         monthlyData[monthKey].count += 1;
       });
       return Object.values(monthlyData).sort((a,b) => a.timestamp - b.timestamp).map(m => {
-        const avgVol = Math.round(m.volSum / m.count);
-        const avgSets = Math.round(m.setSum / m.count);
+        const isCurrent = m.timestamp === startOfMonth(effectiveNow).getTime();
+        const totalVol = Math.round(m.volSum);
+        const totalSets = Math.round(m.setSum);
         return {
           dateFormatted: formatMonthYearContraction(new Date(m.timestamp)),
-          tooltipLabel: format(new Date(m.timestamp), 'MMMM yyyy'),
-          totalVolume: convertVolume(avgVol, weightUnit),
-          sets: avgSets,
-          volumePerSet: avgSets > 0 ? convertVolume(Math.round(avgVol / avgSets), weightUnit) : 0
+          tooltipLabel: `${format(new Date(m.timestamp), 'MMMM yyyy')}${isCurrent ? ' (to date)' : ''}`,
+          totalVolume: convertVolume(totalVol, weightUnit),
+          sets: totalSets,
+          volumePerSet: totalSets > 0 ? convertVolume(Math.round(totalVol / totalSets), weightUnit) : 0
         };
       });
     }
-  }, [dailyData, chartModes.volumeVsDuration, weightUnit]);
+  }, [dailyData, chartModes.volumeVsDuration, weightUnit, effectiveNow]);
 
   const volumeDensityTrend = useMemo(() => {
-    if (!volumeDurationData || volumeDurationData.length < 2) return null;
-    const last: any = volumeDurationData[volumeDurationData.length - 1];
-    const prev: any = volumeDurationData[volumeDurationData.length - 2];
-    const delta = calculateDelta(last.volumePerSet || 0, prev.volumePerSet || 0);
-
-    const prev4Sum = sumLastN((volumeDurationData as any[]).slice(0, -1), 4, (d: any) => d.volumePerSet || 0);
-    const delta4 = prev4Sum == null ? null : calculateDelta(last.volumePerSet || 0, prev4Sum / 4);
-
-    return {
-      label: last.tooltipLabel || last.dateFormatted,
-      delta,
-      delta4,
-    };
-  }, [volumeDurationData]);
-
-  const volumeVsDurationBadgeMode = chartModes.volumeVsDuration;
+    const d = dashboardInsights?.rolling28d;
+    if (!d) return null;
+    if (!d.eligible || !d.volume || !d.sets) return null;
+    const curr = d.current.totalSets > 0 ? (d.current.totalVolume / d.current.totalSets) : 0;
+    const prev = d.previous.totalSets > 0 ? (d.previous.totalVolume / d.previous.totalSets) : 0;
+    const delta = calculateDelta(curr, prev);
+    return { label: 'Last 28d', delta, delta4: null };
+  }, [dashboardInsights]);
 
   // Static Data
   const weekShapeData = useMemo(() => getDayOfWeekShape(dailyData), [dailyData]);
@@ -945,6 +986,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
       return count;
     };
 
+    const getWorkoutCountBetween = (start: Date | null, end: Date) => {
+      const sessions = new Set<string>();
+      for (const s of fullData) {
+        const d = s.parsedDate;
+        if (!d || !s.start_time) continue;
+        if (d > end) continue;
+        if (start && d < start) continue;
+        sessions.add(s.start_time);
+      }
+      return sessions.size;
+    };
+
     const sumShown = topExercisesBarData.reduce((acc, x) => acc + (x.count || 0), 0);
     const top = topExercisesBarData[0];
     const topShare = sumShown > 0 && top ? safePct(top.count || 0, sumShown) : 0;
@@ -954,16 +1007,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
       return { windowLabel: 'All time', delta: null as any, top, topShare };
     }
 
-    const windowDays = topExerciseMode === 'weekly' ? 7 : 30;
+    const windowDays = topExerciseMode === 'weekly' ? 7 : 28;
     const start = subDays(now, windowDays);
     const prevStart = subDays(now, windowDays * 2);
     const prevEnd = subDays(now, windowDays);
 
     const currentSets = getSetCountBetween(start, now);
     const prevSets = getSetCountBetween(prevStart, prevEnd);
-    const windowLabel = topExerciseMode === 'weekly' ? '7d' : '30d';
-    const delta = calculateDelta(currentSets, prevSets);
-    return { windowLabel, delta, top, topShare };
+    const currentWorkouts = getWorkoutCountBetween(start, now);
+    const prevWorkouts = getWorkoutCountBetween(prevStart, prevEnd);
+
+    const windowLabel = topExerciseMode === 'weekly' ? '7d' : '28d';
+    const eligible = currentWorkouts >= 2 && prevWorkouts >= 2;
+    const delta = eligible ? calculateDelta(currentSets, prevSets) : null;
+    return { windowLabel, delta, top, topShare, eligible };
   }, [fullData, topExerciseMode, topExercisesBarData, effectiveNow]);
 
   // Time series for area view of Top Exercises
@@ -982,7 +1039,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
     return computationCache.getOrCompute(
       `muscleSeriesGroups:${musclePeriod}`,
       fullData,
-      () => getMuscleVolumeTimeSeries(fullData, assetsMap, musclePeriod),
+      () => getMuscleVolumeTimeSeriesCalendar(fullData, assetsMap, musclePeriod),
       { ttl: 10 * 60 * 1000 }
     );
   }, [fullData, assetsMap, musclePeriod]);
@@ -992,7 +1049,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
     return computationCache.getOrCompute(
       `muscleSeriesMuscles:${musclePeriod}`,
       fullData,
-      () => getMuscleVolumeTimeSeriesDetailed(fullData, assetsMap, musclePeriod),
+      () => getMuscleVolumeTimeSeriesDetailedCalendar(fullData, assetsMap, musclePeriod),
       { ttl: 10 * 60 * 1000 }
     );
   }, [fullData, assetsMap, musclePeriod]);
@@ -1008,25 +1065,98 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
   }, [trendData, muscleGrouping, muscleSeriesGroups.keys, muscleSeriesMuscles.keys]);
 
   const muscleTrendInsight = useMemo(() => {
-    if (!trendData || trendData.length < 2 || trendKeys.length === 0) return null;
-    const last: any = trendData[trendData.length - 1];
-    const prev: any = trendData[trendData.length - 2];
-    const totalLast = trendKeys.reduce((acc, k) => acc + (last[k] || 0), 0);
-    const totalPrev = trendKeys.reduce((acc, k) => acc + (prev[k] || 0), 0);
+    if (!assetsMap || !assetsLowerMap) return null;
+    if (!trendKeys || trendKeys.length === 0) return null;
+
+    const now = effectiveNow;
+    const currStart = startOfDay(subDays(now, 27));
+    const prevStart = startOfDay(subDays(currStart, 28));
+    const prevEnd = endOfDay(subDays(currStart, 1));
+
+    const getWorkoutCountBetween = (start: Date, end: Date) => {
+      const sessions = new Set<string>();
+      for (const s of fullData) {
+        const d = s.parsedDate;
+        if (!d || !s.start_time) continue;
+        if (d < start || d > end) continue;
+        sessions.add(s.start_time);
+      }
+      return sessions.size;
+    };
+
+    const minWorkoutsRequired = 2;
+    const currWorkouts = getWorkoutCountBetween(currStart, now);
+    const prevWorkouts = getWorkoutCountBetween(prevStart, prevEnd);
+    if (currWorkouts < minWorkoutsRequired || prevWorkouts < minWorkoutsRequired) return null;
+
+    const groupsList = ['Chest', 'Back', 'Legs', 'Shoulders', 'Arms', 'Core'];
+    const useGroups = muscleGrouping === 'groups';
+
+    const computeTotals = (start: Date, end: Date) => {
+      const totals = new Map<string, number>();
+      const add = (k: string, v: number) => totals.set(k, (totals.get(k) || 0) + v);
+
+      for (const s of fullData) {
+        const d = s.parsedDate;
+        if (!d) continue;
+        if (d < start || d > end) continue;
+        const name = s.exercise_title || '';
+        const asset = assetsMap.get(name) || assetsLowerMap.get(name.toLowerCase());
+        if (!asset) continue;
+
+        const primaryRaw = String(asset.primary_muscle || '').trim();
+        if (!primaryRaw) continue;
+
+        if (/cardio/i.test(primaryRaw)) continue;
+
+        if (useGroups) {
+          const primary = normalizeMuscleGroup(primaryRaw);
+          if (primary === 'Cardio') continue;
+
+          if (primary === 'Full Body') {
+            for (const g of groupsList) add(g, 1.0);
+          } else {
+            add(primary, 1.0);
+            const secRaw = String(asset.secondary_muscle || '').trim();
+            if (secRaw && !/none/i.test(secRaw)) {
+              secRaw.split(',').forEach(s2 => {
+                const m = normalizeMuscleGroup(s2);
+                if (m === 'Cardio' || m === 'Full Body') return;
+                add(m, 0.5);
+              });
+            }
+          }
+        } else {
+          if (/full\s*body/i.test(primaryRaw)) continue;
+          add(primaryRaw, 1.0);
+          const secRaw = String(asset.secondary_muscle || '').trim();
+          if (secRaw && !/none/i.test(secRaw)) {
+            secRaw.split(',').forEach(s2 => {
+              const m = s2.trim();
+              if (!m || /cardio/i.test(m) || /full\s*body/i.test(m)) return;
+              add(m, 0.5);
+            });
+          }
+        }
+      }
+
+      return totals;
+    };
+
+    const currTotals = computeTotals(currStart, now);
+    const prevTotals = computeTotals(prevStart, prevEnd);
+
+    const totalLast = trendKeys.reduce((acc, k) => acc + (currTotals.get(k) || 0), 0);
+    const totalPrev = trendKeys.reduce((acc, k) => acc + (prevTotals.get(k) || 0), 0);
     const totalDelta = calculateDelta(totalLast, totalPrev);
     const biggestMover = trendKeys
-      .map((k) => ({ k, d: (last[k] || 0) - (prev[k] || 0) }))
+      .map((k) => ({ k, d: (currTotals.get(k) || 0) - (prevTotals.get(k) || 0) }))
       .sort((a, b) => Math.abs(b.d) - Math.abs(a.d))[0];
-    const label = last.dateFormatted || 'Latest period';
-    return { label, totalDelta, biggestMover };
-  }, [trendData, trendKeys]);
 
-  const muscleVsLabel = useMemo(() => {
-    if (musclePeriod === 'weekly') return 'vs lst wk';
-    if (musclePeriod === 'monthly') return 'vs lst mo';
-    if (musclePeriod === 'yearly') return 'vs lst yr';
-    return 'vs prior period';
-  }, [musclePeriod]);
+    return { label: 'Last 28d', totalDelta, biggestMover };
+  }, [assetsMap, assetsLowerMap, fullData, effectiveNow, trendKeys, muscleGrouping]);
+
+  const muscleVsLabel = 'vs prev mo';
 
   const compositionQuickData = useMemo(() => {
     if (!assetsMap) return [] as { subject: string; value: number }[];
@@ -1253,12 +1383,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
       if (ts > maxTs) maxTs = ts;
       set.add(format(d.parsedDate, 'yyyy-MM-dd'));
     });
-    const today = new Date();
     const minDate = isFinite(minTs) ? new Date(minTs) : null;
     const maxInData = maxTs > 0 ? new Date(maxTs) : null;
-    const maxDate = maxInData ? (maxInData > today ? today : maxInData) : today;
+    const maxDate = maxInData ?? effectiveNow;
     return { minDate, maxDate, availableDatesSet: set };
-  }, [fullData]);
+  }, [fullData, effectiveNow]);
 
 
   // Use shared constants for Recharts styles
@@ -1291,24 +1420,24 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
       />
 
       {/* RECENT PRs TIMELINE */}
-      <RecentPRsPanel prInsights={dashboardInsights.prInsights} weightUnit={weightUnit} />
+      <RecentPRsPanel prInsights={dashboardInsights.prInsights} weightUnit={weightUnit} now={effectiveNow} onExerciseClick={onExerciseClick} />
 
       {/* PLATEAU ALERTS */}
-      {plateauAnalysis.plateauedExercises.length > 0 && (
+      {activePlateauExercises.length > 0 && (
         <div className="bg-black/70 border border-amber-500/20 rounded-xl p-4">
           <div className="flex items-center gap-2 mb-3">
-            <span className="text-sm font-semibold text-amber-400">⚠️ Potential Plateaus Detected</span>
+            <span className="text-sm font-semibold text-amber-400">⚠️ Plateaus</span>
            
           </div>
           <div className="overflow-x-auto -mx-2 px-2 pb-2">
             <div className="flex gap-2" style={{ minWidth: 'min-content' }}>
-              {plateauAnalysis.plateauedExercises.slice(0, 3).map((p) => (
+              {activePlateauExercises.map((p) => (
                 <div key={p.exerciseName} className="min-w-[280px] flex-shrink-0">
                   <PlateauAlert 
                     exerciseName={p.exerciseName}
-                    weeksStuck={p.weeksAtSameWeight}
                     suggestion={p.suggestion}
                     asset={assetsMap?.get(p.exerciseName) || assetsLowerMap?.get(p.exerciseName.toLowerCase())}
+                    onClick={() => onExerciseClick?.(p.exerciseName)}
                   />
                 </div>
               ))}
@@ -1323,6 +1452,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
         streakInfo={dashboardInsights.streakInfo}
         consistencySparkline={dashboardInsights.consistencySparkline}
         onDayClick={onDayClick}
+        now={effectiveNow}
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 sm:gap-2">
@@ -1341,43 +1471,56 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
               isMounted={isMounted}
             />
             <div className={`flex-1 w-full min-h-[250px] sm:min-h-[300px] transition-all duration-700 delay-100 ${isMounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-              <ResponsiveContainer width="100%" height="100%">
-                <div key={prTrendView} className="h-full w-full">
-                {prTrendView === 'area' ? (
-                <AreaChart data={prsData} margin={{ left: -20, right: 10, top: 10, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="gPRs" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#eab308" stopOpacity={0.4}/>
-                      <stop offset="95%" stopColor="#eab308" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
-                  <XAxis dataKey="dateFormatted" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
-                  <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} allowDecimals={false} />
-                  <Tooltip contentStyle={TooltipStyle} cursor={{stroke: 'rgba(255,255,255,0.1)'}} />
-                    <Area 
-                    type="monotone" 
-                    dataKey="count" 
-                    name="PRs Set" 
-                    stroke="#eab308" 
-                    strokeWidth={3} 
-                    fill="url(#gPRs)"
-                    dot={{r:3, fill:'#eab308'}} 
-                    activeDot={{r:5, strokeWidth: 0}} 
-                    animationDuration={1500}
-                  />
-                  </AreaChart>
-                ) : (
-                  <BarChart data={prsData} margin={{ left: -20, right: 10, top: 10, bottom: 0 }}>
+              <LazyRender
+                className="h-full w-full"
+                placeholder={<ChartSkeleton className="h-full min-h-[250px] sm:min-h-[300px]" />}
+              >
+                <ResponsiveContainer width="100%" height="100%">
+                  <div key={prTrendView} className="h-full w-full">
+                  {prTrendView === 'area' ? (
+                  <AreaChart data={prsData} margin={{ left: -20, right: 10, top: 10, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="gPRs" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#eab308" stopOpacity={0.4}/>
+                        <stop offset="95%" stopColor="#eab308" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
                     <XAxis dataKey="dateFormatted" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
                     <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} allowDecimals={false} />
-                    <Tooltip contentStyle={TooltipStyle} cursor={{ fill: 'rgba(0,0,0,0.35)' }} />
-                    <Bar dataKey="count" name="PRs Set" fill="#eab308" radius={[8, 8, 0, 0]} animationDuration={1500} />
-                  </BarChart>
-                  )}
-                </div>
-              </ResponsiveContainer>
+                    <Tooltip
+                      contentStyle={TooltipStyle}
+                      cursor={{stroke: 'rgba(255,255,255,0.1)'}}
+                      labelFormatter={(l, p) => p[0]?.payload?.tooltipLabel || l}
+                    />
+                      <Area 
+                      type="monotone" 
+                      dataKey="count" 
+                      name="PRs Set" 
+                      stroke="#eab308" 
+                      strokeWidth={3} 
+                      fill="url(#gPRs)"
+                      dot={{r:3, fill:'#eab308'}} 
+                      activeDot={{r:5, strokeWidth: 0}} 
+                      animationDuration={1500}
+                    />
+                    </AreaChart>
+                  ) : (
+                    <BarChart data={prsData} margin={{ left: -20, right: 10, top: 10, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
+                      <XAxis dataKey="dateFormatted" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
+                      <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} allowDecimals={false} />
+                      <Tooltip
+                        contentStyle={TooltipStyle}
+                        cursor={{ fill: 'rgba(0,0,0,0.35)' }}
+                        labelFormatter={(l, p) => p[0]?.payload?.tooltipLabel || l}
+                      />
+                      <Bar dataKey="count" name="PRs Set" fill="#eab308" radius={[8, 8, 0, 0]} animationDuration={1500} />
+                    </BarChart>
+                    )}
+                  </div>
+                </ResponsiveContainer>
+              </LazyRender>
             </div>
             <ChartDescription isMounted={isMounted}>
               <InsightLine>
@@ -1387,36 +1530,37 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
                       <BadgeLabel
                         main={
                           <span className="inline-flex items-center gap-1">
-                            <TrendIcon direction={prTrendDelta.delta.direction} />
-                            <span>{`${formatSigned(prTrendDelta.delta.deltaPercent)}%`}</span>
+                            <TrendIcon direction={prTrendDelta.direction} />
+                            <span>{`${formatSigned(prTrendDelta.deltaPercent)}%`}</span>
                           </span>
                         }
-                        meta={modeToVsLabel(chartModes.prTrend)}
+                        meta="vs prev mo"
                       />
                     }
-                    tone={getTrendBadgeTone(prTrendDelta.delta.deltaPercent, { goodWhen: 'up' })}
+                    tone={getTrendBadgeTone(prTrendDelta.deltaPercent, { goodWhen: 'up' })}
                   />
                 ) : (
                   <TrendBadge label="Need more data" tone="neutral" />
                 )}
-                {prTrendDelta4 && (
+
+                {prTrendDelta7d ? (
                   <TrendBadge
                     label={
                       <BadgeLabel
                         main={
                           <span className="inline-flex items-center gap-1">
-                            <TrendIcon direction={prTrendDelta4.direction} />
-                            <span>{`${formatSigned(prTrendDelta4.deltaPercent)}%`}</span>
+                            <TrendIcon direction={prTrendDelta7d.direction} />
+                            <span>{`${formatSigned(prTrendDelta7d.deltaPercent)}%`}</span>
                           </span>
                         }
-                        meta="vs lst 4 sess"
+                        meta="vs prev 7d"
                       />
                     }
-                    tone={getTrendBadgeTone(prTrendDelta4.deltaPercent, { goodWhen: 'up' })}
+                    tone={getTrendBadgeTone(prTrendDelta7d.deltaPercent, { goodWhen: 'up' })}
                   />
-                )}
+                ) : null}
               </InsightLine>
-              <InsightText text="PRs per period show your breakthrough pace. A steady rise usually means you are progressing. Dips often align with maintenance or deload phases." />
+              <InsightText text="PRs are new all-time max weights per exercise. Use this to see whether your progress is clustering in bursts or staying steady." />
             </ChartDescription>
         </div>
 
@@ -1516,52 +1660,56 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
                   Not enough data to render Muscle Composition.
                 </div>
               ) : (
-                <ResponsiveContainer width="100%" height={300}>
-                  <RadarChart cx="50%" cy="50%" outerRadius="70%" data={compositionQuickData}>
-                    <PolarGrid stroke="#334155" />
-                    <PolarAngleAxis dataKey="subject" tick={{ fill: '#94a3b8', fontSize: 11 }} />
-                    <PolarRadiusAxis angle={30} domain={[0, 'auto']} tick={false} axisLine={false} />
-                    <Radar name="Weekly Sets" dataKey="value" stroke="#06b6d4" strokeWidth={3} fill="#06b6d4" fillOpacity={0.35} animationDuration={1500} />
-                    <Tooltip contentStyle={TooltipStyle} />
-                  </RadarChart>
-                </ResponsiveContainer>
+                <LazyRender className="w-full" placeholder={<ChartSkeleton style={{ height: 300 }} />}>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <RadarChart cx="50%" cy="50%" outerRadius="70%" data={compositionQuickData}>
+                      <PolarGrid stroke="#334155" />
+                      <PolarAngleAxis dataKey="subject" tick={{ fill: '#94a3b8', fontSize: 11 }} />
+                      <PolarRadiusAxis angle={30} domain={[0, 'auto']} tick={false} axisLine={false} />
+                      <Radar name="Weekly Sets" dataKey="value" stroke="#06b6d4" strokeWidth={3} fill="#06b6d4" fillOpacity={0.35} animationDuration={1500} />
+                      <Tooltip contentStyle={TooltipStyle} />
+                    </RadarChart>
+                  </ResponsiveContainer>
+                </LazyRender>
               )
             ) : (
-              <div className="flex flex-col items-center justify-center h-[300px]">
-                {heatmapMuscleVolumes.volumes.size === 0 ? (
-                  <div className="text-slate-500 text-xs border border-dashed border-slate-800 rounded-lg p-8">
-                    Not enough data to render Heat Map.
+              <LazyRender className="w-full" placeholder={<ChartSkeleton style={{ height: 300 }} />}>
+                <div className="flex flex-col items-center justify-center h-[300px]">
+                  {heatmapMuscleVolumes.volumes.size === 0 ? (
+                    <div className="text-slate-500 text-xs border border-dashed border-slate-800 rounded-lg p-8">
+                      Not enough data to render Heat Map.
                   </div>
-                ) : (
-                  <>
-                    <div className="relative flex justify-center w-full mt-4 sm:mt-6">
-                      <div className="transform scale-[0.5] origin-center">
-                        <BodyMap
-                          onPartClick={(muscleId) => onMuscleClick?.(muscleId, compositionGrouping === 'groups' ? 'group' : 'muscle')}
-                          selectedPart={null}
-                          muscleVolumes={heatmapMuscleVolumes.volumes}
-                          maxVolume={heatmapMuscleVolumes.maxVolume}
-                          hoveredMuscleIdsOverride={heatmapHoveredMuscleIds}
-                          onPartHover={setHeatmapHoveredMuscle}
-                          gender={bodyMapGender}
-                          viewMode={compositionGrouping === 'groups' ? 'group' : 'muscle'}
-                        />
-                      </div>
-
-                      {weeklySetsHoverMeta && (
-                        <div className="absolute top-24 sm:top-28 left-1/2 -translate-x-1/2 bg-black/90 border border-slate-700/50 rounded-lg px-3 py-2 shadow-xl pointer-events-none z-20">
-                          <div className="font-semibold text-[11px] text-center whitespace-nowrap" style={{ color: weeklySetsHoverMeta.accent }}>
-                            {weeklySetsHoverMeta.name}
-                          </div>
-                          <div className="text-[10px] text-center font-semibold whitespace-nowrap" style={{ color: weeklySetsHoverMeta.accent }}>
-                            {`${weeklySetsHoverMeta.value.toFixed(1)}/wk`}
-                          </div>
+                  ) : (
+                    <>
+                      <div className="relative flex justify-center w-full mt-4 sm:mt-6">
+                        <div className="transform scale-[0.5] origin-center">
+                          <BodyMap
+                            onPartClick={(muscleId) => onMuscleClick?.(muscleId, compositionGrouping === 'groups' ? 'group' : 'muscle')}
+                            selectedPart={null}
+                            muscleVolumes={heatmapMuscleVolumes.volumes}
+                            maxVolume={heatmapMuscleVolumes.maxVolume}
+                            hoveredMuscleIdsOverride={heatmapHoveredMuscleIds}
+                            onPartHover={setHeatmapHoveredMuscle}
+                            gender={bodyMapGender}
+                            viewMode={compositionGrouping === 'groups' ? 'group' : 'muscle'}
+                          />
                         </div>
-                      )}
-                    </div>
-                  </>
-                )}
-              </div>
+
+                        {weeklySetsHoverMeta && (
+                          <div className="absolute top-24 sm:top-28 left-1/2 -translate-x-1/2 bg-black/90 border border-slate-700/50 rounded-lg px-3 py-2 shadow-xl pointer-events-none z-20">
+                            <div className="font-semibold text-[11px] text-center whitespace-nowrap" style={{ color: weeklySetsHoverMeta.accent }}>
+                              {weeklySetsHoverMeta.name}
+                            </div>
+                            <div className="text-[10px] text-center font-semibold whitespace-nowrap" style={{ color: weeklySetsHoverMeta.accent }}>
+                              {`${weeklySetsHoverMeta.value.toFixed(1)}/wk`}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+              </LazyRender>
             )}
           </div>
           <ChartDescription
@@ -1620,47 +1768,49 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
           />
           {intensityData && intensityData.length > 0 ? (
             <div className={`flex-1 w-full transition-all duration-700 delay-100 ${isMounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`} style={{minHeight: '250px', height: '100%'}}>
-              <ResponsiveContainer width="100%" height={250}>
-                <div key={intensityView} className="h-full w-full">
-                {intensityView === 'area' ? (
-                <AreaChart data={intensityData} margin={{ left: -20, right: 10, top: 10, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="gStrength" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8}/>
-                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
-                    </linearGradient>
-                    <linearGradient id="gHyper" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.8}/>
-                      <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                    </linearGradient>
-                    <linearGradient id="gEndure" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#a855f7" stopOpacity={0.8}/>
-                      <stop offset="95%" stopColor="#a855f7" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
-                  <XAxis dataKey="dateFormatted" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
-                  <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
-                  <Tooltip contentStyle={TooltipStyle} />
-                  <Legend wrapperStyle={{fontSize: '11px'}} />
-                  <Area type="monotone" dataKey="Strength" name="Strength (1-5)" stackId="1" stroke="#3b82f6" fill="url(#gStrength)" animationDuration={1500} />
-                  <Area type="monotone" dataKey="Hypertrophy" name="Hypertrophy (6-12)" stackId="1" stroke="#10b981" fill="url(#gHyper)" animationDuration={1500} />
-                  <Area type="monotone" dataKey="Endurance" name="Endurance (13+)" stackId="1" stroke="#a855f7" fill="url(#gEndure)" animationDuration={1500} />
-                </AreaChart>
-                ) : (
-                  <BarChart data={intensityData} margin={{ left: -20, right: 10, top: 10, bottom: 0 }}>
+              <LazyRender className="w-full" placeholder={<ChartSkeleton style={{ height: 250 }} />}>
+                <ResponsiveContainer width="100%" height={250}>
+                  <div key={intensityView} className="h-full w-full">
+                  {intensityView === 'area' ? (
+                  <AreaChart data={intensityData} margin={{ left: -20, right: 10, top: 10, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="gStrength" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8}/>
+                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                      </linearGradient>
+                      <linearGradient id="gHyper" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.8}/>
+                        <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                      </linearGradient>
+                      <linearGradient id="gEndure" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#a855f7" stopOpacity={0.8}/>
+                        <stop offset="95%" stopColor="#a855f7" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
                     <XAxis dataKey="dateFormatted" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
                     <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
-                    <Tooltip contentStyle={TooltipStyle} cursor={{ fill: 'rgba(0,0,0,0.35)' }} />
+                    <Tooltip contentStyle={TooltipStyle} />
                     <Legend wrapperStyle={{fontSize: '11px'}} />
-                    <Bar dataKey="Strength" name="Strength (1-5)" stackId="1" fill="#3b82f6" radius={[0, 0, 0, 0]} animationDuration={1500} />
-                    <Bar dataKey="Hypertrophy" name="Hypertrophy (6-12)" stackId="1" fill="#10b981" radius={[0, 0, 0, 0]} animationDuration={1500} />
-                    <Bar dataKey="Endurance" name="Endurance (13+)" stackId="1" fill="#a855f7" radius={[8, 8, 0, 0]} animationDuration={1500} />
-                  </BarChart>
-                )}
-                </div>
-              </ResponsiveContainer>
+                    <Area type="monotone" dataKey="Strength" name="Strength (1-5)" stackId="1" stroke="#3b82f6" fill="url(#gStrength)" animationDuration={1500} />
+                    <Area type="monotone" dataKey="Hypertrophy" name="Hypertrophy (6-12)" stackId="1" stroke="#10b981" fill="url(#gHyper)" animationDuration={1500} />
+                    <Area type="monotone" dataKey="Endurance" name="Endurance (13+)" stackId="1" stroke="#a855f7" fill="url(#gEndure)" animationDuration={1500} />
+                  </AreaChart>
+                  ) : (
+                    <BarChart data={intensityData} margin={{ left: -20, right: 10, top: 10, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
+                      <XAxis dataKey="dateFormatted" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
+                      <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
+                      <Tooltip contentStyle={TooltipStyle} cursor={{ fill: 'rgba(0,0,0,0.35)' }} />
+                      <Legend wrapperStyle={{fontSize: '11px'}} />
+                      <Bar dataKey="Strength" name="Strength (1-5)" stackId="1" fill="#3b82f6" radius={[0, 0, 0, 0]} animationDuration={1500} />
+                      <Bar dataKey="Hypertrophy" name="Hypertrophy (6-12)" stackId="1" fill="#10b981" radius={[0, 0, 0, 0]} animationDuration={1500} />
+                      <Bar dataKey="Endurance" name="Endurance (13+)" stackId="1" fill="#a855f7" radius={[8, 8, 0, 0]} animationDuration={1500} />
+                    </BarChart>
+                  )}
+                  </div>
+                </ResponsiveContainer>
+              </LazyRender>
             </div>
           ) : (
             <div className="flex-1 w-full min-h-[250px] sm:min-h-[300px] flex items-center justify-center bg-slate-800/50 rounded-lg border border-slate-700/50">
@@ -1687,7 +1837,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
                               meta={
                                <ShiftedMeta>
                                  <TrendIcon direction={s.delta.direction} />
-                                 <span>{`${formatSigned(s.delta.deltaPercent)}% ${modeToVsLabel(chartModes.intensityEvo)}`}</span>
+                                 <span>{`${formatSigned(s.delta.deltaPercent)}% vs prev mo`}</span>
                                </ShiftedMeta>
                              }
                             />
@@ -1788,33 +1938,35 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
                 Not enough data to render Muscle Analysis trend.
               </div>
             ) : (
-              <ResponsiveContainer width="100%" height={280}>
-                <div key={`${muscleTrendView}-${musclePeriod}-${muscleGrouping}`} className="h-full w-full">
-                  {muscleTrendView === 'area' ? (
-                    <AreaChart data={trendData} margin={{ left: -20, right: 10, top: 10, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
-                      <XAxis dataKey="dateFormatted" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
-                      <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
-                      <Tooltip contentStyle={TooltipStyle} />
-                      <Legend wrapperStyle={{fontSize: '11px'}} />
-                      {trendKeys.map((k) => (
-                        <Area key={k} type="monotone" dataKey={k} name={k} stackId="1" stroke={MUSCLE_COLORS[(muscleGrouping==='groups'?k:normalizeMuscleGroup(k))] || '#94a3b8'} fill={MUSCLE_COLORS[(muscleGrouping==='groups'?k:normalizeMuscleGroup(k))] || '#94a3b8'} fillOpacity={0.25} animationDuration={1200} />
-                      ))}
-                    </AreaChart>
-                  ) : (
-                    <BarChart data={trendData} margin={{ left: -20, right: 10, top: 10, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
-                      <XAxis dataKey="dateFormatted" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
-                      <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
-                      <Tooltip contentStyle={TooltipStyle} cursor={{ fill: 'rgba(0,0,0,0.35)' }} />
-                      <Legend wrapperStyle={{fontSize: '11px'}} />
-                      {trendKeys.map((k, idx) => (
-                        <Bar key={k} dataKey={k} name={k} stackId="1" fill={MUSCLE_COLORS[(muscleGrouping==='groups'?k:normalizeMuscleGroup(k))] || '#94a3b8'} radius={idx===trendKeys.length-1?[6,6,0,0]:[0,0,0,0]} animationDuration={1200} />
-                      ))}
-                    </BarChart>
-                  )}
-                </div>
-              </ResponsiveContainer>
+              <LazyRender className="w-full" placeholder={<ChartSkeleton style={{ height: 280 }} />}>
+                <ResponsiveContainer width="100%" height={280}>
+                  <div key={`${muscleTrendView}-${musclePeriod}-${muscleGrouping}`} className="h-full w-full">
+                    {muscleTrendView === 'area' ? (
+                      <AreaChart data={trendData} margin={{ left: -20, right: 10, top: 10, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
+                        <XAxis dataKey="dateFormatted" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
+                        <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
+                        <Tooltip contentStyle={TooltipStyle} />
+                        <Legend wrapperStyle={{fontSize: '11px'}} />
+                        {trendKeys.map((k) => (
+                          <Area key={k} type="monotone" dataKey={k} name={k} stackId="1" stroke={MUSCLE_COLORS[(muscleGrouping==='groups'?k:normalizeMuscleGroup(k))] || '#94a3b8'} fill={MUSCLE_COLORS[(muscleGrouping==='groups'?k:normalizeMuscleGroup(k))] || '#94a3b8'} fillOpacity={0.25} animationDuration={1200} />
+                        ))}
+                      </AreaChart>
+                    ) : (
+                      <BarChart data={trendData} margin={{ left: -20, right: 10, top: 10, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
+                        <XAxis dataKey="dateFormatted" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
+                        <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
+                        <Tooltip contentStyle={TooltipStyle} cursor={{ fill: 'rgba(0,0,0,0.35)' }} />
+                        <Legend wrapperStyle={{fontSize: '11px'}} />
+                        {trendKeys.map((k, idx) => (
+                          <Bar key={k} dataKey={k} name={k} stackId="1" fill={MUSCLE_COLORS[(muscleGrouping==='groups'?k:normalizeMuscleGroup(k))] || '#94a3b8'} radius={idx===trendKeys.length-1?[6,6,0,0]:[0,0,0,0]} animationDuration={1200} />
+                        ))}
+                      </BarChart>
+                    )}
+                  </div>
+                </ResponsiveContainer>
+              </LazyRender>
             )}
           </div>
           <ChartDescription isMounted={isMounted}>
@@ -1827,7 +1979,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
                         main={
                           <span className="inline-flex items-center gap-1">
                             <TrendIcon direction={muscleTrendInsight.totalDelta.direction} />
-                            <span>{`${formatSigned(muscleTrendInsight.totalDelta.deltaPercent)}%`}</span>
+                            <span>{formatSignedPctWithNoun(muscleTrendInsight.totalDelta.deltaPercent, 'sets')}</span>
                           </span>
                         }
                         meta={muscleVsLabel}
@@ -1882,27 +2034,32 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
               isMounted={isMounted}
             />
             <div className={`flex-1 w-full min-h-[250px] sm:min-h-[300px] transition-all duration-700 delay-100 ${isMounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-              <ResponsiveContainer width="100%" height="100%">
-                <div key={weekShapeView} className="h-full w-full">
-                {weekShapeView === 'radar' ? (
-                <RadarChart cx="50%" cy="50%" outerRadius="70%" data={weekShapeData}>
-                  <PolarGrid stroke="#334155" />
-                  <PolarAngleAxis dataKey="subject" tick={{ fill: '#94a3b8', fontSize: 11 }} />
-                  <PolarRadiusAxis angle={30} domain={[0, 'auto']} tick={false} axisLine={false} />
-                  <Radar name="Workouts" dataKey="A" stroke="#ec4899" strokeWidth={3} fill="#ec4899" fillOpacity={0.4} animationDuration={1500} />
-                  <Tooltip contentStyle={TooltipStyle} />
-                </RadarChart>
-                ) : (
-                  <BarChart data={weekShapeData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
-                    <XAxis dataKey="subject" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
-                    <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
-                    <Tooltip contentStyle={TooltipStyle} cursor={{ fill: 'rgba(0,0,0,0.35)' }} />
-                    <Bar dataKey="A" name="Workouts" fill="#ec4899" radius={[8, 8, 0, 0]} animationDuration={1500} />
-                  </BarChart>
-                )}
-                </div>
-              </ResponsiveContainer>
+              <LazyRender
+                className="h-full w-full"
+                placeholder={<ChartSkeleton className="h-full min-h-[250px] sm:min-h-[300px]" />}
+              >
+                <ResponsiveContainer width="100%" height="100%">
+                  <div key={weekShapeView} className="h-full w-full">
+                  {weekShapeView === 'radar' ? (
+                  <RadarChart cx="50%" cy="50%" outerRadius="70%" data={weekShapeData}>
+                    <PolarGrid stroke="#334155" />
+                    <PolarAngleAxis dataKey="subject" tick={{ fill: '#94a3b8', fontSize: 11 }} />
+                    <PolarRadiusAxis angle={30} domain={[0, 'auto']} tick={false} axisLine={false} />
+                    <Radar name="Workouts" dataKey="A" stroke="#ec4899" strokeWidth={3} fill="#ec4899" fillOpacity={0.4} animationDuration={1500} />
+                    <Tooltip contentStyle={TooltipStyle} />
+                  </RadarChart>
+                  ) : (
+                    <BarChart data={weekShapeData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
+                      <XAxis dataKey="subject" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
+                      <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
+                      <Tooltip contentStyle={TooltipStyle} cursor={{ fill: 'rgba(0,0,0,0.35)' }} />
+                      <Bar dataKey="A" name="Workouts" fill="#ec4899" radius={[8, 8, 0, 0]} animationDuration={1500} />
+                    </BarChart>
+                  )}
+                  </div>
+                </ResponsiveContainer>
+              </LazyRender>
             </div>
             <ChartDescription isMounted={isMounted}>
               <InsightLine>
@@ -1943,38 +2100,25 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
               isMounted={isMounted}
             />
             <div className={`flex-1 w-full min-h-[250px] sm:min-h-[300px] transition-all duration-700 delay-100 ${isMounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-              <ResponsiveContainer width="100%" height="100%">
-                <div key={volumeView} className="h-full w-full">
-                {volumeView === 'area' ? (
-                  <AreaChart data={volumeDurationData} margin={{ left: -20, right: 10, top: 10, bottom: 0 }}>
-                  <defs>
-                      <linearGradient id="gDensityArea" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.5}/>
-                      <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
-                  <XAxis dataKey="dateFormatted" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
-                  <YAxis stroke="#8b5cf6" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(val) => `${val}${weightUnit}`} />
-                  <Tooltip 
-                    contentStyle={TooltipStyle} 
-                    labelFormatter={(l, p) => p[0]?.payload?.tooltipLabel || l} 
-                    formatter={(val: number, name) => {
-                        if (name === `Volume per Set (${weightUnit})`) return [`${val} ${weightUnit}`, name];
-                        return [val, name];
-                    }}
-                  />
-                  <Legend />
-                    <Area type="monotone" dataKey="volumePerSet" name={`Volume per Set (${weightUnit})`} stroke="#8b5cf6" strokeWidth={3} fill="url(#gDensityArea)" dot={{r:3, fill:'#8b5cf6'}} activeDot={{r:5, strokeWidth: 0}} animationDuration={1500} />
-                  </AreaChart>
-                ) : (
-                  <BarChart data={volumeDurationData} margin={{ left: -20, right: 10, top: 10, bottom: 0 }}>
+              <LazyRender
+                className="h-full w-full"
+                placeholder={<ChartSkeleton className="h-full min-h-[250px] sm:min-h-[300px]" />}
+              >
+                <ResponsiveContainer width="100%" height="100%">
+                  <div key={volumeView} className="h-full w-full">
+                  {volumeView === 'area' ? (
+                    <AreaChart data={volumeDurationData} margin={{ left: -20, right: 10, top: 10, bottom: 0 }}>
+                    <defs>
+                        <linearGradient id="gDensityArea" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.5}/>
+                        <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
                     <XAxis dataKey="dateFormatted" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
                     <YAxis stroke="#8b5cf6" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(val) => `${val}${weightUnit}`} />
                     <Tooltip 
                       contentStyle={TooltipStyle} 
-                      cursor={{ fill: 'rgba(0,0,0,0.35)' }}
                       labelFormatter={(l, p) => p[0]?.payload?.tooltipLabel || l} 
                       formatter={(val: number, name) => {
                           if (name === `Volume per Set (${weightUnit})`) return [`${val} ${weightUnit}`, name];
@@ -1982,11 +2126,29 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
                       }}
                     />
                     <Legend />
-                    <Bar dataKey="volumePerSet" name={`Volume per Set (${weightUnit})`} fill="#8b5cf6" radius={[8, 8, 0, 0]} animationDuration={1500} />
-                  </BarChart>
-                )}
-                </div>
-              </ResponsiveContainer>
+                      <Area type="monotone" dataKey="volumePerSet" name={`Volume per Set (${weightUnit})`} stroke="#8b5cf6" strokeWidth={3} fill="url(#gDensityArea)" dot={{r:3, fill:'#8b5cf6'}} activeDot={{r:5, strokeWidth: 0}} animationDuration={1500} />
+                    </AreaChart>
+                  ) : (
+                    <BarChart data={volumeDurationData} margin={{ left: -20, right: 10, top: 10, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
+                      <XAxis dataKey="dateFormatted" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
+                      <YAxis stroke="#8b5cf6" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(val) => `${val}${weightUnit}`} />
+                      <Tooltip 
+                        contentStyle={TooltipStyle} 
+                        cursor={{ fill: 'rgba(0,0,0,0.35)' }}
+                        labelFormatter={(l, p) => p[0]?.payload?.tooltipLabel || l} 
+                        formatter={(val: number, name) => {
+                            if (name === `Volume per Set (${weightUnit})`) return [`${val} ${weightUnit}`, name];
+                            return [val, name];
+                        }}
+                      />
+                      <Legend />
+                      <Bar dataKey="volumePerSet" name={`Volume per Set (${weightUnit})`} fill="#8b5cf6" radius={[8, 8, 0, 0]} animationDuration={1500} />
+                    </BarChart>
+                  )}
+                  </div>
+                </ResponsiveContainer>
+              </LazyRender>
             </div>
             <ChartDescription isMounted={isMounted}>
               <InsightLine>
@@ -2001,27 +2163,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
                               <span>{`${formatSigned(volumeDensityTrend.delta.deltaPercent)}%`}</span>
                             </span>
                           }
-                          meta={modeToVsLabel(volumeVsDurationBadgeMode)}
+                          meta="vs prev mo"
                         />
                       }
                       tone={getTrendBadgeTone(volumeDensityTrend.delta.deltaPercent, { goodWhen: 'up' })}
                     />
-                    {volumeDensityTrend.delta4 && (
-                      <TrendBadge
-                        label={
-                          <BadgeLabel
-                            main={
-                              <span className="inline-flex items-center gap-1">
-                                <TrendIcon direction={volumeDensityTrend.delta4.direction} />
-                                <span>{`${formatSigned(volumeDensityTrend.delta4.deltaPercent)}%`}</span>
-                              </span>
-                            }
-                            meta="vs lst 4 sess"
-                          />
-                        }
-                        tone={getTrendBadgeTone(volumeDensityTrend.delta4.deltaPercent, { goodWhen: 'up' })}
-                      />
-                    )}
                     <TrendBadge
                       label={
                         volumeDensityTrend.delta.direction === 'up'
@@ -2424,18 +2570,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
                   Not enough data to render Most Frequent Exercises area view.
                 </div>
               ) : (
-                <ResponsiveContainer width="100%" height={320}>
-                  <AreaChart data={topExercisesOverTimeData} margin={{ top: 10, right: 20, left: -10, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
-                    <XAxis dataKey="date" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
-                    <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
-                    <Tooltip contentStyle={TooltipStyle} />
-                    <Legend wrapperStyle={{fontSize: '11px'}} />
-                    {topExerciseNames.map((name, idx) => (
-                      <Area key={name} type="monotone" dataKey={name} name={name} stackId="1" stroke={PIE_COLORS[idx % PIE_COLORS.length]} fill={PIE_COLORS[idx % PIE_COLORS.length]} fillOpacity={0.25} animationDuration={1200} />
-                    ))}
-                  </AreaChart>
-                </ResponsiveContainer>
+                <LazyRender className="w-full" placeholder={<ChartSkeleton style={{ height: 320 }} />}>
+                  <ResponsiveContainer width="100%" height={320}>
+                    <AreaChart data={topExercisesOverTimeData} margin={{ top: 10, right: 20, left: -10, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
+                      <XAxis dataKey="date" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
+                      <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
+                      <Tooltip contentStyle={TooltipStyle} />
+                      <Legend wrapperStyle={{fontSize: '11px'}} />
+                      {topExerciseNames.map((name, idx) => (
+                        <Area key={name} type="monotone" dataKey={name} name={name} stackId="1" stroke={PIE_COLORS[idx % PIE_COLORS.length]} fill={PIE_COLORS[idx % PIE_COLORS.length]} fillOpacity={0.25} animationDuration={1200} />
+                      ))}
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </LazyRender>
               )
             )}
           </div>
@@ -2450,20 +2598,24 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
                 </>
               ) : (
                 <>
-                  <TrendBadge
-                    label={
-                      <BadgeLabel
-                        main={
-                          <span className="inline-flex items-center gap-1">
-                            <TrendIcon direction={topExercisesInsight.delta.direction} />
-                            <span>{`${formatSigned(topExercisesInsight.delta.deltaPercent)}%`}</span>
-                          </span>
-                        }
-                        meta={`vs prior ${topExercisesInsight.windowLabel}`}
-                      />
-                    }
-                    tone={getTrendBadgeTone(topExercisesInsight.delta.deltaPercent, { goodWhen: 'up' })}
-                  />
+                  {topExercisesInsight.delta ? (
+                    <TrendBadge
+                      label={
+                        <BadgeLabel
+                          main={
+                            <span className="inline-flex items-center gap-1">
+                              <TrendIcon direction={topExercisesInsight.delta.direction} />
+                              <span>{formatSignedPctWithNoun(topExercisesInsight.delta.deltaPercent, 'sets')}</span>
+                            </span>
+                          }
+                          meta={`vs prev ${topExercisesInsight.windowLabel}`}
+                        />
+                      }
+                      tone={getTrendBadgeTone(topExercisesInsight.delta.deltaPercent, { goodWhen: 'up' })}
+                    />
+                  ) : (
+                    <TrendBadge label="Need more data" tone="neutral" />
+                  )}
                   {topExercisesInsight.top && <TrendBadge label={<BadgeLabel main={`Top: ${topExercisesInsight.top.name}`} />} tone="neutral" />}
                   {topExercisesInsight.top && <TrendBadge label={<BadgeLabel main={`${topExercisesInsight.topShare.toFixed(0)}%`} meta="of shown" />} tone={topExercisesInsight.topShare >= 45 ? 'bad' : topExercisesInsight.topShare >= 30 ? 'neutral' : 'good'} />}
                 </>

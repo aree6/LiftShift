@@ -9,7 +9,7 @@ export const convertWeight = (weightKg: number, unit: WeightUnit | string): numb
   if (unit === 'lbs') {
     return Number((weightKg * KG_TO_LBS).toFixed(1));
   }
-  return weightKg;
+  return Number(weightKg.toFixed(2));
 };
 
 /**
@@ -34,5 +34,5 @@ export const convertVolume = (volumeKg: number, unit: WeightUnit | string): numb
   if (unit === 'lbs') {
     return Number((volumeKg * KG_TO_LBS).toFixed(0));
   }
-  return volumeKg;
+  return Number(volumeKg.toFixed(2));
 };

@@ -1,4 +1,5 @@
-import { format, startOfDay, startOfWeek, startOfMonth, startOfYear } from 'date-fns';
+import { format, startOfDay, startOfWeek, startOfMonth, startOfYear, differenceInCalendarDays, isValid } from 'date-fns';
+import { WorkoutSet } from '../types';
 
 export type TimePeriod = 'daily' | 'weekly' | 'monthly' | 'yearly';
 
@@ -8,31 +9,76 @@ export interface DateKeyResult {
   label: string;
 }
 
-const MONTH_ABBR = ['ja', 'f', 'mr', 'ap', 'my', 'ju', 'jl', 'au', 'sp', 'oc', 'nv', 'dc'] as const;
+const MONTH_ABBR = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'] as const;
 
 export const formatYearContraction = (d: Date): string => {
   const yy = String(d.getFullYear() % 100).padStart(2, '0');
-  return `'${yy}`;
+  return yy;
 };
 
 export const formatMonthContraction = (d: Date): string => {
-  return MONTH_ABBR[d.getMonth()] ?? 'm';
+  return MONTH_ABBR[d.getMonth()] ?? 'M';
 };
 
 export const formatDayContraction = (d: Date): string => {
-  return `${formatMonthContraction(d)}${d.getDate()}`;
+  return `${d.getDate()} ${formatMonthContraction(d)}`;
 };
 
 export const formatDayYearContraction = (d: Date): string => {
-  return `${formatDayContraction(d)}${formatYearContraction(d)}`;
+  return `${formatDayContraction(d)} ${formatYearContraction(d)}`;
 };
 
 export const formatMonthYearContraction = (d: Date): string => {
-  return `${formatMonthContraction(d)}${formatYearContraction(d)}`;
+  return `${formatMonthContraction(d)} ${formatYearContraction(d)}`;
 };
 
 export const formatWeekContraction = (weekStart: Date): string => {
   return `wk ${formatDayContraction(weekStart)}`;
+};
+
+export const formatRelativeDay = (d: Date, now: Date = new Date(0)): string => {
+  if (!isValid(d) || !isValid(now)) return '—';
+  const diffDays = differenceInCalendarDays(now, d);
+  if (diffDays === 0) return 'today';
+  if (diffDays === 1) return 'yesterday';
+  if (diffDays === -1) return 'tomorrow';
+  if (diffDays > 1) return `${diffDays} days ago`;
+  return `in ${Math.abs(diffDays)} days`;
+};
+
+export const getEffectiveNowFromWorkoutData = (
+  data: WorkoutSet[],
+  fallbackNow: Date = new Date(0)
+): Date => {
+  let maxTs = -Infinity;
+  for (const s of data) {
+    const ts = s.parsedDate?.getTime?.() ?? NaN;
+    if (Number.isFinite(ts) && ts > maxTs) maxTs = ts;
+  }
+  return Number.isFinite(maxTs) ? new Date(maxTs) : fallbackNow;
+};
+
+export const formatHumanReadableDate = (
+  d: Date,
+  opts?: { now?: Date; cutoffDays?: number }
+): string => {
+  const now = opts?.now ?? new Date(0);
+  if (!isValid(d) || !isValid(now)) return '—';
+  const cutoffDays = opts?.cutoffDays ?? 30;
+  const diffDays = Math.abs(differenceInCalendarDays(now, d));
+  return diffDays > cutoffDays ? formatDayYearContraction(d) : formatRelativeDay(d, now);
+};
+
+export const formatRelativeWithDate = (
+  d: Date,
+  opts?: { now?: Date; cutoffDays?: number }
+): string => {
+  const now = opts?.now ?? new Date(0);
+  if (!isValid(d) || !isValid(now)) return '—';
+  const cutoffDays = opts?.cutoffDays ?? 30;
+  const diffDays = Math.abs(differenceInCalendarDays(now, d));
+  if (diffDays > cutoffDays) return formatDayYearContraction(d);
+  return `${formatRelativeDay(d, now)} on ${formatDayYearContraction(d)}`;
 };
 
 const DATE_KEY_CONFIGS: Record<TimePeriod, {

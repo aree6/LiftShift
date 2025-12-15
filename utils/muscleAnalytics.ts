@@ -23,6 +23,7 @@
 
 import { WorkoutSet } from '../types';
 import type { ExerciseAsset } from './exerciseAssets';
+import { buildTimeSeries } from './aggregators';
 import {
   getMuscleVolumeTimeSeriesRolling,
   getLatestRollingWeeklyVolume,
@@ -32,6 +33,7 @@ import {
   VolumePeriod,
 } from './rollingVolumeCalculator';
 import { roundTo } from './formatters';
+import { formatDayContraction, TimePeriod } from './dateUtils';
 
 // ============================================================================
 // Re-exports from Rolling Volume Calculator
@@ -169,6 +171,48 @@ export const getMuscleVolumeTimeSeriesDetailed = (
   }
   
   return getMuscleVolumeTimeSeriesRolling(data, assetsMap, period as VolumePeriod, false);
+};
+
+export const getMuscleVolumeTimeSeriesCalendar = (
+  data: WorkoutSet[],
+  assetsMap: Map<string, ExerciseAsset>,
+  period: 'weekly' | 'monthly' | 'daily' | 'yearly' = 'weekly'
+): MuscleTimeSeriesResult => {
+  const lowerMap = getLowerMap(assetsMap);
+  const result = buildTimeSeries<WorkoutSet>(data, period as TimePeriod, (set) => {
+    const name = set.exercise_title || '';
+    const asset = lookupAsset(name, assetsMap, lowerMap);
+    if (!asset) return {};
+    const contributions = extractMuscleContributions(asset, true);
+    if (contributions.length === 0) return {};
+    const out: Record<string, number> = {};
+    for (const c of contributions) {
+      out[c.muscle] = (out[c.muscle] || 0) + c.sets;
+    }
+    return out;
+  });
+  return { data: result.data as MuscleTimeSeriesEntry[], keys: result.keys };
+};
+
+export const getMuscleVolumeTimeSeriesDetailedCalendar = (
+  data: WorkoutSet[],
+  assetsMap: Map<string, ExerciseAsset>,
+  period: 'weekly' | 'monthly' | 'daily' | 'yearly' = 'weekly'
+): MuscleTimeSeriesResult => {
+  const lowerMap = getLowerMap(assetsMap);
+  const result = buildTimeSeries<WorkoutSet>(data, period as TimePeriod, (set) => {
+    const name = set.exercise_title || '';
+    const asset = lookupAsset(name, assetsMap, lowerMap);
+    if (!asset) return {};
+    const contributions = extractMuscleContributions(asset, false);
+    if (contributions.length === 0) return {};
+    const out: Record<string, number> = {};
+    for (const c of contributions) {
+      out[c.muscle] = (out[c.muscle] || 0) + c.sets;
+    }
+    return out;
+  });
+  return { data: result.data as MuscleTimeSeriesEntry[], keys: result.keys };
 };
 
 /**
@@ -317,7 +361,7 @@ function buildSimpleDailyTimeSeries(
     let bucket = grouped.get(dateKey);
     if (!bucket) {
       const d = new Date(dateKey);
-      const label = `${d.toLocaleDateString('en-US', { month: 'short' })} ${d.getDate()}`;
+      const label = formatDayContraction(d);
       bucket = { timestamp, label, volumes: new Map() };
       grouped.set(dateKey, bucket);
     }

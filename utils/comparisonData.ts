@@ -58,7 +58,7 @@ export const COMPARISON_DATA: ComparisonData = {
     "Automatic__aussault_gun.svg": {
       weight: 3.6,
       label: "Assault Rifles",
-      description: "Tactical vibes, heavy consequences for your shoulders."
+      description: "Make sure to not Assault your rotater cuff."
     },
     "Chicken_whole_skinned.svg": {
       weight: 1.8,

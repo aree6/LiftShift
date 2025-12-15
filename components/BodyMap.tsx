@@ -20,9 +20,10 @@ interface BodyMapProps {
   hoveredMuscleIdsOverride?: string[];
   muscleVolumes: Map<string, number>;
   maxVolume?: number;
-  onPartHover?: (muscleGroup: string | null) => void;
+  onPartHover?: (muscleGroup: string | null, e?: MouseEvent) => void;
   compact?: boolean;
   compactFill?: boolean;
+  interactive?: boolean;
   gender?: BodyMapGender;
   viewMode?: BodyMapViewMode;
 }
@@ -54,6 +55,7 @@ export const BodyMap: React.FC<BodyMapProps> = ({
   onPartHover,
   compact = false,
   compactFill = false,
+  interactive = false,
   gender = 'male',
   viewMode = 'muscle',
 }) => {
@@ -93,18 +95,16 @@ export const BodyMap: React.FC<BodyMapProps> = ({
             path.style.filter = '';
           }
         });
-        (el as HTMLElement).style.cursor = compact ? 'default' : 'pointer';
+        (el as HTMLElement).style.cursor = compact && !interactive ? 'default' : 'pointer';
       });
     });
-  }, [muscleVolumes, maxVolume, selectedMuscleIds, hoveredMuscleIdsOverride]);
+  }, [muscleVolumes, maxVolume, selectedMuscleIds, hoveredMuscleIdsOverride, interactive]);
 
   const handleClick = useCallback((e: MouseEvent) => {
     const target = e.target as Element;
     const muscleGroup = target.closest('g[id]');
     if (muscleGroup && INTERACTIVE_MUSCLES.includes(muscleGroup.id)) {
-      const groupName = SVG_MUSCLE_GROUPS[muscleGroup.id] || muscleGroup.id;
-      const svgIds = CSV_TO_SVG_MUSCLE_MAP[groupName];
-      onPartClick(svgIds?.[0] || muscleGroup.id);
+      onPartClick(muscleGroup.id);
     }
   }, [onPartClick]);
 
@@ -112,23 +112,22 @@ export const BodyMap: React.FC<BodyMapProps> = ({
     const target = e.target as Element;
     const muscleGroup = target.closest('g[id]');
     if (muscleGroup && INTERACTIVE_MUSCLES.includes(muscleGroup.id)) {
-      const svgIds = CSV_TO_SVG_MUSCLE_MAP[SVG_MUSCLE_GROUPS[muscleGroup.id] || muscleGroup.id];
-      const hoveredId = svgIds?.[0] || muscleGroup.id;
+      const hoveredId = muscleGroup.id;
       hoveredMuscleRef.current = hoveredId;
       // If hover ids are controlled externally (e.g. group view), let parent drive highlighting.
       if (!hoveredMuscleIdsOverride) {
         applyColors(hoveredId);
       }
-      onPartHover?.(hoveredId);
+      onPartHover?.(hoveredId, e);
     }
   }, [onPartHover, applyColors, hoveredMuscleIdsOverride]);
 
-  const handleMouseOut = useCallback(() => {
+  const handleMouseOut = useCallback((e: MouseEvent) => {
     hoveredMuscleRef.current = null;
     if (!hoveredMuscleIdsOverride) {
       applyColors(null);
     }
-    onPartHover?.(null);
+    onPartHover?.(null, e);
   }, [onPartHover, applyColors, hoveredMuscleIdsOverride]);
 
   useEffect(() => {
@@ -136,7 +135,7 @@ export const BodyMap: React.FC<BodyMapProps> = ({
     const container = containerRef.current;
     if (!container) return;
     // Skip event listeners for compact (mini) body maps - no interaction
-    if (compact) return;
+    if (compact && !interactive) return;
     container.addEventListener('click', handleClick);
     container.addEventListener('mouseover', handleMouseOver);
     container.addEventListener('mouseout', handleMouseOut);
@@ -145,7 +144,7 @@ export const BodyMap: React.FC<BodyMapProps> = ({
       container.removeEventListener('mouseover', handleMouseOver);
       container.removeEventListener('mouseout', handleMouseOut);
     };
-  }, [applyColors, handleClick, handleMouseOver, handleMouseOut, compact]);
+  }, [applyColors, handleClick, handleMouseOver, handleMouseOut, compact, interactive]);
 
   const svgClass = compact ? (compactFill ? 'h-full w-auto' : 'h-28 w-auto') : 'h-[60vh] md:h-[70vh] w-auto';
 

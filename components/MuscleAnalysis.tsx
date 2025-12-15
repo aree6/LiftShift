@@ -26,6 +26,8 @@ import {
 } from 'recharts';
 import { TrendingUp, TrendingDown, Dumbbell, X, Activity, Layers, PersonStanding, BicepsFlexed } from 'lucide-react';
 import { normalizeMuscleGroup, NormalizedMuscleGroup } from '../utils/muscleAnalytics';
+import { LazyRender } from './LazyRender';
+import { ChartSkeleton } from './ChartSkeleton';
 import {
   SVG_TO_MUSCLE_GROUP,
   MUSCLE_GROUP_ORDER,
@@ -251,6 +253,11 @@ export const MuscleAnalysis: React.FC<MuscleAnalysisProps> = ({ data, filtersSlo
     
     const targetMuscle = selectedMuscle;
     const isGroupMode = viewMode === 'group';
+    const quickFilterSvgIds = activeQuickFilter ? new Set(getSvgIdsForQuickFilter(activeQuickFilter)) : null;
+    const matchesQuickFilter = (svgIds: string[]) => {
+      if (!quickFilterSvgIds) return true;
+      return svgIds.some(id => quickFilterSvgIds.has(id));
+    };
 
     // For 'all' mode, show each day's data
     if (trendPeriod === 'all') {
@@ -277,7 +284,9 @@ export const MuscleAnalysis: React.FC<MuscleAnalysisProps> = ({ data, filtersSlo
         const primarySvgIds = CSV_TO_SVG_MUSCLE_MAP[primaryMuscle] || [];
         
         // If no muscle selected, count all sets; otherwise filter by selected muscle/group
-        if (!targetMuscle) {
+        if (quickFilterSvgIds) {
+          if (matchesQuickFilter(primarySvgIds)) day.sets += 1;
+        } else if (!targetMuscle) {
           day.sets += 1;
         } else if (matchesTarget(primarySvgIds, targetMuscle, isGroupMode)) {
           day.sets += 1;
@@ -286,7 +295,9 @@ export const MuscleAnalysis: React.FC<MuscleAnalysisProps> = ({ data, filtersSlo
         const secondaryMuscles = exData.secondary_muscle.split(',').map(m => m.trim()).filter(m => m && m !== 'None');
         for (const secondary of secondaryMuscles) {
           const secondarySvgIds = CSV_TO_SVG_MUSCLE_MAP[secondary] || [];
-          if (!targetMuscle) {
+          if (quickFilterSvgIds) {
+            if (matchesQuickFilter(secondarySvgIds)) day.sets += 0.5;
+          } else if (!targetMuscle) {
             day.sets += 0.5;
           } else if (matchesTarget(secondarySvgIds, targetMuscle, isGroupMode)) {
             day.sets += 0.5;
@@ -334,7 +345,9 @@ export const MuscleAnalysis: React.FC<MuscleAnalysisProps> = ({ data, filtersSlo
       const primarySvgIds = CSV_TO_SVG_MUSCLE_MAP[primaryMuscle] || [];
       
       // If no muscle selected, count all sets; otherwise filter by selected muscle/group
-      if (!targetMuscle) {
+      if (quickFilterSvgIds) {
+        if (matchesQuickFilter(primarySvgIds)) period.sets += 1;
+      } else if (!targetMuscle) {
         period.sets += 1;
       } else if (matchesTarget(primarySvgIds, targetMuscle, isGroupMode)) {
         period.sets += 1;
@@ -343,7 +356,9 @@ export const MuscleAnalysis: React.FC<MuscleAnalysisProps> = ({ data, filtersSlo
       const secondaryMuscles = exData.secondary_muscle.split(',').map(m => m.trim()).filter(m => m && m !== 'None');
       for (const secondary of secondaryMuscles) {
         const secondarySvgIds = CSV_TO_SVG_MUSCLE_MAP[secondary] || [];
-        if (!targetMuscle) {
+        if (quickFilterSvgIds) {
+          if (matchesQuickFilter(secondarySvgIds)) period.sets += 0.5;
+        } else if (!targetMuscle) {
           period.sets += 0.5;
         } else if (matchesTarget(secondarySvgIds, targetMuscle, isGroupMode)) {
           period.sets += 0.5;
@@ -354,7 +369,7 @@ export const MuscleAnalysis: React.FC<MuscleAnalysisProps> = ({ data, filtersSlo
     return Array.from(periodMap.values())
       .sort((a, b) => a.ts - b.ts)
       .map(d => ({ period: d.label, sets: Math.round(d.sets * 10) / 10 }));
-  }, [selectedMuscle, data, exerciseMuscleData, trendPeriod, viewMode, matchesTarget]);
+  }, [selectedMuscle, data, exerciseMuscleData, trendPeriod, viewMode, matchesTarget, activeQuickFilter]);
 
   // Volume delta calculation - compare current vs previous period
   const volumeDelta = useMemo(() => {
@@ -685,7 +700,7 @@ export const MuscleAnalysis: React.FC<MuscleAnalysisProps> = ({ data, filtersSlo
                     : 'bg-rose-500/10 text-rose-400'
                 }`}>
                   {volumeDelta.direction === 'up' ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                  {volumeDelta.direction === 'up' ? '+' : ''}{volumeDelta.deltaPercent}% vs lst {trendPeriod === 'weekly' ? 'wk' : trendPeriod === 'monthly' ? 'mo' : 'day'}
+                  {volumeDelta.direction === 'up' ? '+' : ''}{volumeDelta.deltaPercent}% vs prev {trendPeriod === 'weekly' ? 'wk' : trendPeriod === 'monthly' ? 'mo' : 'day'}
                 </span>
               )}
             </div>
@@ -706,7 +721,7 @@ export const MuscleAnalysis: React.FC<MuscleAnalysisProps> = ({ data, filtersSlo
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <TrendingUp className="w-4 h-4 text-slate-400" />
-                  <h3 className="text-sm font-semibold text-white">Volume Trend</h3>
+                  <h3 className="text-sm font-semibold text-white">Total sets</h3>
                 </div>
                 {/* Period Toggle */}
                 <div className="inline-flex bg-black/70 rounded-lg p-0.5 border border-slate-700/50">
@@ -727,41 +742,43 @@ export const MuscleAnalysis: React.FC<MuscleAnalysisProps> = ({ data, filtersSlo
               </div>
               <div className="h-32 bg-black/50 rounded-lg p-2 border border-slate-700/50">
                 {trendData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={trendData}>
-                      <defs>
-                        <linearGradient id="muscleColorGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="hsl(5, 75%, 50%)" stopOpacity={0.4}/>
-                          <stop offset="95%" stopColor="hsl(5, 75%, 50%)" stopOpacity={0}/>
-                        </linearGradient>
-                      </defs>
-                      <XAxis 
-                        dataKey="period" 
-                        tick={{ fill: '#64748b', fontSize: 9 }}
-                        tickLine={false}
-                        axisLine={false}
-                        interval="preserveStartEnd"
-                      />
-                      <YAxis hide />
-                      <Tooltip
-                        contentStyle={{
-                          backgroundColor: '#1e293b',
-                          border: '1px solid #334155',
-                          borderRadius: '8px',
-                          fontSize: '12px',
-                        }}
-                        labelStyle={{ color: '#f1f5f9' }}
-                        formatter={(value: number) => [`${value} sets`, '']}
-                      />
-                      <Area
-                        type="monotone"
-                        dataKey="sets"
-                        stroke="hsl(5, 75%, 50%)"
-                        strokeWidth={2}
-                        fill="url(#muscleColorGradient)"
-                      />
-                    </AreaChart>
-                  </ResponsiveContainer>
+                  <LazyRender className="w-full h-full" placeholder={<ChartSkeleton className="h-full" />}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={trendData}>
+                        <defs>
+                          <linearGradient id="muscleColorGradient" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="hsl(5, 75%, 50%)" stopOpacity={0.4}/>
+                            <stop offset="95%" stopColor="hsl(5, 75%, 50%)" stopOpacity={0}/>
+                          </linearGradient>
+                        </defs>
+                        <XAxis 
+                          dataKey="period" 
+                          tick={{ fill: '#64748b', fontSize: 9 }}
+                          tickLine={false}
+                          axisLine={false}
+                          interval="preserveStartEnd"
+                        />
+                        <YAxis hide />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: '#1e293b',
+                            border: '1px solid #334155',
+                            borderRadius: '8px',
+                            fontSize: '12px',
+                          }}
+                          labelStyle={{ color: '#f1f5f9' }}
+                          formatter={(value: number) => [`${value} sets`, '']}
+                        />
+                        <Area
+                          type="monotone"
+                          dataKey="sets"
+                          stroke="hsl(5, 75%, 50%)"
+                          strokeWidth={2}
+                          fill="url(#muscleColorGradient)"
+                        />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </LazyRender>
                 ) : (
                   <div className="flex items-center justify-center h-full text-slate-500 text-sm">
                     No data for this period

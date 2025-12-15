@@ -45,7 +45,7 @@ interface DailyAccumulator {
 const parseSessionDuration = (startDate: Date | undefined, endTimeStr: string): number => {
   if (!startDate) return 0;
   try {
-    const end = parse(endTimeStr, 'd MMM yyyy, HH:mm', new Date());
+    const end = parse(endTimeStr, 'd MMM yyyy, HH:mm', new Date(0));
     if (!isValid(end)) return 0;
     const duration = differenceInMinutes(end, startDate);
     return (duration > 0 && duration < 1440) ? duration : 0;

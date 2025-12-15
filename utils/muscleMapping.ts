@@ -1,5 +1,6 @@
 import { WorkoutSet } from '../types';
 import { startOfWeek, endOfWeek, format, eachWeekOfInterval, subWeeks } from 'date-fns';
+import { getEffectiveNowFromWorkoutData } from './dateUtils';
 import {
   INTERACTIVE_MUSCLE_IDS,
   MUSCLE_GROUP_TO_SVG_IDS,
@@ -324,11 +325,12 @@ export const calculateMuscleVolume = async (
 export const getWeeklyMuscleVolume = async (
   data: WorkoutSet[],
   exerciseMuscleData: Map<string, ExerciseMuscleData>,
-  weeksBack: number = 12
+  weeksBack: number = 12,
+  now?: Date
 ): Promise<WeeklyMuscleVolume[]> => {
-  const now = new Date();
-  const startDate = subWeeks(startOfWeek(now, { weekStartsOn: 1 }), weeksBack - 1);
-  const endDate = endOfWeek(now, { weekStartsOn: 1 });
+  const effectiveNow = now ?? getEffectiveNowFromWorkoutData(data, new Date(0));
+  const startDate = subWeeks(startOfWeek(effectiveNow, { weekStartsOn: 1 }), weeksBack - 1);
+  const endDate = endOfWeek(effectiveNow, { weekStartsOn: 1 });
   
   const weeks = eachWeekOfInterval({ start: startDate, end: endDate }, { weekStartsOn: 1 });
   

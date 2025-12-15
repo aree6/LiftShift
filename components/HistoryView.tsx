@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useId } from 'react';
 import { WorkoutSet, AnalysisResult, SetWisdom, StructuredTooltip, TooltipLine } from '../types';
 import { 
   ChevronLeft, ChevronRight, Trophy, Target, Hash, HelpCircle,
@@ -10,8 +10,9 @@ import { BodyMap, BodyMapGender } from './BodyMap';
 import { 
   loadExerciseMuscleData, 
   ExerciseMuscleData, 
+  CSV_TO_SVG_MUSCLE_MAP,
+  FULL_BODY_MUSCLES,
   getExerciseMuscleVolumes,
-  getVolumeColor,
   SVG_MUSCLE_NAMES
 } from '../utils/muscleMapping';
 import { ViewHeader } from './ViewHeader';
@@ -19,6 +20,9 @@ import { FANCY_FONT, TOOLTIP_THEMES, calculateTooltipPosition } from '../utils/u
 import { format } from 'date-fns';
 import { WeightUnit } from '../utils/localStorage';
 import { convertWeight, convertVolume } from '../utils/units';
+import { formatSignedNumber } from '../utils/formatters';
+import { formatRelativeWithDate, getEffectiveNowFromWorkoutData } from '../utils/dateUtils';
+import { LazyRender } from './LazyRender';
 
 interface HistoryViewProps {
   data: WorkoutSet[];
@@ -26,6 +30,7 @@ interface HistoryViewProps {
   weightUnit?: WeightUnit;
   bodyMapGender?: BodyMapGender;
   onExerciseClick?: (exerciseName: string) => void;
+  onDayTitleClick?: (date: Date) => void;
 }
 
 interface GroupedExercise {
@@ -54,18 +59,92 @@ const SessionDeltaBadge: React.FC<{ current: number; previous: number; suffix?: 
   const isPositive = delta > 0;
   const Icon = isPositive ? TrendingUp : TrendingDown;
   const colorClass = isPositive ? 'text-emerald-400' : 'text-rose-400';
-  const bgClass = isPositive ? 'bg-emerald-500/10' : 'bg-rose-500/10';
-  const sign = delta > 0 ? '+' : '';
   const pct = Math.round((delta / previous) * 100);
   
   return (
-    <div className={`flex items-center gap-1 px-2 py-1 rounded-lg ${bgClass}`}>
+    <span
+      className={`relative -top-[2px] inline-flex items-center gap-0.5 ml-1 text-[10px] font-bold leading-none ${colorClass}`}
+      title={`${pct}% ${label} ${context}`}
+    >
       <Icon className={`w-3 h-3 ${colorClass}`} />
-      <span className={`text-[10px] font-bold ${colorClass}`}>
-        {sign}{pct}% {label} {context}
-      </span>
-    </div>
+      <span>{pct}%</span>
+    </span>
   );
+};
+
+const buildSessionMuscleHeatmap = (
+  sets: WorkoutSet[],
+  exerciseMuscleData: Map<string, ExerciseMuscleData>
+): { volumes: Map<string, number>; maxVolume: number } => {
+  const volumes = new Map<string, number>();
+  let maxVolume = 0;
+
+  for (const set of sets) {
+    if (!set.exercise_title) continue;
+    if (isWarmupSet(set)) continue;
+    const ex = exerciseMuscleData.get(set.exercise_title.toLowerCase());
+    if (!ex) continue;
+
+    const primary = ex.primary_muscle;
+    if (primary === 'Cardio') continue;
+
+    if (primary === 'Full Body') {
+      for (const muscleName of FULL_BODY_MUSCLES) {
+        const svgIds = CSV_TO_SVG_MUSCLE_MAP[muscleName] || [];
+        for (const svgId of svgIds) {
+          const next = (volumes.get(svgId) || 0) + 1;
+          volumes.set(svgId, next);
+          if (next > maxVolume) maxVolume = next;
+        }
+      }
+      continue;
+    }
+
+    const primarySvgIds = CSV_TO_SVG_MUSCLE_MAP[primary] || [];
+    for (const svgId of primarySvgIds) {
+      const next = (volumes.get(svgId) || 0) + 1;
+      volumes.set(svgId, next);
+      if (next > maxVolume) maxVolume = next;
+    }
+
+    const secondaries = ex.secondary_muscle
+      .split(',')
+      .map((m) => m.trim())
+      .filter((m) => m && m !== 'None');
+
+    for (const secondary of secondaries) {
+      const secondarySvgIds = CSV_TO_SVG_MUSCLE_MAP[secondary] || [];
+      for (const svgId of secondarySvgIds) {
+        const next = (volumes.get(svgId) || 0) + 0.5;
+        volumes.set(svgId, next);
+        if (next > maxVolume) maxVolume = next;
+      }
+    }
+  }
+
+  return { volumes, maxVolume: Math.max(maxVolume, 1) };
+};
+
+const buildExerciseMuscleHeatmap = (
+  sets: WorkoutSet[],
+  exerciseData: ExerciseMuscleData | undefined
+): { volumes: Map<string, number>; maxVolume: number } => {
+  const workingSetCount = sets.filter((s) => !isWarmupSet(s)).length;
+  const base = getExerciseMuscleVolumes(exerciseData);
+  const volumes = new Map<string, number>();
+  let maxVolume = 0;
+
+  if (workingSetCount <= 0 || base.volumes.size === 0) {
+    return { volumes, maxVolume: 1 };
+  }
+
+  base.volumes.forEach((w, svgId) => {
+    const v = w * workingSetCount;
+    volumes.set(svgId, v);
+    if (v > maxVolume) maxVolume = v;
+  });
+
+  return { volumes, maxVolume: Math.max(maxVolume, 1) };
 };
 
 const ITEMS_PER_PAGE = 3; 
@@ -91,6 +170,28 @@ const LINE_COLORS: Record<NonNullable<TooltipLine['color']>, string> = {
 };
 
 const isSameCalendarDay = (a: Date, b: Date) => format(a, 'yyyy-MM-dd') === format(b, 'yyyy-MM-dd');
+
+const HistoryCardSkeleton: React.FC<{ minHeight?: number }> = ({ minHeight = 220 }) => (
+  <div
+    className="bg-black/70 border border-slate-700/50 rounded-2xl p-4 sm:p-5 overflow-hidden"
+    style={{ minHeight }}
+  >
+    <div className="animate-pulse">
+      <div className="flex items-center gap-3 mb-4">
+        <div className="w-10 h-10 rounded bg-slate-800/60" />
+        <div className="flex-1 min-w-0">
+          <div className="h-4 w-2/3 rounded bg-slate-800/60" />
+          <div className="mt-2 h-3 w-1/2 rounded bg-slate-800/50" />
+        </div>
+      </div>
+      <div className="space-y-2">
+        <div className="h-10 rounded bg-slate-800/40" />
+        <div className="h-10 rounded bg-slate-800/35" />
+        <div className="h-10 rounded bg-slate-800/30" />
+      </div>
+    </div>
+  </div>
+);
 
 const formatRestDuration = (ms: number) => {
   if (!Number.isFinite(ms) || ms <= 0) return null;
@@ -119,24 +220,30 @@ const Sparkline: React.FC<{ data: number[]; width?: number; height?: number; col
   color = '#10b981'
 }) => {
   if (data.length < 2) return null;
+  const rawId = useId();
+  const safeId = rawId.replace(/[^a-zA-Z0-9_-]/g, '');
   
   const min = Math.min(...data);
   const max = Math.max(...data);
   const range = max - min || 1;
+  const padX = 4;
+  const padY = 4;
+  const innerW = Math.max(width - padX * 2, 1);
+  const innerH = Math.max(height - padY * 2, 1);
   
   const points = data.map((val, i) => {
-    const x = (i / (data.length - 1)) * width;
-    const y = height - ((val - min) / range) * height;
+    const x = padX + (i / (data.length - 1)) * innerW;
+    const y = padY + (innerH - ((val - min) / range) * innerH);
     return `${x},${y}`;
   }).join(' ');
   
   // Determine trend color
   const trend = data[data.length - 1] - data[0];
   const strokeColor = trend >= 0 ? '#10b981' : '#f43f5e';
-  const markerId = `sparkline-arrow-${String(strokeColor).replace(/[^a-zA-Z0-9]/g, '')}`;
+  const markerId = `sparkline-arrow-${safeId}`;
   
   return (
-    <svg width={width} height={height} className="overflow-visible">
+    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} className="overflow-visible">
       <defs>
         <marker
           id={markerId}
@@ -333,17 +440,19 @@ const useExerciseBestHistory = (data: WorkoutSet[]) => {
   }, [data]);
 };
 
-export const HistoryView: React.FC<HistoryViewProps> = ({ data, filtersSlot, weightUnit = 'kg', bodyMapGender = 'male', onExerciseClick }) => {
+export const HistoryView: React.FC<HistoryViewProps> = ({ data, filtersSlot, weightUnit = 'kg', bodyMapGender = 'male', onExerciseClick, onDayTitleClick }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
   const [assetsMap, setAssetsMap] = useState<Map<string, ExerciseAsset> | null>(null);
   const [exerciseMuscleData, setExerciseMuscleData] = useState<Map<string, ExerciseMuscleData>>(new Map());
+
+  const effectiveNow = useMemo(() => getEffectiveNowFromWorkoutData(data, new Date(0)), [data]);
   
   // Exercise volume history for deltas
   const exerciseVolumeHistory = useExerciseVolumeHistory(data);
   
   // Exercise best weights for PR tracking
-  const { currentBests } = useExerciseBestHistory(data);
+  const { exerciseBests, currentBests } = useExerciseBestHistory(data);
 
   useEffect(() => setCurrentPage(1), [data]);
 
@@ -445,7 +554,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ data, filtersSlot, wei
         <ChevronLeft className="w-4 h-4 text-slate-400" />
       </button>
       <span className="text-xs font-medium text-slate-400 min-w-[80px] text-center">
-        Page {currentPage}/{totalPages}
+        Page {currentPage} of {totalPages}
       </span>
       <button 
         onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} 
@@ -465,7 +574,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ data, filtersSlot, wei
           leftStats={[{ icon: Calendar, value: totalSessions, label: 'Sessions' }]}
           rightStats={[{ icon: Dumbbell, value: totalSets, label: 'Sets' }]}
           filtersSlot={filtersSlot}
-          rightSlot={paginationControls}
+          rightSlot={totalPages > 1 ? paginationControls : null}
         />
       </div>
 
@@ -476,7 +585,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ data, filtersSlot, wei
       <div key={currentPage} className="space-y-2 sm:space-y-3 animate-in fade-in slide-in-from-bottom-8 duration-500 fill-mode-forwards">
         {currentSessions.map((session, index) => {
           const allSessionSets = session.exercises.flatMap(e => e.sets);
-          const sessionStats = analyzeSession(allSessionSets);
+          const sessionHeatmap = buildSessionMuscleHeatmap(allSessionSets, exerciseMuscleData);
 
           const previousDisplayedSession = index > 0 ? currentSessions[index - 1] : null;
           const restMs = previousDisplayedSession?.date && session.date
@@ -508,58 +617,84 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ data, filtersSlot, wei
               >
               
               {/* --- Session Header Card --- */}
-              <div className="bg-black/70 border border-slate-700/50 rounded-2xl p-4 sm:p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-3 sm:gap-6 shadow-xl relative overflow-hidden group transition-all duration-300 hover:border-slate-600/50">
+              <div className="bg-slate-950/70 border border-slate-700/50 rounded-2xl p-5 sm:p-7 min-h-[160px] sm:min-h-[168px] flex flex-row justify-between items-stretch gap-3 sm:gap-6 shadow-xl relative overflow-visible group transition-all duration-300 hover:border-slate-600/50">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none group-hover:bg-blue-500/10 transition-all duration-700"></div>
                 
-                <div className="relative z-10 flex-1">
-                  <div className="flex items-center gap-2 sm:gap-3 mb-1">
+                <div className="relative z-10 flex-1 min-w-0 flex flex-col justify-between gap-2 md:gap-3">
+                  <div className="flex items-center gap-2 sm:gap-3 min-w-0">
                     <div className="p-1.5 sm:p-2 bg-blue-500/10 rounded-lg text-blue-400 flex-shrink-0">
                       <Calendar className="w-4 h-4 sm:w-5 sm:h-5" />
                     </div>
-                    <h3 
-                      className="text-lg sm:text-2xl text-white tracking-tight truncate"
+                    <h3
+                      className="text-lg sm:text-2xl md:text-3xl text-white tracking-tight truncate capitalize"
                       style={FANCY_FONT}
+                      title={session.title}
                     >
                       {session.title}
                     </h3>
                     {session.totalPRs > 0 && (
-                      <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-yellow-500/10 text-yellow-400 text-[10px] font-bold">
+                      <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-yellow-500/10 text-yellow-400 text-[10px] font-bold flex-shrink-0">
                         <Trophy className="w-3 h-3" />
                         {session.totalPRs} PR{session.totalPRs > 1 ? 's' : ''}
                       </span>
                     )}
                   </div>
-                  <div className="flex items-center gap-2 sm:gap-4 text-xs sm:text-sm text-slate-400 pl-1 flex-wrap">
-                    <span className="flex items-center gap-1 sm:gap-1.5 whitespace-nowrap"><Clock className="w-3 h-3 sm:w-3.5 sm:h-3.5 flex-shrink-0" /> {session.startTime}</span>
-                    <span className="w-1 h-1 bg-slate-700 rounded-full"></span>
+
+                  <div className="text-xs sm:text-sm md:text-base text-slate-400 pl-1">
+                    {session.date ? formatRelativeWithDate(session.date, { now: effectiveNow }) : session.startTime}
+                  </div>
+
+                  <div className="flex items-center gap-3 sm:gap-3 md:gap-4 text-xs sm:text-sm md:text-base text-slate-400 pl-1 flex-nowrap min-w-0">
                     <span className="whitespace-nowrap">{session.totalSets} Sets</span>
-                    <span className="w-1 h-1 bg-slate-700 rounded-full"></span>
-                    <span className="whitespace-nowrap">{Math.round(convertVolume(session.totalVolume, weightUnit)).toLocaleString()} {weightUnit}</span>
-                    {prevSession && (
-                      <SessionDeltaBadge 
-                        current={session.totalVolume} 
-                        previous={prevSession.totalVolume} 
-                        label="vol"
-                        context="vs lst"
-                      />
-                    )}
+                    <span className="flex items-baseline min-w-0">
+                      <span className="whitespace-nowrap min-w-0 truncate">
+                        {Math.round(convertVolume(session.totalVolume, weightUnit)).toLocaleString()} {weightUnit}
+                      </span>
+                      {prevSession && (
+                        <span className="flex-none overflow-visible">
+                          <SessionDeltaBadge
+                            current={session.totalVolume}
+                            previous={prevSession.totalVolume}
+                            label="vol"
+                            context="vs lst"
+                          />
+                        </span>
+                      )}
+                    </span>
                   </div>
                 </div>
 
-                {/* Stats Pills */}
-                <div className="flex gap-2 sm:gap-3 relative z-10 w-full md:w-auto flex-wrap md:flex-nowrap">
-                  <div 
-                    onMouseEnter={(e) => handleMouseEnter(e, sessionStats, 'session')}
-                    onMouseLeave={() => setTooltip(null)}
-                    className="px-3 sm:px-4 py-2 bg-black/70 border border-slate-700/50 rounded-xl flex flex-col items-center min-w-[70px] hover:border-blue-500/30 transition-colors cursor-help text-xs sm:text-sm"
-                  >
-                      <span className="text-[8px] sm:text-[10px] uppercase font-bold text-slate-500">Focus</span>
-                      <span className="font-bold text-blue-400">{sessionStats.goalLabel}</span>
+                {sessionHeatmap.volumes.size > 0 && (
+                  <div className="relative z-10 flex-shrink-0 flex items-stretch pl-3 sm:pl-4 py-1 sm:py-2 border-l border-slate-800/50 self-stretch overflow-visible">
+                    <div className="w-28 h-24 sm:w-32 sm:h-28 md:w-60 md:h-36 md:-mr-6 flex items-center justify-center overflow-visible">
+                      <div className="w-full h-full md:scale-[1.25] origin-center overflow-visible">
+                        <BodyMap
+                          onPartClick={() => {}}
+                          selectedPart={null}
+                          muscleVolumes={sessionHeatmap.volumes}
+                          maxVolume={sessionHeatmap.maxVolume}
+                          compact
+                          compactFill
+                          interactive
+                          gender={bodyMapGender}
+                          onPartHover={(muscleId, ev) => {
+                            if (!muscleId || !ev) {
+                              setTooltip(null);
+                              return;
+                            }
+                            const hoveredEl = (ev.target as Element | null)?.closest('g[id]');
+                            const rect = hoveredEl?.getBoundingClientRect();
+                            if (!rect) return;
+                            const sets = sessionHeatmap.volumes.get(muscleId) || 0;
+                            const label = SVG_MUSCLE_NAMES[muscleId] || muscleId;
+                            const setsText = Number.isInteger(sets) ? `${sets}` : `${sets.toFixed(1)}`;
+                            setTooltip({ rect, title: label, body: `${setsText} sets`, status: 'info' });
+                          }}
+                        />
+                      </div>
+                    </div>
                   </div>
-                  <div className="px-3 sm:px-4 py-2 bg-black/70 border border-slate-700/50 rounded-xl flex flex-col items-center min-w-[70px] text-xs sm:text-sm">
-                      <span className="font-bold text-emerald-400">{sessionStats.avgReps} <span className="text-[8px] sm:text-[10px] text-slate-600">reps/avg</span></span>
-                  </div>
-                </div>
+                )}
               </div>
 
               {/* --- Exercises Grid --- */}
@@ -568,38 +703,22 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ data, filtersSlot, wei
                   const insights = analyzeSetProgression(group.sets);
                   const macroInsight = analyzeProgression(group.sets);
                   
-                  // Calculate exercise volume delta vs last time
-                  const exerciseVolume = group.sets.reduce((sum, s) => sum + (s.weight_kg || 0) * (s.reps || 0), 0);
-                  const history = exerciseVolumeHistory.get(group.exerciseName) || [];
-                  const currentIdx = history.findIndex(h => h.sessionKey === session.key);
-                  const prevEntry = currentIdx >= 0 && currentIdx < history.length - 1 ? history[currentIdx + 1] : null;
-                  const volumeDelta = prevEntry ? {
-                    current: exerciseVolume,
-                    previous: prevEntry.volume,
-                    pct: prevEntry.volume > 0 ? Math.round(((exerciseVolume - prevEntry.volume) / prevEntry.volume) * 100) : 0,
-                  } : null;
-                  
                   // Get exercise best weight and check for PRs in this session
                   const exerciseBest = currentBests.get(group.exerciseName) || 0;
-                  const sessionMaxWeight = Math.max(...group.sets.map(s => s.weight_kg || 0));
-                  const hasPRInSession = group.sets.some(s => s.isPr);
-                  // Find the PR set to get the improvement
-                  const prSet = group.sets.find(s => s.isPr);
-                  const prImprovement = prSet ? (() => {
-                    // Calculate previous best before this PR
-                    const allWeightsBefore = data
-                      .filter(s => s.exercise_title === group.exerciseName && s.parsedDate && prSet.parsedDate && s.parsedDate < prSet.parsedDate)
-                      .map(s => s.weight_kg);
-                    const prevBest = allWeightsBefore.length > 0 ? Math.max(...allWeightsBefore) : 0;
-                    return prevBest > 0 ? Number((prSet.weight_kg - prevBest).toFixed(2)) : 0;
-                  })() : 0;
+                  const prEventsForSession = (exerciseBests.get(group.exerciseName) || []).filter((e) => e.sessionKey === session.key);
                   
                   // Get volume trend for sparkline (last 6 sessions, reversed for chronological order)
                   const volHistory = exerciseVolumeHistory.get(group.exerciseName) || [];
                   const sparklineData = volHistory.slice(0, 6).map(v => v.volume).reverse();
 
                   return (
-                    <div key={idx} className="bg-black/70 border border-slate-700/50 rounded-2xl p-4 sm:p-5 hover:border-slate-600/50 transition-all flex flex-col h-full hover:shadow-lg hover:shadow-black/20">
+                    <LazyRender
+                      key={idx}
+                      className="w-full"
+                      placeholder={<HistoryCardSkeleton minHeight={260} />}
+                      rootMargin="400px 0px"
+                    >
+                    <div className="bg-black/70 border border-slate-700/50 rounded-2xl p-4 sm:p-5 hover:border-slate-600/50 transition-all flex flex-col h-full hover:shadow-lg hover:shadow-black/20">
                       
                       {/* Exercise Title with thumbnail */}
                       <div
@@ -648,33 +767,15 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ data, filtersSlot, wei
 
                         {/* Stats: placed after name, slightly larger */}
                         <div className="min-w-0 col-start-2 row-start-2 sm:flex-1">
-                          <div className="flex flex-wrap items-center gap-2 text-[11px] sm:text-sm text-slate-400 sm:flex-nowrap sm:whitespace-nowrap sm:overflow-x-auto">
-                            <span className="font-semibold text-slate-200/90">
-                              {Math.round(convertVolume(exerciseVolume, weightUnit)).toLocaleString()} {weightUnit}
-                            </span>
-                            {volumeDelta && volumeDelta.pct !== 0 && (
-                              <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg font-bold ${
-                                volumeDelta.pct > 0 ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'
-                              }`}>
-                                {volumeDelta.pct > 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                                {volumeDelta.pct > 0 ? '+' : ''}{volumeDelta.pct}%
-                              </span>
-                            )}
+                          <div className="flex flex-wrap items-center gap-2 text-[11px] sm:text-sm text-slate-400 overflow-visible">
                             {sparklineData.length >= 2 && (
-                              <span className="inline-flex items-center opacity-70" title="Volume trend (last 6 sessions)">
-                                <Sparkline data={sparklineData} width={60} height={20} />
+                              <span className="inline-flex items-center opacity-70 pr-1" title="Volume trend (last 6 sessions)">
+                                <Sparkline data={sparklineData} width={62} height={20} />
                               </span>
                             )}
-                            <span className="text-slate-600">•</span>
                             <span className="text-slate-300">
-                              Best: <span className="font-semibold">{convertWeight(exerciseBest, weightUnit)}{weightUnit}</span>
+                              PR: <span className="font-semibold">{convertWeight(exerciseBest, weightUnit)}{weightUnit}</span>
                             </span>
-                            {hasPRInSession && prImprovement > 0 && (
-                              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg font-bold bg-yellow-500/15 text-yellow-400 border border-yellow-500/20">
-                                <TrendingUp className="w-3 h-3" />
-                                +{convertWeight(prImprovement, weightUnit)}{weightUnit} PR
-                              </span>
-                            )}
                           </div>
                         </div>
                       </div>
@@ -682,7 +783,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ data, filtersSlot, wei
                       {/* Main content: Sets on left, Muscle map on right */}
                       <div className="flex gap-4 flex-1 items-stretch">
                         {/* Sets Timeline */}
-                        <div className="space-y-2 relative flex-1 min-w-0">
+                        <div className="relative flex-1 min-w-0 flex flex-col justify-center gap-2">
                         {(() => {
                           // Count working sets for proper numbering (warmup = W, working = 1,2,3...)
                           let workingSetNumber = 0;
@@ -699,6 +800,16 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ data, filtersSlot, wei
                           let rowStatusClass = "border-transparent";
                           let dotClass = "bg-black/50 border-slate-700";
                           let isPrRow = false;
+
+                          const prDelta = (() => {
+                            if (!set.isPr || !set.parsedDate) return 0;
+                            const ev = prEventsForSession.find(
+                              (p) => p.date.getTime() === set.parsedDate!.getTime() && p.weight === set.weight_kg
+                            );
+                            if (!ev) return 0;
+                            const deltaKg = set.weight_kg - ev.previousBest;
+                            return deltaKg > 0 ? deltaKg : 0;
+                          })();
                           
                           // PR takes priority for color (show even for warmup - user may have mislabeled)
                           if (set.isPr) {
@@ -728,7 +839,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ data, filtersSlot, wei
                           return (
                             <div 
                               key={sIdx} 
-                              className={`relative z-10 flex items-center gap-3 p-2 rounded-lg border ${rowStatusClass} transition-all hover:bg-black/60 group overflow-hidden`}
+                              className={`relative z-10 flex items-center gap-3 p-2 rounded-lg border ${rowStatusClass} transition-all hover:bg-black/60 group overflow-visible`}
                               style={prShimmerStyle}
                             >
                               {/* Set Number Bubble - W for warmup, 1,2,3... for working sets */}
@@ -755,7 +866,13 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ data, filtersSlot, wei
                                   {/* PR INDICATOR - positioned before tooltip */}
                                   {set.isPr && (
                                     <span className="flex items-center gap-1 px-1.5 py-0.5 bg-yellow-500/10 text-yellow-500 rounded text-[9px] font-bold uppercase tracking-wider border border-yellow-500/20 animate-pulse">
-                                      <Trophy className="w-3 h-3" /> New Record!
+                                      <Trophy className="w-3 h-3" />
+                                      <span>New Record!</span>
+                                      {prDelta > 0 && (
+                                        <span className="relative -top-[2px] ml-0.5 text-[8px] font-extrabold text-yellow-400 leading-none">
+                                          {formatSignedNumber(convertWeight(prDelta, weightUnit), { maxDecimals: 2 })}{weightUnit}
+                                        </span>
+                                      )}
                                     </span>
                                   )}
                                   
@@ -782,7 +899,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ data, filtersSlot, wei
                         {/* Muscle Heat Map - Right Side */}
                         {(() => {
                           const exData = exerciseMuscleData.get(group.exerciseName.toLowerCase());
-                          const { volumes, maxVolume } = getExerciseMuscleVolumes(exData);
+                          const { volumes, maxVolume } = buildExerciseMuscleHeatmap(group.sets, exData);
                           
                           // Aggregate by display name
                           const aggregated = new Map<string, { sets: number }>();
@@ -822,7 +939,21 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ data, filtersSlot, wei
                                   maxVolume={maxVolume}
                                   compact
                                   compactFill
+                                  interactive
                                   gender={bodyMapGender}
+                                  onPartHover={(muscleId, ev) => {
+                                    if (!muscleId || !ev) {
+                                      setTooltip(null);
+                                      return;
+                                    }
+                                    const hoveredEl = (ev.target as Element | null)?.closest('g[id]');
+                                    const rect = hoveredEl?.getBoundingClientRect();
+                                    if (!rect) return;
+                                    const sets = volumes.get(muscleId) || 0;
+                                    const label = SVG_MUSCLE_NAMES[muscleId] || muscleId;
+                                    const setsText = Number.isInteger(sets) ? `${sets}` : `${sets.toFixed(1)}`;
+                                    setTooltip({ rect, title: label, body: `${setsText} sets`, status: 'info' });
+                                  }}
                                 />
                               </div>
                             </div>
@@ -830,6 +961,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ data, filtersSlot, wei
                         })()}
                       </div>
                     </div>
+                    </LazyRender>
                   );
                 })}
               </div>
@@ -839,6 +971,12 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ data, filtersSlot, wei
           );
         })}
       </div>
+
+      {totalPages > 1 && (
+        <div className="sm:hidden flex justify-center pt-4 pb-6">
+          {paginationControls}
+        </div>
+      )}
 
       {tooltip && <TooltipPortal data={tooltip} />}
     </div>

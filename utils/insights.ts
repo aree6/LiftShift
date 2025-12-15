@@ -1,5 +1,6 @@
 import { WorkoutSet, ExerciseStats, DailySummary } from '../types';
-import { format, differenceInDays, differenceInCalendarWeeks, startOfWeek, subDays, subWeeks, isWithinInterval, isSameDay } from 'date-fns';
+import { format, differenceInDays, differenceInCalendarWeeks, startOfDay, endOfDay, startOfWeek, subDays, subWeeks, isWithinInterval, isSameDay } from 'date-fns';
+import { analyzeExerciseTrendCore, summarizeExerciseHistory } from './exerciseTrend';
 
 // ============================================================================
 // DELTA CALCULATIONS - Show movement vs previous periods
@@ -72,19 +73,53 @@ export interface WeeklyComparison {
   prs: DeltaResult;
 }
 
-export const getWeekOverWeekComparison = (data: WorkoutSet[], now: Date = new Date()): WeeklyComparison => {
-  const thisWeekStart = startOfWeek(now, { weekStartsOn: 1 });
-  const lastWeekStart = subWeeks(thisWeekStart, 1);
-  const lastWeekEnd = subDays(thisWeekStart, 1);
+export interface RollingWindowComparison {
+  windowDays: 7 | 28;
+  eligible: boolean;
+  minWorkoutsRequired: number;
+  current: PeriodStats;
+  previous: PeriodStats;
+  volume: DeltaResult | null;
+  sets: DeltaResult | null;
+  workouts: DeltaResult | null;
+  prs: DeltaResult | null;
+}
 
-  const thisWeek = calculatePeriodStats(data, thisWeekStart, now);
-  const lastWeek = calculatePeriodStats(data, lastWeekStart, lastWeekEnd);
+const getRollingWindowRange = (now: Date, windowDays: 7 | 28) => {
+  const currentStart = startOfDay(subDays(now, windowDays - 1));
+  const currentEnd = now;
+
+  const previousStart = startOfDay(subDays(currentStart, windowDays));
+  const previousEnd = endOfDay(subDays(currentStart, 1));
 
   return {
-    volume: calculateDelta(thisWeek.totalVolume, lastWeek.totalVolume),
-    sets: calculateDelta(thisWeek.totalSets, lastWeek.totalSets),
-    workouts: calculateDelta(thisWeek.totalWorkouts, lastWeek.totalWorkouts),
-    prs: calculateDelta(thisWeek.totalPRs, lastWeek.totalPRs),
+    current: { start: currentStart, end: currentEnd },
+    previous: { start: previousStart, end: previousEnd },
+  };
+};
+
+export const getRollingWindowComparison = (
+  data: WorkoutSet[],
+  windowDays: 7 | 28,
+  now: Date = new Date(0),
+  minWorkoutsRequired: number = 2
+): RollingWindowComparison => {
+  const range = getRollingWindowRange(now, windowDays);
+  const current = calculatePeriodStats(data, range.current.start, range.current.end);
+  const previous = calculatePeriodStats(data, range.previous.start, range.previous.end);
+
+  const eligible = current.totalWorkouts >= minWorkoutsRequired && previous.totalWorkouts >= minWorkoutsRequired;
+
+  return {
+    windowDays,
+    eligible,
+    minWorkoutsRequired,
+    current,
+    previous,
+    volume: eligible ? calculateDelta(current.totalVolume, previous.totalVolume) : null,
+    sets: eligible ? calculateDelta(current.totalSets, previous.totalSets) : null,
+    workouts: eligible ? calculateDelta(current.totalWorkouts, previous.totalWorkouts) : null,
+    prs: eligible ? calculateDelta(current.totalPRs, previous.totalPRs) : null,
   };
 };
 
@@ -104,7 +139,7 @@ export interface StreakInfo {
   consistencyScore: number;   // 0-100 score
 }
 
-export const calculateStreakInfo = (data: WorkoutSet[], now: Date = new Date()): StreakInfo => {
+export const calculateStreakInfo = (data: WorkoutSet[], now: Date = new Date(0)): StreakInfo => {
   if (data.length === 0) {
     return {
       currentStreak: 0,
@@ -252,7 +287,7 @@ export interface PRInsights {
   totalPRs: number;
 }
 
-export const calculatePRInsights = (data: WorkoutSet[], now: Date = new Date()): PRInsights => {
+export const calculatePRInsights = (data: WorkoutSet[], now: Date = new Date(0)): PRInsights => {
   const prs = data.filter(s => s.isPr && s.parsedDate).sort((a, b) => 
     (b.parsedDate?.getTime() || 0) - (a.parsedDate?.getTime() || 0)
   );
@@ -342,58 +377,50 @@ export interface PlateauAnalysis {
   overallTrend: 'improving' | 'maintaining' | 'declining';
 }
 
-export const detectPlateaus = (data: WorkoutSet[], exerciseStats: ExerciseStats[], now: Date = new Date()): PlateauAnalysis => {
-  const fourWeeksAgo = subWeeks(now, 4);
-  const eightWeeksAgo = subWeeks(now, 8);
-
+export const detectPlateaus = (data: WorkoutSet[], exerciseStats: ExerciseStats[], now: Date = new Date(0)): PlateauAnalysis => {
   const plateauedExercises: ExercisePlateauInfo[] = [];
   const improvingExercises: string[] = [];
 
   for (const stat of exerciseStats) {
-    if (stat.totalSets < 8) continue; // Need enough data
+    const core = analyzeExerciseTrendCore(stat);
 
-    // Get sets for this exercise in last 8 weeks
-    const recentSets = data.filter(s => 
-      s.exercise_title === stat.name && 
-      s.parsedDate && 
-      s.parsedDate >= eightWeeksAgo
-    );
-
-    if (recentSets.length < 4) continue;
-
-    // Find max weight in different periods
-    const last4WeeksSets = recentSets.filter(s => s.parsedDate! >= fourWeeksAgo);
-    const prev4WeeksSets = recentSets.filter(s => s.parsedDate! < fourWeeksAgo);
-
-    const maxLast4 = Math.max(...last4WeeksSets.map(s => s.weight_kg || 0), 0);
-    const maxPrev4 = Math.max(...prev4WeeksSets.map(s => s.weight_kg || 0), 0);
-
-    if (maxPrev4 === 0) continue;
-
-    const improvement = maxLast4 - maxPrev4;
-    const improvementPct = (improvement / maxPrev4) * 100;
-
-    if (improvementPct > 2) {
+    if (core.status === 'overload') {
       improvingExercises.push(stat.name);
-    } else if (improvementPct <= 0 && last4WeeksSets.length >= 4) {
-      // No improvement in 4 weeks with sufficient data = plateau
-      const lastProgressSet = recentSets
-        .filter(s => s.weight_kg === maxLast4)
-        .sort((a, b) => (a.parsedDate?.getTime() || 0) - (b.parsedDate?.getTime() || 0))[0];
-      
-      const weeksStuck = lastProgressSet?.parsedDate 
-        ? differenceInCalendarWeeks(now, lastProgressSet.parsedDate, { weekStartsOn: 1 })
-        : 4;
-
-      plateauedExercises.push({
-        exerciseName: stat.name,
-        weeksAtSameWeight: weeksStuck,
-        currentMaxWeight: maxLast4,
-        lastProgressDate: lastProgressSet?.parsedDate || null,
-        isPlateaued: true,
-        suggestion: getSuggestion(stat.name, weeksStuck),
-      });
+      continue;
     }
+
+    if (core.status !== 'stagnant') continue;
+
+    const sessions = summarizeExerciseHistory(stat.history);
+    const plateauWeight = core.plateau?.weight ?? 0;
+    const plateauMinReps = core.plateau?.minReps ?? 0;
+    const plateauMaxReps = core.plateau?.maxReps ?? 0;
+
+    let earliestPlateauDate: Date | null = sessions[0]?.date ?? null;
+
+    for (const s of sessions) {
+      const repsMetric = core.isBodyweightLike ? s.maxReps : (s.reps || (s.weight > 0 ? s.volume / s.weight : 0));
+      const isWeightMatch = Math.abs((s.weight ?? 0) - plateauWeight) < 1;
+      const isRepsMatch = repsMetric >= (plateauMinReps - 1) && repsMetric <= (plateauMaxReps + 1);
+      if (!isWeightMatch || !isRepsMatch) break;
+      earliestPlateauDate = s.date;
+    }
+
+    const weeksStuckRaw = earliestPlateauDate
+      ? differenceInCalendarWeeks(now, earliestPlateauDate, { weekStartsOn: 1 })
+      : 1;
+    const weeksStuck = Math.max(1, weeksStuckRaw);
+
+    plateauedExercises.push({
+      exerciseName: stat.name,
+      weeksAtSameWeight: weeksStuck,
+      currentMaxWeight: plateauWeight,
+      lastProgressDate: earliestPlateauDate,
+      isPlateaued: true,
+      suggestion: core.isBodyweightLike
+        ? 'Try adding 1-2 reps or an extra set next session.'
+        : `Try increasing weight to ${(plateauWeight + 2.5).toFixed(1)}kg next session.`,
+    });
   }
 
   // Determine overall trend
@@ -441,7 +468,7 @@ export const getVolumeSparkline = (dailyData: DailySummary[], points: number = 7
   }));
 };
 
-export const getWorkoutSparkline = (data: WorkoutSet[], weeks: number = 8, now: Date = new Date()): SparklinePoint[] => {
+export const getWorkoutSparkline = (data: WorkoutSet[], weeks: number = 8, now: Date = new Date(0)): SparklinePoint[] => {
   const result: SparklinePoint[] = [];
   
   for (let i = weeks - 1; i >= 0; i--) {
@@ -465,7 +492,7 @@ export const getWorkoutSparkline = (data: WorkoutSet[], weeks: number = 8, now: 
   return result;
 };
 
-export const getPRSparkline = (data: WorkoutSet[], weeks: number = 8, now: Date = new Date()): SparklinePoint[] => {
+export const getPRSparkline = (data: WorkoutSet[], weeks: number = 8, now: Date = new Date(0)): SparklinePoint[] => {
   const result: SparklinePoint[] = [];
   
   for (let i = weeks - 1; i >= 0; i--) {
@@ -487,7 +514,7 @@ export const getPRSparkline = (data: WorkoutSet[], weeks: number = 8, now: Date 
   return result;
 };
 
-export const getSetsSparkline = (data: WorkoutSet[], weeks: number = 8, now: Date = new Date()): SparklinePoint[] => {
+export const getSetsSparkline = (data: WorkoutSet[], weeks: number = 8, now: Date = new Date(0)): SparklinePoint[] => {
   const result: SparklinePoint[] = [];
   
   for (let i = weeks - 1; i >= 0; i--) {
@@ -508,7 +535,7 @@ export const getSetsSparkline = (data: WorkoutSet[], weeks: number = 8, now: Dat
   return result;
 };
 
-export const getConsistencySparkline = (data: WorkoutSet[], weeks: number = 8, now: Date = new Date()): SparklinePoint[] => {
+export const getConsistencySparkline = (data: WorkoutSet[], weeks: number = 8, now: Date = new Date(0)): SparklinePoint[] => {
   const result: SparklinePoint[] = [];
   
   for (let i = weeks - 1; i >= 0; i--) {
@@ -537,7 +564,8 @@ export const getConsistencySparkline = (data: WorkoutSet[], weeks: number = 8, n
 // ============================================================================
 
 export interface DashboardInsights {
-  weekComparison: WeeklyComparison;
+  rolling7d: RollingWindowComparison;
+  rolling28d: RollingWindowComparison;
   streakInfo: StreakInfo;
   prInsights: PRInsights;
   volumeSparkline: SparklinePoint[];
@@ -550,10 +578,11 @@ export interface DashboardInsights {
 export const calculateDashboardInsights = (
   data: WorkoutSet[], 
   dailyData: DailySummary[],
-  now: Date = new Date()
+  now: Date = new Date(0)
 ): DashboardInsights => {
   return {
-    weekComparison: getWeekOverWeekComparison(data, now),
+    rolling7d: getRollingWindowComparison(data, 7, now, 2),
+    rolling28d: getRollingWindowComparison(data, 28, now, 2),
     streakInfo: calculateStreakInfo(data, now),
     prInsights: calculatePRInsights(data, now),
     volumeSparkline: getVolumeSparkline(dailyData),

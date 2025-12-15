@@ -1,13 +1,13 @@
-import React, { useMemo, useState, useEffect } from 'react';
-import { WorkoutSet } from '../types';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { DailySummary, ExerciseStats, WorkoutSet } from '../types';
 import { 
   Sun, Moon, Dumbbell,
-  Sparkles, Weight, Trophy, Timer, Target, Flame, TrendingUp, Award, Repeat2
+  Sparkles, Weight, Trophy, Timer, Target, Flame, TrendingUp, Award, Repeat2, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { ViewHeader } from './ViewHeader';
 import { findBestComparison, formatLargeNumber, getRandomComparison } from '../utils/comparisonData';
 import { WeightUnit } from '../utils/localStorage';
-import { convertVolume } from '../utils/units';
+import { convertVolume, convertWeight } from '../utils/units';
 import { FANCY_FONT } from '../utils/uiConstants';
 import { calculateStreakInfo, calculatePRInsights, StreakInfo, PRInsights } from '../utils/insights';
 import { getExerciseStats, getDailySummaries } from '../utils/analytics';
@@ -16,15 +16,19 @@ import { normalizeMuscleGroup, NormalizedMuscleGroup } from '../utils/muscleAnal
 import { MUSCLE_GROUP_TO_SVG_IDS } from '../utils/muscleMappingConstants';
 import { BodyMap } from './BodyMap';
 import { format, getMonth, startOfMonth, endOfMonth, eachDayOfInterval, getDay } from 'date-fns';
+import { getEffectiveNowFromWorkoutData } from '../utils/dateUtils';
 import CountUp from './CountUp';
+import { FlexCard, CardTheme, FlexCardFooter } from './FlexCard';
+import { LazyRender } from './LazyRender';
 
 interface FlexViewProps {
   data: WorkoutSet[];
   filtersSlot?: React.ReactNode;
   weightUnit?: WeightUnit;
+  dailySummaries?: DailySummary[];
+  exerciseStats?: ExerciseStats[];
 }
 
-type CardTheme = 'dark' | 'light';
 type ComparisonMode = 'best' | 'random';
 
 const ZERO_LIFT_MESSAGES = [
@@ -51,41 +55,6 @@ const BEST_MONTH_ACCENTS = [
   { textDark: 'text-indigo-200', textLight: 'text-indigo-700', barDark: 'bg-indigo-400', barLight: 'bg-indigo-500', glowDark: 'shadow-[0_0_22px_rgba(129,140,248,0.22)]' },
   { textDark: 'text-cyan-200', textLight: 'text-cyan-700', barDark: 'bg-cyan-400', barLight: 'bg-cyan-500', glowDark: 'shadow-[0_0_22px_rgba(34,211,238,0.22)]' },
 ] as const;
-
-// Shared card wrapper for consistent styling
-const FlexCard: React.FC<{
-  children: React.ReactNode;
-  theme: CardTheme;
-  className?: string;
-}> = ({ children, theme, className = '' }) => {
-  const isDark = theme === 'dark';
-  const cardBg = isDark 
-    ? 'bg-gradient-to-br from-[#0a1628] via-[#0d1f3c] to-[#0a1628]' 
-    : 'bg-gradient-to-br from-white/80 via-sky-50/70 to-fuchsia-50/60';
-  const cardBorder = isDark ? 'border-slate-700/40' : 'border-slate-200/80';
-  const glowClass = isDark
-    ? 'shadow-2xl shadow-[0_24px_80px_-40px_rgba(59,130,246,0.45)]'
-    : 'shadow-xl shadow-[0_18px_60px_-35px_rgba(59,130,246,0.35)]';
-  const ringClass = isDark ? 'ring-1 ring-white/5' : 'ring-1 ring-slate-900/5';
-
-  return (
-    <div className={`relative rounded-3xl border ${cardBorder} ${cardBg} ${glowClass} ${ringClass} overflow-hidden transition-all duration-500 ${className}`}>
-      <div className="absolute inset-0 pointer-events-none">
-        <div className={`absolute -top-20 -right-24 w-64 h-64 rounded-full blur-3xl ${isDark ? 'bg-blue-500/14' : 'bg-sky-300/55'}`} />
-        <div className={`absolute -bottom-24 -left-24 w-64 h-64 rounded-full blur-3xl ${isDark ? 'bg-fuchsia-500/10' : 'bg-fuchsia-300/45'}`} />
-        <div
-          className={`absolute left-1/2 top-24 -translate-x-1/2 w-[360px] h-[260px] rounded-full blur-3xl opacity-90 ${
-            isDark
-              ? 'bg-gradient-to-r from-blue-500/18 via-cyan-500/10 to-violet-500/16'
-              : 'bg-gradient-to-r from-blue-300/60 via-cyan-200/50 to-violet-300/55'
-          }`}
-        />
-        <div className={`absolute inset-0 ${isDark ? 'bg-gradient-to-br from-white/5 via-transparent to-black/20' : 'bg-gradient-to-br from-white/65 via-white/25 to-white/40'}`} />
-      </div>
-      {children}
-    </div>
-  );
-};
 
 // =========================================================================
 // CARD: Yearly Heatmap Card - 12 month mini grids
@@ -122,8 +91,7 @@ const YearlyHeatmapCard: React.FC<{
       }
     }
 
-    const today = new Date();
-    const effective = maxDate ? (maxDate.getTime() > today.getTime() ? today : maxDate) : today;
+    const effective = maxDate ?? new Date(0);
     const y = effective.getFullYear();
     const workouts = workoutSessionsByYear.get(y)?.size || 0;
 
@@ -137,7 +105,7 @@ const YearlyHeatmapCard: React.FC<{
   }, [data]);
 
   const getCellColor = (count: number) => {
-    if (count === 0) return isDark ? 'bg-slate-800/50' : 'bg-slate-200/70';
+    if (count === 0) return isDark ? 'bg-slate-800/50' : 'bg-slate-300/80';
     if (count <= 15) return 'bg-emerald-900';
     if (count <= 30) return 'bg-emerald-700';
     if (count <= 45) return 'bg-emerald-500';
@@ -222,17 +190,21 @@ const YearlyHeatmapCard: React.FC<{
         </div>
 
         <div className={`w-full min-w-0 grid ${monthGridColsClass} ${monthGridGapX} ${monthGridGapY}`}>
-          {months.map(({ monthIndex, cells }) => (
-            <div key={monthIndex} className="flex flex-col items-center min-w-0">
-              <div
-                className={`${monthLabelClass} font-semibold ${textPrimary} text-center w-full`}
-                style={FANCY_FONT}
-              >
+          {months.map(({ monthIndex, cells, rowCount }) => (
+            <div key={monthIndex} className={monthGridMaxWClass}>
+              <div className={`text-center ${monthLabelClass} font-semibold ${textMuted}`}>
                 {MONTH_SHORT[monthIndex]}
               </div>
               <div className={`grid grid-cols-7 ${cellGapClass} w-full ${monthGridMaxWClass}`}>
                 {cells.map((count, idx) => {
-                  if (count == null) return <div key={idx} className="aspect-square w-full" />;
+                  if (count == null) {
+                    return (
+                      <div
+                        key={idx}
+                        className={`aspect-square w-full rounded-sm ${isDark ? 'bg-slate-800/20' : 'bg-slate-200/70'}`}
+                      />
+                    );
+                  }
                   return (
                     <div
                       key={idx}
@@ -251,22 +223,10 @@ const YearlyHeatmapCard: React.FC<{
           ))}
         </div>
       </div>
-      <CardFooter theme={theme} />
+      <FlexCardFooter theme={theme} />
     </FlexCard>
   );
 };
-
-// Branding footer component
-function CardFooter({ theme }: { theme: CardTheme }) {
-  const isDark = theme === 'dark';
-  return (
-    <div className="absolute bottom-4 left-0 right-0 flex justify-center pointer-events-none select-none">
-      <span className={`text-[11px] font-semibold tracking-wide ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-        HevyAnalytics.netlify.app
-      </span>
-    </div>
-  );
-}
 
 // ============================================================================
 // CARD 1: Summary Card - Overview stats
@@ -354,7 +314,7 @@ const SummaryCard: React.FC<{
           </div>
         </div>
       </div>
-      <CardFooter theme={theme} />
+      <FlexCardFooter theme={theme} />
     </FlexCard>
   );
 };
@@ -428,7 +388,7 @@ const StreakCard: React.FC<{
           </div>
         )}
       </div>
-      <CardFooter theme={theme} />
+      <FlexCardFooter theme={theme} />
     </FlexCard>
   );
 };
@@ -586,7 +546,7 @@ const PersonalRecordsCard: React.FC<{
                     return (
                       <div key={exercise.name} className="flex items-center gap-3 min-w-0">
                         <div
-                          className={`relative flex-1 min-w-0 rounded-full overflow-hidden ${isDark ? 'bg-black/25' : 'bg-white/60'} `}
+                          className={`relative flex-1 min-w-0 rounded-full overflow-hidden ${isDark ? 'bg-black/25' : 'bg-slate-200/70'} `}
                           style={{ height: `${rowH}px` }}
                         >
                           <div
@@ -640,7 +600,7 @@ const PersonalRecordsCard: React.FC<{
           </div>
         )}
       </div>
-      <CardFooter theme={theme} />
+      <FlexCardFooter theme={theme} />
     </FlexCard>
   );
 };
@@ -716,7 +676,7 @@ const BestMonthCard: React.FC<{
                         ? isDark
                           ? `${accent.barDark} ${accent.glowDark}`
                           : accent.barLight
-                        : isDark ? 'bg-slate-600' : 'bg-slate-300'
+                        : isDark ? 'bg-slate-600' : 'bg-slate-400'
                     }`}
                     style={{ height: `${Math.max(heightPx, 6)}px` }}
                   />
@@ -734,7 +694,7 @@ const BestMonthCard: React.FC<{
           {' '}in active months
         </p>
       </div>
-      <CardFooter theme={theme} />
+      <FlexCardFooter theme={theme} />
     </FlexCard>
   );
 };
@@ -806,7 +766,7 @@ const TopExercisesCard: React.FC<{
                 return (
                   <div key={exercise.name} className="flex items-center gap-3 min-w-0">
                     <div
-                      className={`relative flex-1 min-w-0 rounded-full overflow-hidden ${isDark ? 'bg-black/25' : 'bg-white/60'}`}
+                      className={`relative flex-1 min-w-0 rounded-full overflow-hidden ${isDark ? 'bg-black/25' : 'bg-slate-200/70'}`}
                       style={{ height: `${rowH}px` }}
                     >
                       <div
@@ -859,7 +819,7 @@ const TopExercisesCard: React.FC<{
           </div>
         )}
       </div>
-      <CardFooter theme={theme} />
+      <FlexCardFooter theme={theme} />
     </FlexCard>
   );
 };
@@ -1043,7 +1003,7 @@ const MuscleFocusCard: React.FC<{
           {topMuscles.length > 0 ? topMuscles.join(', ') : 'All muscles'}
         </div>
       </div>
-      <CardFooter theme={theme} />
+      <FlexCardFooter theme={theme} />
     </FlexCard>
   );
 };
@@ -1182,7 +1142,7 @@ const VolumeComparisonCard: React.FC<{
         </div>
 
         {/* Branding footer */}
-        <CardFooter theme={theme} />
+        <FlexCardFooter theme={theme} />
 
         {/* Spacer pushes any remaining space below the footer (keeps description->footer gap consistent) */}
         <div className="hidden" />
@@ -1191,10 +1151,22 @@ const VolumeComparisonCard: React.FC<{
   );
 };
 
-export const FlexView: React.FC<FlexViewProps> = ({ data, filtersSlot, weightUnit = 'kg' }) => {
+export const FlexView: React.FC<FlexViewProps> = ({
+  data,
+  filtersSlot,
+  weightUnit = 'kg',
+  dailySummaries: dailySummariesProp,
+  exerciseStats: exerciseStatsProp,
+}) => {
   const [cardTheme, setCardTheme] = useState<CardTheme>('dark');
 
   const [focusedCardId, setFocusedCardId] = useState<string | null>(null);
+  const [showFocusedNav, setShowFocusedNav] = useState(false);
+  const hideNavTimeoutRef = useRef<number | null>(null);
+  const canHover = useMemo(
+    () => (typeof window !== 'undefined' ? window.matchMedia?.('(hover: hover)')?.matches : true),
+    []
+  );
 
   useEffect(() => {
     if (!focusedCardId) return;
@@ -1212,6 +1184,35 @@ export const FlexView: React.FC<FlexViewProps> = ({ data, filtersSlot, weightUni
       document.body.style.overflow = prevOverflow;
     };
   }, [focusedCardId]);
+
+  useEffect(() => {
+    if (!focusedCardId) {
+      setShowFocusedNav(false);
+      if (hideNavTimeoutRef.current) {
+        window.clearTimeout(hideNavTimeoutRef.current);
+        hideNavTimeoutRef.current = null;
+      }
+      return;
+    }
+    if (!canHover) {
+      setShowFocusedNav(true);
+    }
+    return () => {
+      if (hideNavTimeoutRef.current) {
+        window.clearTimeout(hideNavTimeoutRef.current);
+        hideNavTimeoutRef.current = null;
+      }
+    };
+  }, [focusedCardId, canHover]);
+
+  const toggleFocusedNavTouch = () => {
+    if (canHover) return;
+    setShowFocusedNav((v) => !v);
+    if (hideNavTimeoutRef.current) {
+      window.clearTimeout(hideNavTimeoutRef.current);
+      hideNavTimeoutRef.current = null;
+    }
+  };
 
   // Get exercise assets for thumbnails
   const [assetsMap, setAssetsMap] = useState<Map<string, ExerciseAsset>>(() => new Map());
@@ -1298,7 +1299,7 @@ export const FlexView: React.FC<FlexViewProps> = ({ data, filtersSlot, weightUni
     }
 
     // Calculate duration from daily summaries
-    const dailySummaries = getDailySummaries(data);
+    const dailySummaries = dailySummariesProp ?? getDailySummaries(data);
     totalDuration = dailySummaries.reduce((sum, d) => sum + d.durationMinutes, 0);
 
     // Top exercises with thumbnails
@@ -1336,17 +1337,19 @@ export const FlexView: React.FC<FlexViewProps> = ({ data, filtersSlot, weightUni
       monthlyData,
       muscleData,
     };
-  }, [data, weightUnit, assetsMap]);
+  }, [data, weightUnit, assetsMap, dailySummariesProp]);
+
+  const effectiveNow = useMemo(() => getEffectiveNowFromWorkoutData(data, new Date(0)), [data]);
 
   // Streak info
-  const streakInfo = useMemo(() => calculateStreakInfo(data), [data]);
+  const streakInfo = useMemo(() => calculateStreakInfo(data, effectiveNow), [data, effectiveNow]);
 
   // PR insights
-  const prInsights = useMemo(() => calculatePRInsights(data), [data]);
+  const prInsights = useMemo(() => calculatePRInsights(data, effectiveNow), [data, effectiveNow]);
 
   // Top PR exercises
   const topPRExercises = useMemo(() => {
-    const exerciseStats = getExerciseStats(data);
+    const exerciseStats = exerciseStatsProp ?? getExerciseStats(data);
     const lowerAssetsMap = new Map<string, ExerciseAsset>();
     assetsMap.forEach((v, k) => lowerAssetsMap.set(k.toLowerCase(), v));
     return exerciseStats
@@ -1357,11 +1360,11 @@ export const FlexView: React.FC<FlexViewProps> = ({ data, filtersSlot, weightUni
         const asset = assetsMap.get(s.name) || lowerAssetsMap.get(s.name.toLowerCase());
         return {
           name: s.name,
-          weight: Math.round(convertVolume(s.maxWeight, weightUnit) * 10) / 10,
+          weight: convertWeight(s.maxWeight, weightUnit),
           thumbnail: asset?.thumbnail,
         };
       });
-  }, [data, weightUnit, assetsMap]);
+  }, [data, weightUnit, assetsMap, exerciseStatsProp]);
 
   // Cards configuration
   const CARDS = [
@@ -1376,6 +1379,17 @@ export const FlexView: React.FC<FlexViewProps> = ({ data, filtersSlot, weightUni
   ];
 
   const toggleTheme = () => setCardTheme(t => t === 'dark' ? 'light' : 'dark');
+
+  const focusAdjacentCard = (direction: -1 | 1) => {
+    setFocusedCardId((currentId) => {
+      if (!currentId) return currentId;
+      const idx = CARDS.findIndex((c) => c.id === currentId);
+      if (idx < 0) return currentId;
+      const nextIdx = idx + direction;
+      if (nextIdx < 0 || nextIdx >= CARDS.length) return currentId;
+      return CARDS[nextIdx].id;
+    });
+  };
 
   const renderCardById = (id: string) => {
     switch (id) {
@@ -1465,7 +1479,22 @@ export const FlexView: React.FC<FlexViewProps> = ({ data, filtersSlot, weightUni
               className="flex-shrink-0 w-[calc(100%-2rem)] max-w-md snap-center mx-auto cursor-pointer"
               onClick={() => setFocusedCardId(card.id)}
             >
-              {renderCardById(card.id)}
+              <LazyRender
+                className="w-full"
+                placeholder={
+                  <div className="min-h-[500px] rounded-2xl border border-slate-700/50 bg-black/70 p-6">
+                    <div className="animate-pulse">
+                      <div className="h-6 w-1/2 rounded bg-slate-800/60" />
+                      <div className="mt-4 h-24 rounded bg-slate-800/40" />
+                      <div className="mt-3 h-24 rounded bg-slate-800/35" />
+                      <div className="mt-3 h-24 rounded bg-slate-800/30" />
+                    </div>
+                  </div>
+                }
+                rootMargin="600px 0px"
+              >
+                {renderCardById(card.id)}
+              </LazyRender>
             </div>
           ))}
         </div>
@@ -1484,10 +1513,67 @@ export const FlexView: React.FC<FlexViewProps> = ({ data, filtersSlot, weightUni
           onMouseDown={() => setFocusedCardId(null)}
         >
           <div
-            className="w-full max-w-md"
+            className="relative w-full max-w-md"
             onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleFocusedNavTouch();
+            }}
+            onMouseEnter={() => {
+              setShowFocusedNav(true);
+              if (hideNavTimeoutRef.current) {
+                window.clearTimeout(hideNavTimeoutRef.current);
+                hideNavTimeoutRef.current = null;
+              }
+            }}
+            onMouseLeave={() => {
+              setShowFocusedNav(false);
+              if (hideNavTimeoutRef.current) {
+                window.clearTimeout(hideNavTimeoutRef.current);
+                hideNavTimeoutRef.current = null;
+              }
+            }}
           >
-            {renderCardById(focusedCardId)}
+            <div>
+              {renderCardById(focusedCardId)}
+            </div>
+
+            {/* Tap-to-reveal navigation buttons (auto-hide) */}
+            <button
+              type="button"
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation();
+                focusAdjacentCard(-1);
+                if (!canHover) setShowFocusedNav(true);
+              }}
+              className={`absolute left-2 top-1/2 -translate-y-1/2 transition-opacity duration-200 w-12 h-12 flex items-center justify-center z-[1005] ${
+                showFocusedNav ? 'opacity-100' : 'opacity-0 pointer-events-none'
+              } ${cardTheme === 'dark' ? 'text-white hover:text-white' : 'text-black hover:text-black'} drop-shadow-[0_2px_10px_rgba(0,0,0,0.55)]`}
+              aria-label="Previous card"
+              title="Previous"
+            >
+              <span className="sr-only">Previous</span>
+              <ChevronLeft className="pointer-events-none w-10 h-10" strokeWidth={3} />
+            </button>
+
+            <button
+              type="button"
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation();
+                focusAdjacentCard(1);
+                if (!canHover) setShowFocusedNav(true);
+              }}
+              className={`absolute right-2 top-1/2 -translate-y-1/2 transition-opacity duration-200 w-12 h-12 flex items-center justify-center z-[1005] ${
+                showFocusedNav ? 'opacity-100' : 'opacity-0 pointer-events-none'
+              } ${cardTheme === 'dark' ? 'text-white hover:text-white' : 'text-black hover:text-black'} drop-shadow-[0_2px_10px_rgba(0,0,0,0.55)]`}
+              aria-label="Next card"
+              title="Next"
+            >
+              <span className="sr-only">Next</span>
+              <ChevronRight className="pointer-events-none w-10 h-10" strokeWidth={3} />
+            </button>
           </div>
         </div>
       )}

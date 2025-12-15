@@ -27,3 +27,21 @@ export const clamp = (value: number, min: number, max: number): number => {
 export const formatPercentage = (value: number, decimals = 1): string => {
   return `${value >= 0 ? '+' : ''}${roundTo(value, decimals)}%`;
 };
+
+export const formatNumber = (value: number, opts?: { maxDecimals?: number; minDecimals?: number }): string => {
+  const maxDecimals = opts?.maxDecimals ?? 2;
+  const minDecimals = opts?.minDecimals ?? 0;
+  const n = Number.isFinite(value) ? value : 0;
+  return new Intl.NumberFormat(undefined, {
+    minimumFractionDigits: minDecimals,
+    maximumFractionDigits: maxDecimals,
+  }).format(n);
+};
+
+export const formatSignedNumber = (value: number, opts?: { maxDecimals?: number; minDecimals?: number }): string => {
+  const maxDecimals = opts?.maxDecimals ?? 2;
+  const minDecimals = opts?.minDecimals ?? 0;
+  const n = Number.isFinite(value) ? value : 0;
+  const sign = n > 0 ? '+' : '';
+  return `${sign}${formatNumber(n, { maxDecimals, minDecimals })}`;
+};

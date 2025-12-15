@@ -14,8 +14,9 @@ const FlexView = React.lazy(() => import('./components/FlexView').then(m => ({ d
 import { CSVImportModal } from './components/CSVImportModal';
 import { saveCSVData, getCSVData, clearCSVData, saveWeightUnit, getWeightUnit, WeightUnit, getBodyMapGender, saveBodyMapGender } from './utils/localStorage';
 import { LayoutDashboard, Dumbbell, History, Loader2, CheckCircle2, X, Calendar, BicepsFlexed, Pencil, RefreshCw, Sparkles } from 'lucide-react';
-import { format, isSameDay, isWithinInterval } from 'date-fns';
+import { format, isSameDay, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
 import { CalendarSelector } from './components/CalendarSelector';
+import { formatDayYearContraction, formatHumanReadableDate } from './utils/dateUtils';
 import { trackPageView } from './utils/ga';
 import BackgroundTexture from './components/BackgroundTexture';
 import { SupportLinks } from './components/SupportLinks';
@@ -228,12 +229,31 @@ const App: React.FC = () => {
     return parsedData.filter(d => {
       if (!d.parsedDate) return false;
       if (selectedDay) return isSameDay(d.parsedDate, selectedDay);
-      if (selectedWeeks.length > 0) return selectedWeeks.some(r => isWithinInterval(d.parsedDate as Date, r));
-      if (selectedRange) return isWithinInterval(d.parsedDate as Date, selectedRange);
+      if (selectedWeeks.length > 0) {
+        return selectedWeeks.some(r => isWithinInterval(d.parsedDate as Date, {
+          start: startOfDay(r.start),
+          end: endOfDay(r.end),
+        }));
+      }
+      if (selectedRange) {
+        return isWithinInterval(d.parsedDate as Date, {
+          start: startOfDay(selectedRange.start),
+          end: endOfDay(selectedRange.end),
+        });
+      }
       if (selectedMonth !== 'all') return format(d.parsedDate, 'yyyy-MM') === selectedMonth;
       return true;
     });
   }, [parsedData, selectedMonth, selectedDay, selectedRange, selectedWeeks]);
+
+  const effectiveNow = useMemo(() => {
+    let maxTs = -Infinity;
+    for (const s of parsedData) {
+      const ts = s.parsedDate?.getTime?.() ?? NaN;
+      if (Number.isFinite(ts) && ts > maxTs) maxTs = ts;
+    }
+    return Number.isFinite(maxTs) ? new Date(maxTs) : new Date(0);
+  }, [parsedData]);
 
   // Calendar boundaries and available dates (for blur/disable)
   const { minDate, maxDate, availableDatesSet } = useMemo(() => {
@@ -247,10 +267,10 @@ const App: React.FC = () => {
       if (ts > maxTs) maxTs = ts;
       set.add(format(d.parsedDate, 'yyyy-MM-dd'));
     });
-    const today = new Date();
-    const minDate = isFinite(minTs) ? new Date(minTs) : null;
-    const maxInData = maxTs > 0 ? new Date(maxTs) : null;
-    const maxDate = maxInData ? (maxInData > today ? today : maxInData) : today;
+    const today = new Date(0);
+    const minDate = isFinite(minTs) ? startOfDay(new Date(minTs)) : null;
+    const maxInData = maxTs > 0 ? endOfDay(new Date(maxTs)) : null;
+    const maxDate = maxInData ?? endOfDay(today);
     return { minDate, maxDate, availableDatesSet: set };
   }, [parsedData]);
 
@@ -299,9 +319,9 @@ const App: React.FC = () => {
             <button
               onClick={() => setSelectedDay(null)}
               className="inline-flex items-center gap-2 h-8 px-2 rounded-md bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 transition-colors whitespace-nowrap"
-              title={format(selectedDay, 'MMM d, yyyy')}
+              title={formatDayYearContraction(selectedDay)}
             >
-              <span>{format(selectedDay, 'MMM d, yyyy')}</span>
+              <span>{formatHumanReadableDate(selectedDay, { now: effectiveNow })}</span>
               <X className="w-3 h-3" />
             </button>
           ) : null}
@@ -310,10 +330,10 @@ const App: React.FC = () => {
             <button
               onClick={() => setSelectedRange(null)}
               className="inline-flex items-center gap-2 h-8 px-2 rounded-md bg-purple-600 text-white text-xs font-semibold hover:bg-purple-700 transition-colors whitespace-nowrap"
-              title={`Range: ${format(selectedRange.start, 'MMM d, yyyy')} – ${format(selectedRange.end, 'MMM d, yyyy')}`}
+              title={`Range: ${formatDayYearContraction(selectedRange.start)} – ${formatDayYearContraction(selectedRange.end)}`}
             >
               <span>
-                Range: {format(selectedRange.start, 'MMM d, yyyy')} – {format(selectedRange.end, 'MMM d, yyyy')}
+                Range: {formatDayYearContraction(selectedRange.start)} – {formatDayYearContraction(selectedRange.end)}
               </span>
               <X className="w-3 h-3" />
             </button>
@@ -325,13 +345,13 @@ const App: React.FC = () => {
               className="inline-flex items-center gap-2 h-8 px-2 rounded-md bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 transition-colors whitespace-nowrap"
               title={
                 selectedWeeks.length === 1
-                  ? `${format(selectedWeeks[0].start, 'MMM d')} – ${format(selectedWeeks[0].end, 'MMM d, yyyy')}`
+                  ? `${formatDayYearContraction(selectedWeeks[0].start)} – ${formatDayYearContraction(selectedWeeks[0].end)}`
                   : ''
               }
             >
               <span>
                 {selectedWeeks.length === 1
-                  ? `Week: ${format(selectedWeeks[0].start, 'MMM d')} – ${format(selectedWeeks[0].end, 'MMM d, yyyy')}`
+                  ? `Week: ${formatDayYearContraction(selectedWeeks[0].start)} – ${formatDayYearContraction(selectedWeeks[0].end)}`
                   : `Weeks: ${selectedWeeks.length}`}
               </span>
               <X className="w-3 h-3" />
@@ -365,6 +385,14 @@ const App: React.FC = () => {
     setSelectedDay(date);
     setSelectedRange(null);
     navigateToTab(Tab.HISTORY, 'deep');
+  };
+
+  const handleHistoryDayTitleClick = (date: Date) => {
+    setSelectedDay(date);
+    setSelectedRange(null);
+    setSelectedWeeks([]);
+    setSelectedMonth('all');
+    navigateToTab(Tab.MUSCLE_ANALYSIS, 'deep');
   };
 
   const handleModalFileSelect = (file: File, gender: BodyMapGender, unit: WeightUnit) => {
@@ -627,6 +655,16 @@ const App: React.FC = () => {
           <div className="absolute inset-0 bg-black/40" onClick={() => setCalendarOpen(false)} />
           <CalendarSelector
             mode="both"
+            initialMonth={selectedDay ?? selectedRange?.start ?? selectedWeeks[0]?.start ?? null}
+            initialRange={
+              selectedDay
+                ? { start: startOfDay(selectedDay), end: endOfDay(selectedDay) }
+                : (selectedRange
+                  ? { start: startOfDay(selectedRange.start), end: endOfDay(selectedRange.end) }
+                  : (selectedWeeks.length === 1
+                    ? { start: startOfDay(selectedWeeks[0].start), end: endOfDay(selectedWeeks[0].end) }
+                    : null))
+            }
             minDate={minDate}
             maxDate={maxDate}
             availableDates={availableDatesSet}
@@ -685,6 +723,7 @@ const App: React.FC = () => {
               weightUnit={weightUnit}
               bodyMapGender={bodyMapGender}
               onExerciseClick={handleExerciseClick}
+              onDayTitleClick={handleHistoryDayTitleClick}
             />
           )}
           {activeTab === Tab.MUSCLE_ANALYSIS && (
@@ -702,6 +741,8 @@ const App: React.FC = () => {
               data={filteredData}
               filtersSlot={desktopFilterControls}
               weightUnit={weightUnit}
+              dailySummaries={dailySummaries}
+              exerciseStats={exerciseStats}
             />
           )}
         </Suspense>
