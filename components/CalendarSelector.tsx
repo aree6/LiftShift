@@ -529,9 +529,21 @@ export const CalendarSelector: React.FC<CalendarSelectorProps> = ({
       </div>
 
       {/* Day headers */}
-      <div className={`grid ${mode !== 'day' ? 'grid-cols-8' : 'grid-cols-7'} gap-1 text-[10px] text-slate-400 mb-1`}>
-        {mode !== 'day' && <div className="text-center opacity-0">Wk</div>}
-        {DAY_HEADERS.map(d => <div key={d} className="text-center">{d}</div>)}
+      <div className="flex items-center gap-1 text-[10px] text-slate-400 mb-1">
+        {mode !== 'day' && (
+          <div
+            className={`${multipleWeeks ? 'w-6' : 'w-[72px]'} shrink-0 opacity-0`}
+          >
+            Wk
+          </div>
+        )}
+        <div className="grid grid-cols-7 gap-1 flex-1">
+          {DAY_HEADERS.map((d) => (
+            <div key={d} className="flex items-center justify-center">
+              {d}
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Calendar grid */}
@@ -591,6 +603,14 @@ export const CalendarSelector: React.FC<CalendarSelectorProps> = ({
                   const disabled = isDisabled(day);
                   const hasWorkout = isValidGymDay(day);
                   const inMonth = isSameMonth(day, viewMonth);
+                  if (!inMonth) {
+                    return (
+                      <div
+                        key={day.toISOString()}
+                        className="w-full h-7"
+                      />
+                    );
+                  }
                   const isToday = isSameDay(day, today);
                   const inRange = isInRange(day);
                   const edge = isRangeEdge(day);
@@ -598,6 +618,7 @@ export const CalendarSelector: React.FC<CalendarSelectorProps> = ({
                   const isEnd = edge === 'end';
                   const showDayTooltip = tooltipDay && isSameDay(tooltipDay, day);
                   const isJumpTarget = jumpHighlightDay && isSameDay(jumpHighlightDay, day);
+                  const showEdgeLetter = hasSelection && !isSameDay(rangeStart!, rangeEnd!) && (isStart || isEnd);
                   
                   return (
                     <div key={day.toISOString()} className="relative">
@@ -609,9 +630,7 @@ export const CalendarSelector: React.FC<CalendarSelectorProps> = ({
                             ? isStart || isEnd
                               ? 'border-sky-400/70 bg-sky-500/25 text-white font-bold shadow-md'
                               : 'border-sky-500/30 bg-sky-500/15 text-white font-medium'
-                            : inMonth 
-                              ? hasWorkout ? 'border-emerald-500/35 bg-emerald-500/12 text-slate-200 hover:bg-emerald-500/18 ring-1 ring-emerald-500/15' : 'border-slate-800/60 bg-black/40 text-slate-500'
-                              : 'border-slate-800 text-slate-500'
+                            : hasWorkout ? 'border-emerald-500/35 bg-emerald-500/12 text-slate-200 hover:bg-emerald-500/18 ring-1 ring-emerald-500/15' : 'border-slate-800/60 bg-black/40 text-slate-500'
                           }
                           ${isToday ? 'ring-1 ring-sky-300/70' : ''}
                           ${isJumpTarget ? 'ring-2 ring-sky-300/70' : ''}
@@ -619,13 +638,7 @@ export const CalendarSelector: React.FC<CalendarSelectorProps> = ({
                           ${showDayTooltip ? 'ring-2 ring-yellow-400' : ''}
                         `}
                       >
-                        {format(day, 'd')}
-                        {isStart && hasSelection && !isSameDay(rangeStart!, rangeEnd!) && (
-                          <span className="absolute -top-2 left-1/2 -translate-x-1/2 text-[8px] text-emerald-400 font-bold">S</span>
-                        )}
-                        {isEnd && hasSelection && !isSameDay(rangeStart!, rangeEnd!) && (
-                          <span className="absolute -bottom-2 left-1/2 -translate-x-1/2 text-[8px] text-rose-400 font-bold">E</span>
-                        )}
+                        {showEdgeLetter ? (isStart ? 'S' : 'E') : format(day, 'd')}
                       </button>
                       {showDayTooltip && (
                         <StartEndTooltip

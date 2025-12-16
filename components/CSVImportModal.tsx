@@ -124,7 +124,7 @@ export const CSVImportModal: React.FC<CSVImportModalProps> = ({
           </div>
 
           <p className="text-slate-400 mb-6 text-center text-xs sm:text-sm">
-            Let’s get set up. Choose your body type and unit, then upload your Hevy export.
+            Let’s get set up. Choose your body type and unit, then upload your Hevy or Strong CSV export (Strong is BETA).
           </p>
 
           {errorMessage ? (

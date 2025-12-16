@@ -1,8 +1,12 @@
 import React, { useState, useEffect, useMemo, Suspense, useRef, useCallback } from 'react';
-import { parseWorkoutCSV, parseWorkoutCSVAsync } from './utils/csv/csvParser';
+import {
+  parseWorkoutCSV,
+  parseWorkoutCSVAsyncWithUnit,
+  parseWorkoutCSVWithUnit,
+  ParseWorkoutCsvResult,
+} from './utils/csv/csvParser';
 import { getDailySummaries, getExerciseStats, identifyPersonalRecords } from './utils/analysis/analytics';
 import { computationCache, getFilteredCacheKey } from './utils/storage/computationCache';
-import { getExerciseAssets } from './utils/data/exerciseAssets';
 import { WorkoutSet } from './types';
 import { DEFAULT_CSV_DATA } from './constants';
 import { BodyMapGender } from './components/BodyMap';
@@ -189,16 +193,17 @@ const App: React.FC = () => {
       // Defer heavy parsing to next tick and run in worker to avoid blocking LCP
       setTimeout(() => {
         setLoadingStep(1);
-        parseWorkoutCSVAsync(storedCSV)
-          .then(result => {
+        parseWorkoutCSVAsyncWithUnit(storedCSV, { unit: getWeightUnit() })
+          .then((result: ParseWorkoutCsvResult) => {
             setLoadingStep(2);
-            return identifyPersonalRecords(result);
+            return identifyPersonalRecords(result.sets);
           })
           .then(enriched => setParsedData(enriched))
           .catch((err) => {
             // Fallback to sync parser if worker parsing fails
             try {
-              const fallback = identifyPersonalRecords(parseWorkoutCSV(storedCSV));
+              const fallbackParsed = parseWorkoutCSVWithUnit(storedCSV, { unit: getWeightUnit(), includeAssetsForStrong: false });
+              const fallback = identifyPersonalRecords(fallbackParsed.sets);
               setParsedData(fallback);
             } catch (syncErr) {
               clearCSVData();
@@ -231,8 +236,6 @@ const App: React.FC = () => {
       import('./components/HistoryView');
       import('./components/MuscleAnalysis');
       import('./components/FlexView');
-      // Preload exercise assets (cached globally)
-      getExerciseAssets().catch(() => {});
     });
   }, []);
 
@@ -429,7 +432,7 @@ const App: React.FC = () => {
     setBodyMapGender(gender);
     setWeightUnit(unit);
     setCsvImportError(null);
-    processFile(file);
+    processFile(file, unit);
   };
 
   const handleOpenUpdateFlow = () => {
@@ -438,7 +441,7 @@ const App: React.FC = () => {
     setShowCSVModal(true);
   };
 
-  const processFile = (file: File) => {
+  const processFile = (file: File, unitOverride?: WeightUnit) => {
     // Start Loading Sequence
     setIsAnalyzing(true);
     setLoadingStep(0);
@@ -450,10 +453,11 @@ const App: React.FC = () => {
       if (typeof text === 'string') {
         setCsvImportError(null);
         setLoadingStep(1);
-        parseWorkoutCSVAsync(text)
-          .then(result => {
+        const unit = unitOverride ?? weightUnit;
+        parseWorkoutCSVAsyncWithUnit(text, { unit })
+          .then((result: ParseWorkoutCsvResult) => {
             setLoadingStep(2);
-            const enriched = identifyPersonalRecords(result);
+            const enriched = identifyPersonalRecords(result.sets);
             setParsedData(enriched);
             saveCSVData(text);
             setRawData(text);

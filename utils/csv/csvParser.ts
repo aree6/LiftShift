@@ -3,6 +3,10 @@ import { parse, isValid } from 'date-fns';
 import Papa from 'papaparse';
 import { toNumber, toInteger, toString } from '../format/formatters';
 import { DATE_FORMAT_HEVY } from '../date/dateUtils';
+import type { WeightUnit } from '../storage/localStorage';
+import { parseStrongRows, isStrongCSV } from './strongCsvParser';
+import { createExerciseNameResolver } from '../exercise/exerciseNameResolver';
+import { getExerciseAssets } from '../data/exerciseAssets';
 
 const REQUIRED_HEADERS = [
   'title',
@@ -15,6 +19,8 @@ const REQUIRED_HEADERS = [
 
 const WEIGHT_HEADERS = ['weight_kg', 'weight_lb', 'weight_lbs'] as const;
 const LBS_TO_KG = 0.45359237;
+
+type CsvFormat = 'hevy' | 'strong';
 
 type HeaderMode = 'fast' | 'robust';
 
@@ -56,6 +62,22 @@ const HEADER_ALIASES: Record<string, string> = {
   weightinpounds: 'weight_lbs',
   weight_in_pounds: 'weight_lbs',
   weightpounds: 'weight_lbs',
+};
+
+const detectCsvFormat = (fields: string[] | undefined): CsvFormat => {
+  if (fields && fields.length > 0) {
+    const fast = getHeaderValidation(fields, normalizeHeaderFast);
+    if (fast.missing.length === 0 && fast.hasWeightHeader) return 'hevy';
+
+    const robust = getHeaderValidation(fields, normalizeHeader);
+    if (robust.missing.length === 0 && robust.hasWeightHeader) return 'hevy';
+  }
+
+  if (isStrongCSV(fields)) return 'strong';
+
+  throw new Error(
+    'Unsupported CSV format. Please upload a workout export from the Hevy app, or a Strong CSV export (BETA).'
+  );
 };
 
 const canonicalizeHeader = (header: string): string => {
@@ -231,29 +253,153 @@ const parseWithPapa = (csvContent: string, useWorker: boolean): Promise<WorkoutS
   });
 };
 
-export const parseWorkoutCSV = (csvContent: string): WorkoutSet[] => {
-  const result = Papa.parse<Record<string, unknown>>(csvContent, {
+const guessStrongDelimiter = (csvContent: string): string => {
+  const firstLine = csvContent.split(/\r?\n/)[0] ?? '';
+  const commas = (firstLine.match(/,/g) || []).length;
+  const semis = (firstLine.match(/;/g) || []).length;
+  return semis > commas ? ';' : ',';
+};
+
+const parseStrongWithPapa = (csvContent: string, delimiter: string, useWorker: boolean): Promise<Record<string, unknown>[]> => {
+  return new Promise((resolve, reject) => {
+    Papa.parse<Record<string, unknown>>(csvContent, {
+      header: true,
+      skipEmptyLines: true,
+      dynamicTyping: false,
+      worker: useWorker,
+      delimiter,
+      complete: (results) => {
+        if (results.errors && results.errors.length > 0) {
+          reject(new Error(results.errors[0]?.message ?? 'Failed to parse CSV'));
+          return;
+        }
+        resolve((results.data ?? []) as Record<string, unknown>[]);
+      },
+      error: (error) => reject(error),
+    });
+  });
+};
+
+const sortByDateDescStrong = (sets: WorkoutSet[]): WorkoutSet[] => {
+  return sets.sort((a, b) => {
+    const timeA = a.parsedDate?.getTime() ?? 0;
+    const timeB = b.parsedDate?.getTime() ?? 0;
+    return timeB - timeA;
+  });
+};
+
+export interface ParseWorkoutCsvResult {
+  sets: WorkoutSet[];
+  meta: {
+    format: CsvFormat;
+    unmatchedExercises?: string[];
+    fuzzyMatches?: number;
+    representativeMatches?: number;
+  };
+}
+
+export const parseWorkoutCSVWithUnit = (
+  csvContent: string,
+  opts?: { unit?: WeightUnit; includeAssetsForStrong?: boolean }
+): ParseWorkoutCsvResult => {
+  const unit: WeightUnit = opts?.unit ?? 'kg';
+
+  const delimiter = guessStrongDelimiter(csvContent);
+  const parsed = Papa.parse<Record<string, unknown>>(csvContent, {
     header: true,
     skipEmptyLines: true,
     dynamicTyping: true,
     transformHeader: (header) => normalizeHeaderFast(header),
+    delimiter,
   });
-  if (result.errors && result.errors.length > 0) {
-    throw new Error(result.errors[0]?.message ?? 'Failed to parse CSV');
+  if (parsed.errors && parsed.errors.length > 0) {
+    throw new Error(parsed.errors[0]?.message ?? 'Failed to parse CSV');
   }
-  const rawRows = (result.data ?? []) as Record<string, unknown>[];
+
+  const rawRows = (parsed.data ?? []) as Record<string, unknown>[];
   const fields =
-    result.meta.fields && result.meta.fields.length > 0
-      ? result.meta.fields
+    parsed.meta.fields && parsed.meta.fields.length > 0
+      ? parsed.meta.fields
       : deriveFieldsFromRows(rawRows);
-  const mode = validateHevyCSV(fields);
-  const rows =
-    mode === 'fast'
-      ? rawRows
-      : rawRows.map(r => normalizeRowKeysWith(r, normalizeHeader));
-  return sortByDateDesc(rows.map(normalizeRow));
+
+  const format = detectCsvFormat(fields);
+  if (format === 'hevy') {
+    const mode = validateHevyCSV(fields);
+    const rows =
+      mode === 'fast'
+        ? rawRows
+        : rawRows.map(r => normalizeRowKeysWith(r, normalizeHeader));
+    return {
+      sets: sortByDateDesc(rows.map(normalizeRow)),
+      meta: { format },
+    };
+  }
+
+  const resolver =
+    opts?.includeAssetsForStrong === false
+      ? undefined
+      : (() => {
+          // Synchronous path cannot fetch assets.
+          // Resolver is injected only in async parsing.
+          return undefined;
+        })();
+
+  const strong = parseStrongRows(rawRows, { unit, resolver });
+  return {
+    sets: sortByDateDescStrong(strong.sets),
+    meta: {
+      format,
+      unmatchedExercises: strong.unmatchedExercises,
+      fuzzyMatches: strong.fuzzyMatches,
+      representativeMatches: strong.representativeMatches,
+    },
+  };
+};
+
+export const parseWorkoutCSVAsyncWithUnit = async (
+  csvContent: string,
+  opts?: { unit?: WeightUnit }
+): Promise<ParseWorkoutCsvResult> => {
+  const unit: WeightUnit = opts?.unit ?? 'kg';
+  const delimiter = guessStrongDelimiter(csvContent);
+
+  const sniff = Papa.parse<Record<string, unknown>>(csvContent, {
+    header: true,
+    skipEmptyLines: true,
+    dynamicTyping: false,
+    delimiter,
+    preview: 1,
+  });
+  const sniffFields =
+    sniff.meta.fields && sniff.meta.fields.length > 0
+      ? sniff.meta.fields
+      : deriveFieldsFromRows(((sniff.data ?? []) as Record<string, unknown>[]));
+
+  const format = detectCsvFormat(sniffFields);
+  if (format === 'hevy') {
+    const sets = await parseWithPapa(csvContent, true);
+    return { sets, meta: { format } };
+  }
+
+  const parsed = await parseStrongWithPapa(csvContent, delimiter, true);
+  const assetsMap = await getExerciseAssets();
+  const resolver = createExerciseNameResolver(assetsMap.keys(), { mode: 'relaxed' });
+  const strong = parseStrongRows(parsed, { unit, resolver });
+  return {
+    sets: sortByDateDescStrong(strong.sets),
+    meta: {
+      format,
+      unmatchedExercises: strong.unmatchedExercises,
+      fuzzyMatches: strong.fuzzyMatches,
+      representativeMatches: strong.representativeMatches,
+    },
+  };
+};
+
+export const parseWorkoutCSV = (csvContent: string): WorkoutSet[] => {
+  return parseWorkoutCSVWithUnit(csvContent, { unit: 'kg', includeAssetsForStrong: false }).sets;
 };
 
 export const parseWorkoutCSVAsync = (csvContent: string): Promise<WorkoutSet[]> => {
-  return parseWithPapa(csvContent, true);
+  return parseWorkoutCSVAsyncWithUnit(csvContent, { unit: 'kg' }).then(r => r.sets);
 };

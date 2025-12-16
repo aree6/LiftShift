@@ -812,8 +812,8 @@ export const ExerciseView: React.FC<ExerciseViewProps> = ({ stats, filtersSlot, 
                     <span className={`truncate text-xs ${isSelected ? 'text-slate-200 font-semibold' : 'text-slate-300 group-hover:text-white'}`}>
                       {ex.name}
                     </span>
-                    <span className="text-[10px] text-slate-500 truncate">
-                      lst: {ex.history.length > 0 ? formatHumanReadableDate(ex.history[0].date, { now: effectiveNow }) : '—'}
+                    <span className={`truncate text-[10px] ${isSelected ? 'text-slate-400' : 'text-slate-500 group-hover:text-slate-400'}`}>
+                      {isEligible ? status.label : status.inactiveLabel}
                     </span>
                   </div>
                 </div>
