@@ -146,8 +146,8 @@ html[data-theme='light'] {
   --overlay-90-alpha: 0.35;
   --tint-rgb: 15 23 42;
 
-  --mw-tooltip-rgb: 15 23 42;
-  --mw-tooltip-alpha: 0.92;
+  --mw-tooltip-rgb: 255 255 255;
+  --mw-tooltip-alpha: 0.98;
 
   --mw-history-header-tint-alpha: 0.07;
 
