@@ -25,7 +25,7 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { TrendingUp, TrendingDown, Dumbbell, X, Activity, Layers, PersonStanding, BicepsFlexed } from 'lucide-react';
-import { normalizeMuscleGroup, NormalizedMuscleGroup } from '../utils/muscle/muscleAnalytics';
+import { normalizeMuscleGroup, type NormalizedMuscleGroup } from '../utils/muscle/muscleNormalization';
 import { LazyRender } from './LazyRender';
 import { ChartSkeleton } from './ChartSkeleton';
 import { Tooltip as HoverTooltip, TooltipData } from './Tooltip';
@@ -154,17 +154,41 @@ export const MuscleAnalysis: React.FC<MuscleAnalysisProps> = ({ data, filtersSlo
   const muscleGroupVolumes = useMemo(() => {
     const groupVolumes = new Map<NormalizedMuscleGroup, number>();
     MUSCLE_GROUP_ORDER.forEach(g => groupVolumes.set(g, 0));
-    
-    muscleVolume.forEach((entry, svgId) => {
-      const group = MUSCLE_GROUP_DISPLAY[svgId];
-      if (group && group !== 'Other') {
-        const current = groupVolumes.get(group) || 0;
-        groupVolumes.set(group, current + entry.sets);
+
+    if (exerciseMuscleData.size === 0 || data.length === 0) return groupVolumes;
+
+    const add = (group: NormalizedMuscleGroup, inc: number) => {
+      if (!MUSCLE_GROUP_ORDER.includes(group)) return;
+      groupVolumes.set(group, (groupVolumes.get(group) ?? 0) + inc);
+    };
+
+    for (const set of data) {
+      if (!set.exercise_title) continue;
+      const exData = exerciseMuscleData.get(set.exercise_title.toLowerCase());
+      if (!exData) continue;
+
+      const primaryGroup = normalizeMuscleGroup(exData.primary_muscle);
+      if (primaryGroup === 'Cardio') continue;
+
+      if (primaryGroup === 'Full Body') {
+        for (const g of MUSCLE_GROUP_ORDER) add(g, 1.0);
+        continue;
       }
-    });
-    
+
+      add(primaryGroup, 1.0);
+
+      const secRaw = String(exData.secondary_muscle ?? '').trim();
+      if (secRaw && !/none/i.test(secRaw)) {
+        for (const s2 of secRaw.split(',')) {
+          const m = normalizeMuscleGroup(s2);
+          if (m === 'Cardio' || m === 'Full Body') continue;
+          add(m, 0.5);
+        }
+      }
+    }
+
     return groupVolumes;
-  }, [muscleVolume]);
+  }, [data, exerciseMuscleData]);
 
   // Max group volume for scaling
   const maxGroupVolume = useMemo(() => {
@@ -191,23 +215,53 @@ export const MuscleAnalysis: React.FC<MuscleAnalysisProps> = ({ data, filtersSlo
     if (!MUSCLE_GROUP_ORDER.includes(group)) return null;
     
     const sets = muscleGroupVolumes.get(group) || 0;
-    // Aggregate exercises from all muscles in this group
     const exerciseMap = new Map<string, { sets: number; primarySets: number; secondarySets: number }>();
-    
-    muscleVolume.forEach((entry, svgId) => {
-      if (MUSCLE_GROUP_DISPLAY[svgId] === group) {
-        entry.exercises.forEach((exData, exName) => {
-          const existing = exerciseMap.get(exName) || { sets: 0, primarySets: 0, secondarySets: 0 };
-          existing.sets += exData.sets;
-          existing.primarySets += exData.primarySets;
-          existing.secondarySets += exData.secondarySets;
-          exerciseMap.set(exName, existing);
-        });
+
+    if (exerciseMuscleData.size === 0 || data.length === 0) {
+      return { sets, exercises: exerciseMap };
+    }
+
+    for (const setRow of data) {
+      if (!setRow.exercise_title) continue;
+      const exData = exerciseMuscleData.get(setRow.exercise_title.toLowerCase());
+      if (!exData) continue;
+
+      const primaryGroup = normalizeMuscleGroup(exData.primary_muscle);
+      if (primaryGroup === 'Cardio') continue;
+
+      const entry = exerciseMap.get(setRow.exercise_title) || { sets: 0, primarySets: 0, secondarySets: 0 };
+
+      if (primaryGroup === 'Full Body') {
+        entry.sets += 1;
+        entry.primarySets += 1;
+        exerciseMap.set(setRow.exercise_title, entry);
+        continue;
       }
-    });
-    
+
+      if (primaryGroup === group) {
+        entry.sets += 1;
+        entry.primarySets += 1;
+      }
+
+      const secRaw = String(exData.secondary_muscle ?? '').trim();
+      if (secRaw && !/none/i.test(secRaw)) {
+        for (const s2 of secRaw.split(',')) {
+          const m = normalizeMuscleGroup(s2);
+          if (m === 'Cardio' || m === 'Full Body') continue;
+          if (m === group) {
+            entry.sets += 0.5;
+            entry.secondarySets += 0.5;
+          }
+        }
+      }
+
+      if (entry.sets > 0) {
+        exerciseMap.set(setRow.exercise_title, entry);
+      }
+    }
+
     return { sets, exercises: exerciseMap };
-  }, [viewMode, selectedMuscle, muscleGroupVolumes, muscleVolume]);
+  }, [viewMode, selectedMuscle, muscleGroupVolumes, exerciseMuscleData, data]);
 
   // Selected muscle data
   const selectedMuscleData = useMemo(() => {
@@ -218,26 +272,68 @@ export const MuscleAnalysis: React.FC<MuscleAnalysisProps> = ({ data, filtersSlo
   // Quick filter data - aggregates exercises from all muscles in the quick filter category
   const quickFilterData = useMemo(() => {
     if (!activeQuickFilter) return null;
-    
-    const filterSvgIds = new Set(getSvgIdsForQuickFilter(activeQuickFilter));
+
+    const filterGroups = new Set<NormalizedMuscleGroup>();
+    for (const svgId of getSvgIdsForQuickFilter(activeQuickFilter)) {
+      const group = getGroupForSvgId(svgId);
+      if (MUSCLE_GROUP_ORDER.includes(group)) filterGroups.add(group);
+    }
+
     let totalSets = 0;
     const exerciseMap = new Map<string, { sets: number; primarySets: number; secondarySets: number }>();
-    
-    muscleVolume.forEach((entry, svgId) => {
-      if (filterSvgIds.has(svgId)) {
-        totalSets += entry.sets;
-        entry.exercises.forEach((exData, exName) => {
-          const existing = exerciseMap.get(exName) || { sets: 0, primarySets: 0, secondarySets: 0 };
-          existing.sets += exData.sets;
-          existing.primarySets += exData.primarySets;
-          existing.secondarySets += exData.secondarySets;
-          exerciseMap.set(exName, existing);
-        });
+
+    if (exerciseMuscleData.size === 0 || data.length === 0 || filterGroups.size === 0) {
+      return { sets: totalSets, exercises: exerciseMap };
+    }
+
+    for (const setRow of data) {
+      if (!setRow.exercise_title) continue;
+      const exData = exerciseMuscleData.get(setRow.exercise_title.toLowerCase());
+      if (!exData) continue;
+
+      const primaryGroup = normalizeMuscleGroup(exData.primary_muscle);
+      if (primaryGroup === 'Cardio') continue;
+
+      let inc = 0;
+      let pInc = 0;
+      let sInc = 0;
+
+      if (primaryGroup === 'Full Body') {
+        for (const g of filterGroups) {
+          inc += 1;
+          pInc += 1;
+        }
+      } else {
+        if (filterGroups.has(primaryGroup)) {
+          inc += 1;
+          pInc += 1;
+        }
+
+        const secRaw = String(exData.secondary_muscle ?? '').trim();
+        if (secRaw && !/none/i.test(secRaw)) {
+          for (const s2 of secRaw.split(',')) {
+            const m = normalizeMuscleGroup(s2);
+            if (m === 'Cardio' || m === 'Full Body') continue;
+            if (filterGroups.has(m)) {
+              inc += 0.5;
+              sInc += 0.5;
+            }
+          }
+        }
       }
-    });
-    
+
+      if (inc <= 0) continue;
+
+      totalSets += inc;
+      const entry = exerciseMap.get(setRow.exercise_title) || { sets: 0, primarySets: 0, secondarySets: 0 };
+      entry.sets += inc;
+      entry.primarySets += pInc;
+      entry.secondarySets += sInc;
+      exerciseMap.set(setRow.exercise_title, entry);
+    }
+
     return { sets: totalSets, exercises: exerciseMap };
-  }, [activeQuickFilter, muscleVolume]);
+  }, [activeQuickFilter, exerciseMuscleData, data]);
 
   // Helper to check if SVG IDs match the target (handles both muscle and group mode)
   const matchesTarget = useCallback((svgIds: string[], target: string | null, isGroupMode: boolean): boolean => {
@@ -330,7 +426,7 @@ export const MuscleAnalysis: React.FC<MuscleAnalysisProps> = ({ data, filtersSlo
       
       if (trendPeriod === 'weekly') {
         const weekStart = startOfWeek(set.parsedDate, { weekStartsOn: 1 });
-        periodKey = format(weekStart, 'yyyy-ww');
+        periodKey = `wk-${format(weekStart, 'yyyy-MM-dd')}`;
         periodLabel = formatWeekContraction(weekStart);
         periodTs = weekStart.getTime();
       } else {
@@ -422,17 +518,23 @@ export const MuscleAnalysis: React.FC<MuscleAnalysisProps> = ({ data, filtersSlo
 
   // Total sets for the period
   const totalSets = useMemo(() => {
-    let total = 0;
-    muscleVolume.forEach(entry => { total += entry.sets; });
-    return Math.round(total);
-  }, [muscleVolume]);
+    return data.length;
+  }, [data]);
 
   // Muscles worked count
   const musclesWorked = useMemo(() => {
+    if (viewMode === 'muscle') {
+      let count = 0;
+      muscleVolume.forEach(entry => { if (entry.sets > 0) count++; });
+      return count;
+    }
+
     let count = 0;
-    muscleVolume.forEach(entry => { if (entry.sets > 0) count++; });
+    for (const g of MUSCLE_GROUP_ORDER) {
+      if ((muscleGroupVolumes.get(g) ?? 0) > 0) count += 1;
+    }
     return count;
-  }, [muscleVolume]);
+  }, [viewMode, muscleVolume, muscleGroupVolumes]);
 
   // Stable callbacks
   const handleMuscleClick = useCallback((muscleId: string) => {

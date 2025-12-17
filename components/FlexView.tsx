@@ -13,7 +13,7 @@ import { FANCY_FONT } from '../utils/ui/uiConstants';
 import { calculateStreakInfo, calculatePRInsights, StreakInfo, PRInsights } from '../utils/analysis/insights';
 import { getExerciseStats, getDailySummaries } from '../utils/analysis/analytics';
 import { getExerciseAssets, ExerciseAsset } from '../utils/data/exerciseAssets';
-import { normalizeMuscleGroup, NormalizedMuscleGroup } from '../utils/muscle/muscleAnalytics';
+import { normalizeMuscleGroup, type NormalizedMuscleGroup } from '../utils/muscle/muscleNormalization';
 import { MUSCLE_GROUP_TO_SVG_IDS } from '../utils/muscle/muscleMappingConstants';
 import { BodyMap } from './BodyMap';
 import { format, getMonth, startOfMonth, endOfMonth, eachDayOfInterval, getDay } from 'date-fns';

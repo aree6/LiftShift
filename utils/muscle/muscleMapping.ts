@@ -3,7 +3,6 @@ import { startOfWeek, endOfWeek, format, eachWeekOfInterval, subWeeks } from 'da
 import { getEffectiveNowFromWorkoutData } from '../date/dateUtils';
 import {
   INTERACTIVE_MUSCLE_IDS,
-  MUSCLE_GROUP_TO_SVG_IDS,
   FULL_BODY_TARGET_GROUPS,
 } from './muscleMappingConstants';
 
@@ -30,6 +29,16 @@ export const CSV_TO_SVG_MUSCLE_MAP: Record<string, string[]> = {
   'Triceps': ['medial-head-triceps', 'long-head-triceps', 'lateral-head-triceps'],
   'Upper Back': ['lats', 'upper-trapezius', 'lower-trapezius', 'traps-middle', 'posterior-deltoid'],
   'Obliques': ['obliques'],
+};
+
+const CSV_TO_SVG_MUSCLE_MAP_LOWER: Record<string, string[]> = Object.fromEntries(
+  Object.entries(CSV_TO_SVG_MUSCLE_MAP).map(([k, v]) => [k.toLowerCase(), v])
+);
+
+export const getSvgIdsForCsvMuscleName = (muscleName: string | undefined): string[] => {
+  const raw = String(muscleName ?? '').trim();
+  if (!raw) return [];
+  return CSV_TO_SVG_MUSCLE_MAP[raw] ?? CSV_TO_SVG_MUSCLE_MAP_LOWER[raw.toLowerCase()] ?? [];
 };
 
 /**
@@ -258,40 +267,23 @@ export const calculateMuscleVolume = async (
     if (!exerciseData) continue;
     
     const primaryMuscle = exerciseData.primary_muscle;
-    const secondaryMuscles = exerciseData.secondary_muscle
+    const secondaryMuscles = String(exerciseData.secondary_muscle ?? '')
       .split(',')
       .map(m => m.trim())
-      .filter(m => m && m !== 'None');
+      .filter(m => m && m.toLowerCase() !== 'none');
+    const primaryKey = String(primaryMuscle ?? '').trim().toLowerCase();
     
     // Skip Cardio entirely
-    if (primaryMuscle === 'Cardio') continue;
+    if (primaryKey === 'cardio') continue;
     
     // Handle Full Body - add 1 set to every muscle group
-    if (primaryMuscle === 'Full Body') {
+    if (primaryKey === 'full body' || primaryKey === 'full-body') {
       for (const muscleName of FULL_BODY_MUSCLES) {
-        const svgIds = CSV_TO_SVG_MUSCLE_MAP[muscleName];
-        if (!svgIds) continue;
-        
+        const svgIds = getSvgIdsForCsvMuscleName(muscleName);
+        if (svgIds.length === 0) continue;
         for (const svgId of svgIds) {
           const entry = muscleVolume.get(svgId);
-          if (entry) {
-            entry.sets += 1;
-            const exerciseEntry = entry.exercises.get(set.exercise_title) || { sets: 0, primarySets: 0, secondarySets: 0 };
-            exerciseEntry.sets += 1;
-            exerciseEntry.primarySets += 1;
-            entry.exercises.set(set.exercise_title, exerciseEntry);
-          }
-        }
-      }
-      continue;
-    }
-    
-    // Handle primary muscle (counts as 1 set)
-    const primarySvgIds = CSV_TO_SVG_MUSCLE_MAP[primaryMuscle];
-    if (primarySvgIds) {
-      for (const svgId of primarySvgIds) {
-        const entry = muscleVolume.get(svgId);
-        if (entry) {
+          if (!entry) continue;
           entry.sets += 1;
           const exerciseEntry = entry.exercises.get(set.exercise_title) || { sets: 0, primarySets: 0, secondarySets: 0 };
           exerciseEntry.sets += 1;
@@ -299,22 +291,34 @@ export const calculateMuscleVolume = async (
           entry.exercises.set(set.exercise_title, exerciseEntry);
         }
       }
+      continue;
+    }
+    
+    // Handle primary muscle (counts as 1 set)
+    const primarySvgIds = CSV_TO_SVG_MUSCLE_MAP_LOWER[primaryKey] ?? [];
+    for (const svgId of primarySvgIds) {
+      const entry = muscleVolume.get(svgId);
+      if (!entry) continue;
+      entry.sets += 1;
+      const exerciseEntry = entry.exercises.get(set.exercise_title) || { sets: 0, primarySets: 0, secondarySets: 0 };
+      exerciseEntry.sets += 1;
+      exerciseEntry.primarySets += 1;
+      entry.exercises.set(set.exercise_title, exerciseEntry);
     }
     
     // Handle secondary muscles (each counts as 0.5 sets)
     for (const secondaryMuscle of secondaryMuscles) {
-      const secondarySvgIds = CSV_TO_SVG_MUSCLE_MAP[secondaryMuscle];
-      if (secondarySvgIds) {
-        for (const svgId of secondarySvgIds) {
-          const entry = muscleVolume.get(svgId);
-          if (entry) {
-            entry.sets += 0.5;
-            const exerciseEntry = entry.exercises.get(set.exercise_title) || { sets: 0, primarySets: 0, secondarySets: 0 };
-            exerciseEntry.sets += 0.5;
-            exerciseEntry.secondarySets += 1;
-            entry.exercises.set(set.exercise_title, exerciseEntry);
-          }
-        }
+      const secondaryKey = secondaryMuscle.toLowerCase();
+      const secondarySvgIds = CSV_TO_SVG_MUSCLE_MAP_LOWER[secondaryKey] ?? [];
+      if (secondarySvgIds.length === 0) continue;
+      for (const svgId of secondarySvgIds) {
+        const entry = muscleVolume.get(svgId);
+        if (!entry) continue;
+        entry.sets += 0.5;
+        const exerciseEntry = entry.exercises.get(set.exercise_title) || { sets: 0, primarySets: 0, secondarySets: 0 };
+        exerciseEntry.sets += 0.5;
+        exerciseEntry.secondarySets += 0.5;
+        entry.exercises.set(set.exercise_title, exerciseEntry);
       }
     }
   }
@@ -397,18 +401,19 @@ export const getExerciseMuscleVolumes = (
   }
   
   const primary = exerciseData.primary_muscle;
-  const secondaries = exerciseData.secondary_muscle
+  const secondaries = String(exerciseData.secondary_muscle ?? '')
     .split(',')
     .map(m => m.trim())
-    .filter(m => m && m !== 'None');
+    .filter(m => m && m.toLowerCase() !== 'none');
+  const primaryKey = String(primary ?? '').trim().toLowerCase();
 
   // Skip Cardio entirely
-  if (primary === 'Cardio') {
+  if (primaryKey === 'cardio') {
     return { volumes, maxVolume: 1 };
   }
 
   // Handle Full Body - add 1 set to every muscle group
-  if (primary === 'Full Body') {
+  if (primaryKey === 'full body' || primaryKey === 'full-body') {
     for (const muscleName of FULL_BODY_MUSCLES) {
       const svgIds = CSV_TO_SVG_MUSCLE_MAP[muscleName] || [];
       for (const svgId of svgIds) {
@@ -419,14 +424,14 @@ export const getExerciseMuscleVolumes = (
   }
   
   // Primary muscle gets 1
-  const primarySvgIds = CSV_TO_SVG_MUSCLE_MAP[primary] || [];
+  const primarySvgIds = CSV_TO_SVG_MUSCLE_MAP_LOWER[primaryKey] || [];
   for (const svgId of primarySvgIds) {
     volumes.set(svgId, 1);
   }
   
   // Secondary muscles get 0.5
   for (const secondary of secondaries) {
-    const secondarySvgIds = CSV_TO_SVG_MUSCLE_MAP[secondary] || [];
+    const secondarySvgIds = CSV_TO_SVG_MUSCLE_MAP_LOWER[secondary.toLowerCase()] || [];
     for (const svgId of secondarySvgIds) {
       if (!volumes.has(svgId)) {
         volumes.set(svgId, 0.5);

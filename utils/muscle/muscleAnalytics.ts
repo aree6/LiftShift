@@ -24,6 +24,8 @@
 import { WorkoutSet } from '../../types';
 import type { ExerciseAsset } from '../data/exerciseAssets';
 import { buildTimeSeries } from '../analysis/aggregators';
+import { format, startOfDay } from 'date-fns';
+import { getMuscleContributionsFromAsset } from './muscleContributions';
 import {
   getMuscleVolumeTimeSeriesRolling,
   getLatestRollingWeeklyVolume,
@@ -35,6 +37,9 @@ import {
 import { roundTo } from '../format/formatters';
 import { formatDayContraction, TimePeriod } from '../date/dateUtils';
 
+export type { NormalizedMuscleGroup } from './muscleNormalization';
+export { normalizeMuscleGroup } from './muscleNormalization';
+
 // ============================================================================
 // Re-exports from Rolling Volume Calculator
 // ============================================================================
@@ -45,11 +50,6 @@ export type { VolumePeriod };
 // ============================================================================
 // Type Definitions
 // ============================================================================
-
-/** Normalized muscle group categories */
-export type NormalizedMuscleGroup = 
-  | 'Chest' | 'Back' | 'Shoulders' | 'Arms' | 'Legs' | 'Core' 
-  | 'Cardio' | 'Full Body' | 'Other';
 
 /** Legacy interface for backwards compatibility */
 export interface MuscleTimeSeriesEntry {
@@ -73,48 +73,6 @@ export interface MuscleCompositionResult {
   data: MuscleCompositionEntry[];
   label: string;
 }
-
-// ============================================================================
-// Muscle Group Normalization (kept for other modules that may use it)
-// ============================================================================
-
-const MUSCLE_GROUP_PATTERNS: ReadonlyArray<[NormalizedMuscleGroup, ReadonlyArray<string>]> = [
-  ['Chest', ['chest', 'pec']],
-  ['Back', ['lat', 'upper back', 'back', 'lower back']],
-  ['Shoulders', ['shoulder', 'delto']],
-  ['Arms', ['bicep', 'tricep', 'forearm', 'arms']],
-  ['Legs', ['quad', 'hamstring', 'glute', 'calv', 'thigh', 'hip', 'adductor', 'abductor']],
-  ['Core', ['abdom', 'core', 'waist', 'oblique']],
-  ['Cardio', ['cardio']],
-  ['Full Body', ['full body', 'full-body']],
-];
-
-const muscleGroupCache = new Map<string, NormalizedMuscleGroup>();
-
-/**
- * Normalizes a raw muscle name to a standard muscle group.
- * Uses caching for efficient repeated lookups.
- */
-export const normalizeMuscleGroup = (m?: string): NormalizedMuscleGroup => {
-  if (!m) return 'Other';
-  const key = String(m).trim().toLowerCase();
-  if (key === 'none' || key === '') return 'Other';
-  
-  const cached = muscleGroupCache.get(key);
-  if (cached) return cached;
-  
-  for (const [group, patterns] of MUSCLE_GROUP_PATTERNS) {
-    for (const pattern of patterns) {
-      if (key.includes(pattern) || key === pattern) {
-        muscleGroupCache.set(key, group);
-        return group;
-      }
-    }
-  }
-  
-  muscleGroupCache.set(key, 'Other');
-  return 'Other';
-};
 
 // ============================================================================
 // Main API Functions
@@ -183,7 +141,7 @@ export const getMuscleVolumeTimeSeriesCalendar = (
     const name = set.exercise_title || '';
     const asset = lookupAsset(name, assetsMap, lowerMap);
     if (!asset) return {};
-    const contributions = extractMuscleContributions(asset, true);
+    const contributions = getMuscleContributionsFromAsset(asset, true);
     if (contributions.length === 0) return {};
     const out: Record<string, number> = {};
     for (const c of contributions) {
@@ -204,7 +162,7 @@ export const getMuscleVolumeTimeSeriesDetailedCalendar = (
     const name = set.exercise_title || '';
     const asset = lookupAsset(name, assetsMap, lowerMap);
     if (!asset) return {};
-    const contributions = extractMuscleContributions(asset, false);
+    const contributions = getMuscleContributionsFromAsset(asset, false);
     if (contributions.length === 0) return {};
     const out: Record<string, number> = {};
     for (const c of contributions) {
@@ -251,11 +209,6 @@ export const getDetailedMuscleCompositionLatest = (
 // Internal Helpers
 // ============================================================================
 
-/** Full body muscle groups for distribution */
-const FULL_BODY_GROUPS: readonly NormalizedMuscleGroup[] = [
-  'Chest', 'Back', 'Legs', 'Shoulders', 'Arms', 'Core'
-];
-
 /** Cached lowercase asset map for case-insensitive lookups */
 let cachedLowerMap: Map<string, ExerciseAsset> | null = null;
 let cachedAssetsMapRef: Map<string, ExerciseAsset> | null = null;
@@ -275,58 +228,6 @@ function lookupAsset(
   lowerMap: Map<string, ExerciseAsset>
 ): ExerciseAsset | undefined {
   return assetsMap.get(name) ?? lowerMap.get(name.toLowerCase());
-}
-
-interface MuscleContribution {
-  muscle: string;
-  sets: number;
-}
-
-/**
- * Extracts muscle contributions from an exercise asset.
- */
-function extractMuscleContributions(
-  asset: ExerciseAsset,
-  useGroups: boolean
-): MuscleContribution[] {
-  const contributions: MuscleContribution[] = [];
-  const primaryRaw = String(asset.primary_muscle ?? '').trim();
-  
-  // Skip cardio exercises
-  if (!primaryRaw || /cardio/i.test(primaryRaw)) return contributions;
-  
-  const primary = useGroups ? normalizeMuscleGroup(primaryRaw) : primaryRaw;
-  
-  // Full body distributes to all major groups
-  if (primary === 'Full Body' && useGroups) {
-    for (const grp of FULL_BODY_GROUPS) {
-      contributions.push({ muscle: grp, sets: 1.0 });
-    }
-    return contributions;
-  }
-  
-  // For detailed view, skip full body (no specific muscle)
-  if (/full\s*body/i.test(primaryRaw) && !useGroups) {
-    return contributions;
-  }
-  
-  contributions.push({ muscle: primary, sets: 1.0 });
-  
-  // Process secondary muscles (0.5 sets each)
-  const secondaryRaw = String(asset.secondary_muscle ?? '').trim();
-  if (secondaryRaw && !/none/i.test(secondaryRaw)) {
-    for (const s of secondaryRaw.split(',')) {
-      const trimmed = s.trim();
-      if (!trimmed || /cardio/i.test(trimmed) || /full\s*body/i.test(trimmed)) continue;
-      
-      const secondary = useGroups ? normalizeMuscleGroup(trimmed) : trimmed;
-      if (secondary === 'Cardio') continue;
-      
-      contributions.push({ muscle: secondary, sets: 0.5 });
-    }
-  }
-  
-  return contributions;
 }
 
 /**
@@ -352,16 +253,16 @@ function buildSimpleDailyTimeSeries(
     const asset = lookupAsset(name, assetsMap, lowerMap);
     if (!asset) continue;
     
-    const contributions = extractMuscleContributions(asset, useGroups);
+    const contributions = getMuscleContributionsFromAsset(asset, useGroups);
     if (contributions.length === 0) continue;
 
-    const dateKey = set.parsedDate.toISOString().split('T')[0];
-    const timestamp = new Date(dateKey).getTime();
+    const dayStart = startOfDay(set.parsedDate);
+    const dateKey = format(dayStart, 'yyyy-MM-dd');
+    const timestamp = dayStart.getTime();
     
     let bucket = grouped.get(dateKey);
     if (!bucket) {
-      const d = new Date(dateKey);
-      const label = formatDayContraction(d);
+      const label = formatDayContraction(dayStart);
       bucket = { timestamp, label, volumes: new Map() };
       grouped.set(dateKey, bucket);
     }

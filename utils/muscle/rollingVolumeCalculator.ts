@@ -20,8 +20,9 @@
 
 import { WorkoutSet } from '../../types';
 import type { ExerciseAsset } from '../data/exerciseAssets';
-import { startOfDay, differenceInDays, startOfMonth, startOfYear, format } from 'date-fns';
+import { startOfDay, differenceInDays, startOfMonth, startOfYear, format, subDays } from 'date-fns';
 import { roundTo } from '../format/formatters';
+import { getMuscleContributionsFromAsset } from './muscleContributions';
 
 // ============================================================================
 // Constants
@@ -32,9 +33,6 @@ const ROLLING_WINDOW_DAYS = 7;
 
 /** Consecutive days without workouts that constitutes a training break */
 const BREAK_THRESHOLD_DAYS = 7;
-
-/** Muscle groups that receive sets from Full Body exercises */
-const FULL_BODY_TARGET_GROUPS = ['Chest', 'Back', 'Legs', 'Shoulders', 'Arms', 'Core'] as const;
 
 // ============================================================================
 // Types
@@ -86,122 +84,6 @@ type MuscleVolumeMap = Map<string, number>;
 // ============================================================================
 // Muscle Contribution Extraction
 // ============================================================================
-
-/** Cache for normalized muscle group mappings */
-const muscleGroupNormalizationCache = new Map<string, string>();
-
-/** Patterns to identify muscle groups from exercise data */
-const MUSCLE_GROUP_PATTERNS: ReadonlyArray<[string, ReadonlyArray<string>]> = [
-  ['Chest', ['chest', 'pec']],
-  ['Back', ['lat', 'upper back', 'back', 'lower back']],
-  ['Shoulders', ['shoulder', 'delto']],
-  ['Arms', ['bicep', 'tricep', 'forearm', 'arms']],
-  ['Legs', ['quad', 'hamstring', 'glute', 'calv', 'thigh', 'hip', 'adductor', 'abductor']],
-  ['Core', ['abdom', 'core', 'waist', 'oblique']],
-];
-
-/**
- * Normalizes a raw muscle name to a standard muscle group.
- * Uses caching for performance on repeated lookups.
- */
-function normalizeMuscleToGroup(rawMuscle: string | undefined): string | null {
-  if (!rawMuscle) return null;
-  
-  const key = rawMuscle.trim().toLowerCase();
-  if (!key || key === 'none') return null;
-  
-  // Check cache first
-  const cached = muscleGroupNormalizationCache.get(key);
-  if (cached !== undefined) return cached || null;
-  
-  // Skip cardio entirely
-  if (key.includes('cardio')) {
-    muscleGroupNormalizationCache.set(key, '');
-    return null;
-  }
-  
-  // Match against patterns
-  for (const [group, patterns] of MUSCLE_GROUP_PATTERNS) {
-    for (const pattern of patterns) {
-      if (key.includes(pattern)) {
-        muscleGroupNormalizationCache.set(key, group);
-        return group;
-      }
-    }
-  }
-  
-  // Unrecognized muscle - use as-is for detailed view
-  muscleGroupNormalizationCache.set(key, rawMuscle.trim());
-  return rawMuscle.trim();
-}
-
-/**
- * Checks if an exercise is a Full Body exercise.
- */
-function isFullBodyExercise(primaryMuscle: string | undefined): boolean {
-  if (!primaryMuscle) return false;
-  return /full\s*body/i.test(primaryMuscle);
-}
-
-/**
- * Checks if an exercise is Cardio (should be ignored).
- */
-function isCardioExercise(primaryMuscle: string | undefined): boolean {
-  if (!primaryMuscle) return false;
-  return /cardio/i.test(primaryMuscle);
-}
-
-/**
- * Extracts muscle contributions from an exercise asset.
- * 
- * @param asset - Exercise asset containing muscle data
- * @param useGroups - If true, normalize to muscle groups; if false, use detailed muscle names
- * @returns Array of muscle contributions with set values (1.0 for primary, 0.5 for secondary)
- */
-function extractMuscleContributions(
-  asset: ExerciseAsset,
-  useGroups: boolean
-): Array<{ muscle: string; sets: number }> {
-  const contributions: Array<{ muscle: string; sets: number }> = [];
-  const primaryRaw = String(asset.primary_muscle ?? '').trim();
-  
-  // Skip cardio exercises entirely
-  if (isCardioExercise(primaryRaw)) return contributions;
-  
-  // Handle Full Body exercises - distribute 1 set to each major group
-  if (isFullBodyExercise(primaryRaw)) {
-    if (useGroups) {
-      for (const group of FULL_BODY_TARGET_GROUPS) {
-        contributions.push({ muscle: group, sets: 1.0 });
-      }
-    }
-    // For detailed view, Full Body doesn't map to specific muscles
-    return contributions;
-  }
-  
-  // Process primary muscle (1.0 set)
-  const primary = useGroups ? normalizeMuscleToGroup(primaryRaw) : primaryRaw;
-  if (primary) {
-    contributions.push({ muscle: primary, sets: 1.0 });
-  }
-  
-  // Process secondary muscles (0.5 sets each)
-  const secondaryRaw = String(asset.secondary_muscle ?? '').trim();
-  if (secondaryRaw && !/none/i.test(secondaryRaw)) {
-    const secondaries = secondaryRaw.split(',');
-    for (const s of secondaries) {
-      const trimmed = s.trim();
-      if (!trimmed || isCardioExercise(trimmed) || isFullBodyExercise(trimmed)) continue;
-      
-      const secondary = useGroups ? normalizeMuscleToGroup(trimmed) : trimmed;
-      if (secondary) {
-        contributions.push({ muscle: secondary, sets: 0.5 });
-      }
-    }
-  }
-  
-  return contributions;
-}
 
 // ============================================================================
 // Daily Volume Computation
@@ -260,7 +142,7 @@ export function computeDailyMuscleVolumes(
     const asset = lookupExerciseAsset(exerciseName, assetsMap, lowerMap);
     if (!asset) continue;
     
-    const contributions = extractMuscleContributions(asset, useGroups);
+    const contributions = getMuscleContributionsFromAsset(asset, useGroups);
     if (contributions.length === 0) continue;
     
     // Normalize to start of day for grouping
@@ -346,39 +228,39 @@ export function computeRollingWeeklyVolumes(
   breakDates: Set<string>
 ): RollingWeeklyVolume[] {
   const rollingVolumes: RollingWeeklyVolume[] = [];
-  
+  const muscleAccum = new Map<string, number>();
+  let totalSets = 0;
+  let startIdx = 0;
+
   for (let i = 0; i < dailyVolumes.length; i++) {
     const currentDay = dailyVolumes[i];
-    const windowStart = new Date(currentDay.date.getTime() - (ROLLING_WINDOW_DAYS - 1) * 24 * 60 * 60 * 1000);
-    
-    // Accumulate sets from all days in the rolling window
-    const muscleAccum = new Map<string, number>();
-    let totalSets = 0;
-    
-    // Look back through daily volumes to find days within the window
-    for (let j = i; j >= 0; j--) {
-      const checkDay = dailyVolumes[j];
-      
-      // Stop if we've gone past the window
-      if (checkDay.date < windowStart) break;
-      
-      // Add this day's contribution
-      for (const [muscle, sets] of checkDay.muscles) {
-        const current = muscleAccum.get(muscle) ?? 0;
-        muscleAccum.set(muscle, current + sets);
-        totalSets += sets;
-      }
+
+    for (const [muscle, sets] of currentDay.muscles) {
+      muscleAccum.set(muscle, (muscleAccum.get(muscle) ?? 0) + sets);
+      totalSets += sets;
     }
-    
+
+    const windowStart = startOfDay(subDays(currentDay.date, ROLLING_WINDOW_DAYS - 1));
+    while (startIdx <= i && dailyVolumes[startIdx].date < windowStart) {
+      const expiredDay = dailyVolumes[startIdx];
+      for (const [muscle, sets] of expiredDay.muscles) {
+        const next = (muscleAccum.get(muscle) ?? 0) - sets;
+        if (next <= 1e-9) muscleAccum.delete(muscle);
+        else muscleAccum.set(muscle, next);
+        totalSets -= sets;
+      }
+      startIdx += 1;
+    }
+
     rollingVolumes.push({
       date: currentDay.date,
       dateKey: currentDay.dateKey,
-      muscles: muscleAccum as ReadonlyMap<string, number>,
+      muscles: new Map(muscleAccum) as ReadonlyMap<string, number>,
       totalSets: roundTo(totalSets, 1),
       isInBreak: breakDates.has(currentDay.dateKey),
     });
   }
-  
+
   return rollingVolumes;
 }
 

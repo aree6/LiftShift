@@ -94,7 +94,7 @@ const DATE_KEY_CONFIGS: Record<TimePeriod, {
   },
   weekly: {
     getStart: (d: Date) => startOfWeek(d, { weekStartsOn: 1 }),
-    keyFormat: 'yyyy-ww',
+    keyFormat: 'yyyy-MM-dd',
     labelFormat: 'MMM d',
     weekStartsOn: 1,
   },
@@ -124,7 +124,7 @@ export const getDateKey = (date: Date, period: TimePeriod): DateKeyResult => {
           : formatYearContraction(start);
 
   return {
-    key: format(start, config.keyFormat),
+    key: period === 'weekly' ? `wk-${format(start, config.keyFormat)}` : format(start, config.keyFormat),
     timestamp: start.getTime(),
     label: labelFormatted,
   };
