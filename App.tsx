@@ -24,6 +24,9 @@ import {
   getBodyMapGender,
   saveBodyMapGender,
   clearBodyMapGender,
+  clearPreferencesConfirmed,
+  getPreferencesConfirmed,
+  savePreferencesConfirmed,
   clearThemeMode,
 } from './utils/storage/localStorage';
 import { LayoutDashboard, Dumbbell, History, CheckCircle2, X, Calendar, BicepsFlexed, Pencil, RefreshCw, Sparkles } from 'lucide-react';
@@ -38,7 +41,6 @@ import { ThemeToggleButton } from './components/ThemeToggleButton';
 import { CsvLoadingAnimation } from './components/CsvLoadingAnimation';
 import { DataSourceModal } from './components/DataSourceModal';
 import { HevyLoginModal } from './components/HevyLoginModal';
-import { HevyMethodModal } from './components/HevyMethodModal';
 import type { DataSourceChoice } from './utils/dataSources/types';
 import {
   getDataSourceChoice,
@@ -56,6 +58,7 @@ import {
 } from './utils/storage/dataSourceStorage';
 import { hevyBackendGetAccount, hevyBackendGetSets, hevyBackendLogin } from './utils/api/hevyBackend';
 import { parseHevyDateString } from './utils/date/parseHevyDateString';
+import { useTheme } from './components/ThemeProvider';
 
 enum Tab {
   DASHBOARD = 'dashboard',
@@ -66,17 +69,19 @@ enum Tab {
 }
 
 type OnboardingIntent = 'initial' | 'update';
-type OnboardingStep = 'platform' | 'strong_csv' | 'hevy_method' | 'hevy_login' | 'hevy_csv';
+type OnboardingStep = 'platform' | 'strong_csv' | 'hevy_prefs' | 'hevy_login' | 'hevy_csv';
 
 type OnboardingFlow = {
   intent: OnboardingIntent;
   step: OnboardingStep;
   platform?: DataSourceChoice;
+  backStep?: OnboardingStep;
 };
 
 const ADSENSE_CLIENT = 'ca-pub-1028241234302201';
 
 const App: React.FC = () => {
+  const { mode } = useTheme();
   const [parsedData, setParsedData] = useState<WorkoutSet[]>([]);
   const [activeTab, setActiveTab] = useState<Tab>(Tab.DASHBOARD);
   const [onboarding, setOnboarding] = useState<OnboardingFlow | null>(() => {
@@ -87,6 +92,7 @@ const App: React.FC = () => {
   const [csvImportError, setCsvImportError] = useState<string | null>(null);
   const [highlightedExercise, setHighlightedExercise] = useState<string | null>(null);
   const [initialMuscleForAnalysis, setInitialMuscleForAnalysis] = useState<{ muscleId: string; viewMode: 'muscle' | 'group' } | null>(null);
+  const [loadingKind, setLoadingKind] = useState<'hevy' | 'csv' | null>(null);
 
   // Loading State
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -173,27 +179,28 @@ const App: React.FC = () => {
     clearSetupComplete();
     clearWeightUnit();
     clearBodyMapGender();
+    clearPreferencesConfirmed();
     clearThemeMode();
     computationCache.clear();
     window.location.reload();
   }, []);
-  
+
   // Gender state with localStorage persistence
   const [bodyMapGender, setBodyMapGender] = useState<BodyMapGender>(() => getBodyMapGender());
-  
+
   // Persist gender to localStorage when it changes
   useEffect(() => {
     saveBodyMapGender(bodyMapGender);
   }, [bodyMapGender]);
-  
+
   // Weight unit state with localStorage persistence
   const [weightUnit, setWeightUnit] = useState<WeightUnit>(() => getWeightUnit());
-  
+
   // Persist weight unit to localStorage when it changes
   useEffect(() => {
     saveWeightUnit(weightUnit);
   }, [weightUnit]);
-  
+
   // Handler for navigating to ExerciseView from MuscleAnalysis
   const handleExerciseClick = (exerciseName: string) => {
     setHighlightedExercise(exerciseName);
@@ -229,11 +236,12 @@ const App: React.FC = () => {
       setProgress(100);
       setTimeout(() => {
         setIsAnalyzing(false);
+        setLoadingKind(null);
         setProgress(0);
       }, 200);
     }, remaining);
   };
-  
+
   // Filter States
   const [selectedMonth, setSelectedMonth] = useState<string>('all');
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
@@ -243,6 +251,12 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (!getSetupComplete()) return;
+
+    // Backwards compatibility: older setups predate the preferences-confirmed flag.
+    // Keep existing users unblocked, but require explicit confirmation for new setups.
+    if (!getPreferencesConfirmed()) {
+      savePreferencesConfirmed(true);
+    }
 
     const storedChoice = getDataSourceChoice();
     if (!storedChoice) {
@@ -262,6 +276,7 @@ const App: React.FC = () => {
         return;
       }
 
+      setLoadingKind('csv');
       setIsAnalyzing(true);
       setLoadingStep(0);
       const startedAt = startProgress();
@@ -291,6 +306,7 @@ const App: React.FC = () => {
     const storedCSV = getCSVData();
     const lastPlatform = getLastCsvPlatform();
     if (storedCSV && lastPlatform === 'hevy') {
+      setLoadingKind('csv');
       setIsAnalyzing(true);
       setLoadingStep(0);
       const startedAt = startProgress();
@@ -324,6 +340,7 @@ const App: React.FC = () => {
       return;
     }
 
+    setLoadingKind('hevy');
     setIsAnalyzing(true);
     setLoadingStep(0);
     const startedAt = startProgress();
@@ -564,11 +581,60 @@ const App: React.FC = () => {
   const handleOpenUpdateFlow = () => {
     setCsvImportError(null);
     setHevyLoginError(null);
+    if (dataSource === 'strong') {
+      setOnboarding({ intent: 'update', step: 'strong_csv', platform: 'strong' });
+      return;
+    }
+    if (dataSource === 'hevy') {
+      if (!getPreferencesConfirmed()) {
+        setOnboarding({ intent: 'update', step: 'hevy_prefs', platform: 'hevy' });
+        return;
+      }
+      setOnboarding({ intent: 'update', step: 'hevy_login', platform: 'hevy' });
+      return;
+    }
     setOnboarding({ intent: 'update', step: 'platform' });
+  };
+
+  const handleHevySyncSaved = () => {
+    const token = getHevyAuthToken();
+    if (!token) return;
+
+    setHevyLoginError(null);
+    setLoadingKind('hevy');
+    setIsAnalyzing(true);
+    setLoadingStep(0);
+    const startedAt = startProgress();
+
+    hevyBackendGetAccount(token)
+      .then(({ username }) => {
+        setLoadingStep(1);
+        return hevyBackendGetSets<WorkoutSet>(token, username);
+      })
+      .then((resp) => {
+        setLoadingStep(2);
+        const hydrated = (resp.sets ?? []).map((s) => ({
+          ...s,
+          parsedDate: parseHevyDateString(String(s.start_time ?? '')),
+        }));
+        const enriched = identifyPersonalRecords(hydrated);
+        setParsedData(enriched);
+        setDataSource('hevy');
+        saveSetupComplete(true);
+        setOnboarding(null);
+      })
+      .catch((err) => {
+        clearHevyAuthToken();
+        setHevyLoginError(getHevyErrorMessage(err));
+      })
+      .finally(() => {
+        finishProgress(startedAt);
+      });
   };
 
   const handleHevyLogin = (emailOrUsername: string, password: string) => {
     setHevyLoginError(null);
+    setLoadingKind('hevy');
     setIsAnalyzing(true);
     setLoadingStep(0);
     const startedAt = startProgress();
@@ -604,6 +670,7 @@ const App: React.FC = () => {
   };
 
   const processFile = (file: File, platform: DataSourceChoice, unitOverride?: WeightUnit) => {
+    setLoadingKind('csv');
     setIsAnalyzing(true);
     setLoadingStep(0);
     const startedAt = startProgress();
@@ -640,7 +707,10 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-transparent text-[color:var(--app-fg)] font-sans">
+    <div
+      className="flex flex-col h-screen bg-transparent text-[color:var(--app-fg)] font-sans"
+      style={{ background: mode === 'svg' ? 'transparent' : 'var(--app-bg)' }}
+    >
       <ThemedBackground />
 
       {onboarding?.intent === 'initial' ? null : (
@@ -912,11 +982,7 @@ const App: React.FC = () => {
               setOnboarding({ intent: onboarding.intent, step: 'strong_csv', platform: 'strong' });
               return;
             }
-            setOnboarding({
-              intent: onboarding.intent,
-              step: getHevyAuthToken() ? 'hevy_method' : 'hevy_login',
-              platform: 'hevy',
-            });
+            setOnboarding({ intent: onboarding.intent, step: 'hevy_prefs', platform: 'hevy' });
           }}
           onClose={
             onboarding.intent === 'update'
@@ -926,63 +992,33 @@ const App: React.FC = () => {
         />
       ) : null}
 
-      {onboarding?.step === 'hevy_method' ? (
-        <HevyMethodModal
+      {onboarding?.step === 'hevy_prefs' ? (
+        <CSVImportModal
           intent={onboarding.intent}
-          hasSavedSession={Boolean(getHevyAuthToken())}
-          onClearCache={clearCacheAndRestart}
-          onBack={() => setOnboarding({ intent: onboarding.intent, step: 'platform' })}
+          platform="hevy"
+          variant="preferences"
+          continueLabel="Continue"
+          isLoading={isAnalyzing}
+          initialGender={getPreferencesConfirmed() ? bodyMapGender : undefined}
+          initialUnit={getPreferencesConfirmed() ? weightUnit : undefined}
+          onGenderChange={(g) => setBodyMapGender(g)}
+          onUnitChange={(u) => setWeightUnit(u)}
+          onContinue={(gender, unit) => {
+            setBodyMapGender(gender);
+            setWeightUnit(unit);
+            savePreferencesConfirmed(true);
+            setOnboarding({ intent: onboarding.intent, step: 'hevy_login', platform: 'hevy' });
+          }}
+          onBack={
+            onboarding.intent === 'initial'
+              ? () => setOnboarding({ intent: onboarding.intent, step: 'platform' })
+              : undefined
+          }
           onClose={
             onboarding.intent === 'update'
               ? () => setOnboarding(null)
               : undefined
           }
-          onSelect={(method) => {
-            if (method === 'login') {
-              setOnboarding({ intent: onboarding.intent, step: 'hevy_login', platform: 'hevy' });
-              return;
-            }
-            if (method === 'csv') {
-              setOnboarding({ intent: onboarding.intent, step: 'hevy_csv', platform: 'hevy' });
-              return;
-            }
-
-            const token = getHevyAuthToken();
-            if (!token) {
-              setOnboarding({ intent: onboarding.intent, step: 'hevy_login', platform: 'hevy' });
-              return;
-            }
-
-            setHevyLoginError(null);
-            setIsAnalyzing(true);
-            setLoadingStep(0);
-            const startedAt = startProgress();
-            hevyBackendGetAccount(token)
-              .then(({ username }) => {
-                setLoadingStep(1);
-                return hevyBackendGetSets<WorkoutSet>(token, username);
-              })
-              .then((resp) => {
-                setLoadingStep(2);
-                const hydrated = (resp.sets ?? []).map((s) => ({
-                  ...s,
-                  parsedDate: parseHevyDateString(String(s.start_time ?? '')),
-                }));
-                const enriched = identifyPersonalRecords(hydrated);
-                setParsedData(enriched);
-                setDataSource('hevy');
-                saveSetupComplete(true);
-                setOnboarding(null);
-              })
-              .catch((err) => {
-                clearHevyAuthToken();
-                setHevyLoginError(getHevyErrorMessage(err));
-                setOnboarding({ intent: onboarding.intent, step: 'hevy_login', platform: 'hevy' });
-              })
-              .finally(() => {
-                finishProgress(startedAt);
-              });
-          }}
         />
       ) : null}
 
@@ -992,9 +1028,16 @@ const App: React.FC = () => {
           errorMessage={hevyLoginError}
           isLoading={isAnalyzing}
           onLogin={handleHevyLogin}
+          loginLabel={onboarding.intent === 'initial' ? 'Continue' : 'Login with Hevy'}
+          hasSavedSession={Boolean(getHevyAuthToken()) && getPreferencesConfirmed()}
+          onSyncSaved={handleHevySyncSaved}
           onClearCache={clearCacheAndRestart}
-          onImportCsv={() => setOnboarding({ intent: onboarding.intent, step: 'hevy_csv', platform: 'hevy' })}
-          onBack={() => setOnboarding({ intent: onboarding.intent, step: 'platform' })}
+          onImportCsv={() => setOnboarding({ intent: onboarding.intent, step: 'hevy_csv', platform: 'hevy', backStep: 'hevy_login' })}
+          onBack={
+            onboarding.intent === 'initial'
+              ? () => setOnboarding({ intent: onboarding.intent, step: 'hevy_prefs', platform: 'hevy' })
+              : undefined
+          }
           onClose={
             onboarding.intent === 'update'
               ? () => setOnboarding(null)
@@ -1007,9 +1050,11 @@ const App: React.FC = () => {
         <CSVImportModal
           intent={onboarding.intent}
           platform="strong"
+          onClearCache={clearCacheAndRestart}
           onFileSelect={(file, gender, unit) => {
             setBodyMapGender(gender);
             setWeightUnit(unit);
+            savePreferencesConfirmed(true);
             setCsvImportError(null);
             processFile(file, 'strong', unit);
           }}
@@ -1019,7 +1064,11 @@ const App: React.FC = () => {
           onGenderChange={(g) => setBodyMapGender(g)}
           onUnitChange={(u) => setWeightUnit(u)}
           errorMessage={csvImportError}
-          onBack={() => setOnboarding({ intent: onboarding.intent, step: 'platform' })}
+          onBack={
+            onboarding.intent === 'initial'
+              ? () => setOnboarding({ intent: onboarding.intent, step: 'platform' })
+              : undefined
+          }
           onClose={
             onboarding.intent === 'update'
               ? () => setOnboarding(null)
@@ -1035,6 +1084,7 @@ const App: React.FC = () => {
           onFileSelect={(file, gender, unit) => {
             setBodyMapGender(gender);
             setWeightUnit(unit);
+            savePreferencesConfirmed(true);
             setCsvImportError(null);
             processFile(file, 'hevy', unit);
           }}
@@ -1044,7 +1094,10 @@ const App: React.FC = () => {
           onGenderChange={(g) => setBodyMapGender(g)}
           onUnitChange={(u) => setWeightUnit(u)}
           errorMessage={csvImportError}
-          onBack={() => setOnboarding({ intent: onboarding.intent, step: 'hevy_method', platform: 'hevy' })}
+          onBack={() => {
+            const backStep = onboarding.backStep ?? 'hevy_login';
+            setOnboarding({ intent: onboarding.intent, step: backStep, platform: 'hevy' });
+          }}
           onClose={
             onboarding.intent === 'update'
               ? () => setOnboarding(null)
@@ -1058,8 +1111,14 @@ const App: React.FC = () => {
         <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-sm flex flex-col items-center justify-center animate-fade-in">
           <div className="w-full max-w-md p-8 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl flex flex-col items-center">
             <CsvLoadingAnimation className="mb-6" size={160} />
-            <h2 className="text-2xl font-bold text-white mb-2">Analyzing Workout Data</h2>
-            <p className="text-slate-400 mb-8 text-center">Please wait while we process your sets, calculate volume, and identify personal records.</p>
+            <h2 className="text-2xl font-bold text-white mb-2">
+              {loadingKind === 'hevy' ? 'Crunching your numbers' : 'Analyzing Workout Data'}
+            </h2>
+            <p className="text-slate-400 mb-6 text-center">
+              {loadingKind === 'hevy'
+                ? 'Syncing your workouts from Hevy and preparing your dashboard.'
+                : 'Please wait while we process your sets, calculate volume, and identify personal records.'}
+            </p>
             
             <div className="w-full space-y-4">
                <div className="flex items-center space-x-3 text-sm">

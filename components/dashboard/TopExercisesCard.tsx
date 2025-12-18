@@ -59,7 +59,7 @@ export const TopExercisesCard = ({
   setTopExercisesView: (v: TopExercisesView) => void;
   topExercisesBarData: TopExerciseBarDatum[];
   topExercisesOverTimeData: any[];
-  topExerciseNames: Array<{ name: string }>;
+  topExerciseNames: string[];
   topExercisesInsight: TopExercisesInsight;
   pieColors: string[];
   tooltipStyle: Record<string, unknown>;
@@ -421,12 +421,12 @@ export const TopExercisesCard = ({
                   <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
                   <Tooltip contentStyle={tooltipStyle as any} />
                   <Legend wrapperStyle={{ fontSize: '11px' }} />
-                  {topExerciseNames.map((ex, idx) => (
+                  {topExerciseNames.map((exerciseName, idx) => (
                     <Area
-                      key={ex.name}
+                      key={exerciseName}
                       type="monotone"
-                      dataKey={ex.name}
-                      name={ex.name}
+                      dataKey={exerciseName}
+                      name={exerciseName}
                       stackId="1"
                       stroke={pie[idx % pie.length]}
                       fill={pie[idx % pie.length]}

@@ -1,6 +1,7 @@
 import React from 'react';
 import StarOnGithubButton from './StarOnGithubButton';
 import { Coffee, HeartHandshake, Mail, UserRound } from 'lucide-react';
+import { UNIFORM_FOOTER_BUTTON_CLASS, UNIFORM_HEADER_BUTTON_CLASS } from '../utils/ui/uiConstants';
 
 type SupportLinksVariant = 'primary' | 'secondary' | 'all';
 type SupportLinksLayout = 'footer' | 'header';
@@ -12,10 +13,7 @@ export const SupportLinks: React.FC<{
   primaryMiddleSlot?: React.ReactNode;
   primaryRightSlot?: React.ReactNode;
 }> = ({ variant = 'all', layout = 'footer', className, primaryMiddleSlot, primaryRightSlot }) => {
-  const uniformButtonClass =
-    layout === 'header'
-      ? 'inline-flex items-center justify-center whitespace-nowrap rounded-md text-xs font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-9 px-3 py-1.5 bg-transparent border border-black/70 text-slate-200 hover:border-white hover:text-white hover:bg-white/5 transition-all duration-200'
-      : 'inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-10 px-4 py-2 bg-transparent border border-black/70 text-slate-200 hover:border-white hover:text-white hover:bg-white/5 transition-all duration-200 flex-1 sm:flex-none min-w-[140px] sm:min-w-0';
+  const uniformButtonClass = layout === 'header' ? UNIFORM_HEADER_BUTTON_CLASS : UNIFORM_FOOTER_BUTTON_CLASS;
 
   const showPrimary = variant === 'all' || variant === 'primary';
   const showSecondary = variant === 'all' || variant === 'secondary';

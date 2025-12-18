@@ -68,6 +68,8 @@ const WEIGHT_UNIT_KEY = 'hevy_analytics_weight_unit';
 const BODY_MAP_GENDER_KEY = 'hevy_analytics_body_map_gender';
 export type StoredBodyMapGender = 'male' | 'female';
 
+const PREFERENCES_CONFIRMED_KEY = 'hevy_analytics_preferences_confirmed';
+
 /**
  * Save weight unit preference to local storage
  */
@@ -123,6 +125,31 @@ export const clearBodyMapGender = (): void => {
     localStorage.removeItem(BODY_MAP_GENDER_KEY);
   } catch (error) {
     console.error('Failed to clear body map gender from local storage:', error);
+  }
+};
+
+export const savePreferencesConfirmed = (confirmed: boolean): void => {
+  try {
+    localStorage.setItem(PREFERENCES_CONFIRMED_KEY, confirmed ? 'true' : 'false');
+  } catch (error) {
+    console.error('Failed to save preferences confirmed flag to local storage:', error);
+  }
+};
+
+export const getPreferencesConfirmed = (): boolean => {
+  try {
+    return localStorage.getItem(PREFERENCES_CONFIRMED_KEY) === 'true';
+  } catch (error) {
+    console.error('Failed to retrieve preferences confirmed flag from local storage:', error);
+    return false;
+  }
+};
+
+export const clearPreferencesConfirmed = (): void => {
+  try {
+    localStorage.removeItem(PREFERENCES_CONFIRMED_KEY);
+  } catch (error) {
+    console.error('Failed to clear preferences confirmed flag from local storage:', error);
   }
 };
 

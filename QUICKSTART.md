@@ -45,7 +45,7 @@ That's it! The app is now running locally. 🎉
 
 2. **Complete setup**
    - Strong: choose body type + unit, then import Strong CSV
-   - Hevy: login to fetch workouts, or import Hevy CSV
+   - Hevy: choose body type + unit, then Continue to login/sync (or import Hevy CSV)
 
 3. **Explore your data**
    - **Dashboard** - Overview of your training

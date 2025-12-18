@@ -176,7 +176,7 @@ const YearlyHeatmapCard: React.FC<{
       <div className={`relative z-[1] px-4 sm:px-6 ${contentPadClass} flex flex-col items-center text-center flex-1`}>
         <div className="w-full flex items-start justify-between gap-3 mb-4">
           <div className="text-left">
-            <div className={`text-xs font-semibold uppercase tracking-widest ${textMuted}`}>Hevy in Review</div>
+            <div className={`text-xs font-semibold uppercase tracking-widest ${textMuted}`}>Highlights</div>
             <div className={`text-lg sm:text-xl font-bold ${textPrimary}`} style={FANCY_FONT}>
               {selectedYear}
             </div>

@@ -362,6 +362,9 @@ const useExerciseVolumeHistory = (data: WorkoutSet[]) => {
     
     for (const set of data) {
       if (!set.parsedDate) continue;
+      if (isWarmupSet(set)) continue;
+      if (!Number.isFinite(set.weight_kg) || !Number.isFinite(set.reps)) continue;
+      if ((set.weight_kg || 0) <= 0 || (set.reps || 0) <= 0) continue;
       const sessionKey = `${set.start_time}_${set.title}`;
       const exercise = set.exercise_title;
       
@@ -443,6 +446,38 @@ const useExerciseBestHistory = (data: WorkoutSet[]) => {
   }, [data]);
 };
 
+// Helper to track exercise best session volume over time
+const useExerciseVolumeBestHistory = (exerciseVolumeHistory: Map<string, { date: Date; volume: number; sessionKey: string }[]>) => {
+  return useMemo(() => {
+    const exerciseVolumeBests = new Map<string, { date: Date; volume: number; sessionKey: string; previousBest: number }[]>();
+    const currentBestVolumes = new Map<string, number>();
+
+    exerciseVolumeHistory.forEach((history, exerciseName) => {
+      const sortedAsc = [...history].sort((a, b) => a.date.getTime() - b.date.getTime());
+      let runningBest = 0;
+
+      for (const entry of sortedAsc) {
+        if (entry.volume > runningBest) {
+          if (!exerciseVolumeBests.has(exerciseName)) {
+            exerciseVolumeBests.set(exerciseName, []);
+          }
+          exerciseVolumeBests.get(exerciseName)!.push({
+            date: entry.date,
+            volume: entry.volume,
+            sessionKey: entry.sessionKey,
+            previousBest: runningBest,
+          });
+          runningBest = entry.volume;
+        }
+      }
+
+      currentBestVolumes.set(exerciseName, runningBest);
+    });
+
+    return { exerciseVolumeBests, currentBestVolumes };
+  }, [exerciseVolumeHistory]);
+};
+
 export const HistoryView: React.FC<HistoryViewProps> = ({ data, filtersSlot, weightUnit = 'kg', bodyMapGender = 'male', onExerciseClick, onDayTitleClick }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
@@ -456,6 +491,9 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ data, filtersSlot, wei
   
   // Exercise best weights for PR tracking
   const { exerciseBests, currentBests } = useExerciseBestHistory(data);
+
+  // Exercise best session volume PR tracking
+  const { exerciseVolumeBests } = useExerciseVolumeBestHistory(exerciseVolumeHistory);
 
   useEffect(() => setCurrentPage(1), [data]);
 
@@ -514,32 +552,52 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ data, filtersSlot, wei
   const currentSessions = sessions.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
   // Tooltip Logic
-  const handleMouseEnter = (e: React.MouseEvent, data: any, variant: string) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    let title = '', body = '', status: AnalysisResult['status'] = 'info', metrics;
+  const buildTooltipState = (rect: DOMRect, data: any, variant: 'set' | 'macro' | 'session'): TooltipState => {
+    let title = '';
+    let body = '';
+    let status: AnalysisResult['status'] = 'info';
+    let metrics: TooltipState['metrics'];
     let structured: StructuredTooltip | undefined;
 
     if (variant === 'set') {
-        const insight = data as AnalysisResult;
-        title = insight.shortMessage;
-        body = insight.tooltip;
-        status = insight.status;
-        structured = insight.structured;
-        // Only show metrics if no structured tooltip
-        if (!structured) {
-          metrics = [{ label: 'Vol', value: insight.metrics.vol_drop_pct }, { label: 'Weight', value: insight.metrics.weight_change_pct }];
-        }
+      const insight = data as AnalysisResult;
+      title = insight.shortMessage;
+      body = insight.tooltip;
+      status = insight.status;
+      structured = insight.structured;
+      if (!structured) {
+        metrics = [{ label: 'Vol', value: insight.metrics.vol_drop_pct }, { label: 'Weight', value: insight.metrics.weight_change_pct }];
+      }
     } else if (variant === 'macro') {
-        const insight = data as SetWisdom;
-        title = insight.message;
-        body = insight.tooltip || '';
-        status = insight.type === 'promote' ? 'success' : insight.type === 'demote' ? 'warning' : 'info';
+      const insight = data as SetWisdom;
+      title = insight.message;
+      body = insight.tooltip || '';
+      status = insight.type === 'promote' ? 'success' : insight.type === 'demote' ? 'warning' : 'info';
     } else if (variant === 'session') {
-        title = 'Session Goal';
-        body = data.tooltip;
-        status = 'info';
+      title = 'Session Goal';
+      body = data.tooltip;
+      status = 'info';
     }
-    setTooltip({ rect, title, body, status, metrics, structured });
+
+    return { rect, title, body, status, metrics, structured };
+  };
+
+  const handleMouseEnter = (e: React.MouseEvent, data: any, variant: 'set' | 'macro' | 'session') => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    setTooltip(buildTooltipState(rect, data, variant));
+  };
+
+  const handleTooltipToggle = (e: React.MouseEvent, data: any, variant: 'set' | 'macro' | 'session') => {
+    e.preventDefault();
+    e.stopPropagation();
+    const rect = e.currentTarget.getBoundingClientRect();
+    const next = buildTooltipState(rect, data, variant);
+
+    setTooltip((prev) => {
+      if (!prev) return next;
+      const isSame = prev.title === next.title && prev.body === next.body;
+      return isSame ? null : next;
+    });
   };
 
   // Stats for header
@@ -570,7 +628,12 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ data, filtersSlot, wei
   );
 
   return (
-    <div className="flex flex-col gap-2 w-full text-slate-200 pb-10">
+    <div
+      className="flex flex-col gap-2 w-full text-slate-200 pb-10"
+      onClick={() => {
+        if (tooltip) setTooltip(null);
+      }}
+    >
       {/* Header - consistent with Dashboard */}
       <div className="hidden sm:block">
         <ViewHeader
@@ -714,13 +777,26 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ data, filtersSlot, wei
                   const insights = analyzeSetProgression(group.sets);
                   const macroInsight = analyzeProgression(group.sets);
                   
-                  // Get exercise best weight and check for PRs in this session
+                  // Get exercise best weight / best volume and check for PRs in this session
                   const exerciseBest = currentBests.get(group.exerciseName) || 0;
                   const prEventsForSession = (exerciseBests.get(group.exerciseName) || []).filter((e) => e.sessionKey === session.key);
+
+                  const volPrEventsForSession = (exerciseVolumeBests.get(group.exerciseName) || []).filter((e) => e.sessionKey === session.key);
+                  const volPrEvent = volPrEventsForSession.length > 0 ? volPrEventsForSession[0] : null;
                   
                   // Get volume trend for sparkline (last 6 sessions, reversed for chronological order)
                   const volHistory = exerciseVolumeHistory.get(group.exerciseName) || [];
+                  const exerciseBestVolume = volHistory.reduce((acc, v) => Math.max(acc, v.volume), 0);
                   const sparklineData = volHistory.slice(0, 6).map(v => v.volume).reverse();
+
+                  const firstPrSetIndex = group.sets.findIndex((s) => !!s.isPr);
+                  const lastWorkingSetIndex = (() => {
+                    for (let i = group.sets.length - 1; i >= 0; i--) {
+                      if (!isWarmupSet(group.sets[i])) return i;
+                    }
+                    return group.sets.length - 1;
+                  })();
+                  const volPrAnchorIndex = firstPrSetIndex >= 0 ? firstPrSetIndex : lastWorkingSetIndex;
 
                   return (
                     <LazyRender
@@ -766,13 +842,16 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ data, filtersSlot, wei
 
                           {/* Macro Badge (Promotion) */}
                           {macroInsight && (
-                            <div
+                            <button
+                              type="button"
+                              onClick={(e) => handleTooltipToggle(e, macroInsight, 'macro')}
                               onMouseEnter={(e) => handleMouseEnter(e, macroInsight, 'macro')}
                               onMouseLeave={() => setTooltip(null)}
                               className={`p-1.5 rounded-lg cursor-help flex-shrink-0 ${getWisdomColor(macroInsight.type)} animate-in zoom-in duration-300`}
+                              aria-label={macroInsight.message}
                             >
                               <Trophy className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                            </div>
+                            </button>
                           )}
                         </div>
 
@@ -850,38 +929,56 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ data, filtersSlot, wei
                           return (
                             <div 
                               key={sIdx} 
-                              className={`relative z-10 flex items-center gap-3 p-2 rounded-lg border ${rowStatusClass} transition-all hover:bg-black/60 group overflow-visible`}
+                              className={`relative z-10 flex items-center gap-2 sm:gap-3 p-1.5 sm:p-2 rounded-lg border ${rowStatusClass} transition-all hover:bg-black/60 group overflow-visible`}
                               style={prShimmerStyle}
                             >
                               {/* Set Number Bubble - W for warmup, 1,2,3... for working sets */}
-                              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-all ${dotClass} text-white`}>
+                              <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-[11px] sm:text-xs font-bold border-2 transition-all ${dotClass} text-white`}>
                                 {isWarmup ? 'W' : workingSetNumber}
                               </div>
 
                               {/* Set Data */}
-                              <div className="flex-1 flex justify-between items-center">
-                                <div className="flex items-center gap-1">
-                                  <span className="text-xl font-bold text-white tabular-nums tracking-tight">
+                              <div className="flex-1 flex justify-between items-center min-w-0">
+                                <div className="flex items-baseline gap-0.5 sm:gap-1 min-w-0">
+                                  <span className="text-[clamp(12px,4.2vw,20px)] font-bold text-white tabular-nums tracking-tight">
                                     {convertWeight(set.weight_kg, weightUnit)}
                                   </span>
-                                  <span className="text-xs text-slate-500 font-medium">{weightUnit}</span>
-                                  <span className="text-slate-700 mx-1">×</span>
-                                  <span className="text-xl font-bold text-slate-200 tabular-nums tracking-tight">
+                                  <span className="text-[10px] sm:text-xs text-slate-500 font-medium">{weightUnit}</span>
+                                  <span className="text-slate-700 mx-0.5 sm:mx-1">×</span>
+                                  <span className="text-[clamp(12px,4.2vw,20px)] font-bold text-slate-200 tabular-nums tracking-tight">
                                     {set.reps}
                                   </span>
-                                  <span className="text-xs text-slate-500 font-medium">reps</span>
+                                  <span className="text-[10px] sm:text-xs text-slate-500 font-medium">reps</span>
                                 </div>
 
                                 {/* Right side: PR badge + Insight indicator */}
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-1 sm:gap-2 flex-none pl-2">
                                   {/* PR INDICATOR - positioned before tooltip */}
-                                  {set.isPr && (
-                                    <span className="flex items-center gap-1 px-1.5 py-0.5 bg-yellow-500/10 text-yellow-500 rounded text-[9px] font-bold uppercase tracking-wider border border-yellow-500/20 animate-pulse">
-                                      <Trophy className="w-3 h-3" />
-                                      <span>New Record!</span>
-                                      {prDelta > 0 && (
-                                        <span className="relative -top-[2px] ml-0.5 text-[8px] font-extrabold text-yellow-400 leading-none">
-                                          {formatSignedNumber(convertWeight(prDelta, weightUnit), { maxDecimals: 2 })}{weightUnit}
+                                  {(set.isPr || (volPrEvent && sIdx === volPrAnchorIndex)) && (
+                                    <span className="flex items-center gap-1 px-1 py-0.5 bg-amber-200/70 text-yellow-300 dark:bg-yellow-500/10 dark:text-yellow-400 rounded text-[7px] sm:text-[9px] font-bold uppercase tracking-wider border border-amber-300/80 dark:border-yellow-500/20 animate-pulse whitespace-nowrap leading-none">
+                                      <Trophy className="w-2.5 h-2.5 sm:w-3 sm:h-3 flex-none" />
+
+                                      {set.isPr && (
+                                        <span className="inline-flex items-center leading-none">
+                                          <span>PR</span>
+                                          {prDelta > 0 && (
+                                            <span className="ml-0.5 text-[5px] sm:text-[8px] font-extrabold text-yellow-500 leading-none">
+                                              {formatSignedNumber(convertWeight(prDelta, weightUnit), { maxDecimals: 2 })}{weightUnit}
+                                            </span>
+                                          )}
+                                        </span>
+                                      )}
+
+                                      {volPrEvent && sIdx === volPrAnchorIndex && (
+                                        <span className="inline-flex items-center leading-none">
+                                          {set.isPr && <span className="hidden sm:inline text-slate-600 dark:text-slate-300 mx-1">·</span>}
+                                          <span className="sm:hidden">VPR</span>
+                                          <span className="hidden sm:inline">Vol PR</span>
+                                          {volPrEvent.previousBest > 0 && (
+                                            <span className="ml-0.5 text-[5px] sm:text-[8px] font-extrabold text-yellow-500 dark:text-yellow-300 leading-none">
+                                              {formatSignedNumber(((volPrEvent.volume - volPrEvent.previousBest) / volPrEvent.previousBest) * 100, { maxDecimals: 0 })}%
+                                            </span>
+                                          )}
                                         </span>
                                       )}
                                     </span>
@@ -889,16 +986,19 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ data, filtersSlot, wei
                                   
                                   {/* Insight Indicator */}
                                   {insight && (
-                                    <div 
+                                    <button
+                                      type="button"
+                                      onClick={(e) => handleTooltipToggle(e, insight, 'set')}
                                       onMouseEnter={(e) => handleMouseEnter(e, insight, 'set')}
                                       onMouseLeave={() => setTooltip(null)}
                                       className="cursor-help flex items-center justify-center w-6 h-6 rounded hover:bg-black/60 transition-colors"
+                                      aria-label={insight.shortMessage}
                                     >
                                       {insight.status === 'danger' && <AlertTriangle className="w-4 h-4 text-rose-500" />}
                                       {insight.status === 'success' && <TrendingUp className="w-4 h-4 text-emerald-500" />}
                                       {insight.status === 'warning' && <TrendingDown className="w-4 h-4 text-amber-500" />}
                                       {insight.status === 'info' && <Info className="w-4 h-4 text-blue-500" />}
-                                    </div>
+                                    </button>
                                   )}
                                 </div>
                               </div>

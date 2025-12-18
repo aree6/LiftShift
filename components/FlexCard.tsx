@@ -45,7 +45,7 @@ export function FlexCardFooter({ theme }: { theme: CardTheme }) {
   return (
     <div className="absolute bottom-4 left-0 right-0 flex justify-center pointer-events-none select-none">
       <span className={`text-[11px] font-semibold tracking-wide ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-        liftshift.app
+        LiftShift.app
       </span>
     </div>
   );

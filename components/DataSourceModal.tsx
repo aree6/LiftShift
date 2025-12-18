@@ -1,5 +1,7 @@
 import React from 'react';
 import type { DataSourceChoice } from '../utils/dataSources/types';
+import { UNIFORM_HEADER_BUTTON_CLASS } from '../utils/ui/uiConstants';
+import { Layers3, X } from 'lucide-react';
 
 type Intent = 'initial' | 'update';
 
@@ -11,21 +13,31 @@ interface DataSourceModalProps {
 
 export const DataSourceModal: React.FC<DataSourceModalProps> = ({ intent, onSelect, onClose }) => {
   return (
-    <div className="fixed inset-0 z-50 bg-black/90 overflow-y-auto overscroll-contain">
+    <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-sm overflow-y-auto overscroll-contain">
       <div className="min-h-full w-full px-2 sm:px-3 pt-10 pb-6 sm:pt-12 sm:pb-6">
         <div className="max-w-2xl mx-auto slide-in-from-top-2">
-          <div className="bg-black/60 border border-slate-700/50 rounded-2xl p-5 sm:p-6">
-            <div className="flex items-start justify-between gap-3">
-              <div className="w-9" />
-              <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Choose your platform</h2>
-              <div className="w-9">
+          <div className="relative bg-black/60 border border-slate-700/50 rounded-2xl p-5 sm:p-6 overflow-hidden backdrop-blur-md">
+            <div className="absolute inset-0 pointer-events-none">
+              <div className="absolute -top-24 -right-28 w-72 h-72 rounded-full blur-3xl bg-blue-500/10" />
+              <div className="absolute -bottom-28 -left-28 w-72 h-72 rounded-full blur-3xl bg-fuchsia-500/10" />
+              <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-black/20" />
+            </div>
+
+            <div className="relative flex items-start justify-between gap-3">
+              <div className="w-[72px]" />
+              <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight inline-flex items-center gap-2">
+                <Layers3 className="w-6 h-6 text-slate-200" />
+                <span>Choose your platform</span>
+              </h2>
+              <div className="w-[72px] flex justify-end">
                 {intent === 'update' && onClose ? (
                   <button
                     type="button"
                     onClick={onClose}
-                    className="inline-flex items-center justify-center w-9 h-9 rounded-md text-xs font-semibold bg-black/60 hover:bg-black/70 border border-slate-700/50 text-slate-200"
+                    className={`${UNIFORM_HEADER_BUTTON_CLASS} gap-2`}
                   >
-                    Close
+                    <X className="w-4 h-4" />
+                    <span className="hidden sm:inline">Close</span>
                   </button>
                 ) : null}
               </div>

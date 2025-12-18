@@ -74,7 +74,7 @@ By submitting a contribution (code, documentation, or any other material) to thi
 
 
 1. **Select your platform** (Hevy / Strong)  
-2. **Hevy**: Login (or import CSV) / **Strong**: Import CSV  
+2. **Hevy**: Choose your **body type** + **weight unit**, then **Continue** to login/sync (or import CSV). / **Strong**: Choose body type + unit, then import CSV  
 3. **Explore** your analytics across Dashboard, Exercises, and History tabs  
 4. **Get insights** with real-time feedback and flexible filtering  
 

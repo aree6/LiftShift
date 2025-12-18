@@ -1,23 +1,30 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Upload, Check, X, ArrowLeft } from 'lucide-react';
+import { Upload, Check, X, ArrowLeft, ArrowRight, Trash2, UserRound, Weight } from 'lucide-react';
 import MaleFrontBodyMapGroup from './MaleFrontBodyMapGroup';
 import FemaleFrontBodyMapGroup from './FemaleFrontBodyMapGroup';
 import type { BodyMapGender } from './BodyMap';
 import type { WeightUnit } from '../utils/storage/localStorage';
 import { CSV_LOADING_ANIMATION_SRC } from '../constants';
+import { UNIFORM_HEADER_BUTTON_CLASS, UNIFORM_HEADER_ICON_BUTTON_CLASS } from '../utils/ui/uiConstants';
 
 type Intent = 'initial' | 'update';
+
+type CSVImportVariant = 'csv' | 'preferences';
 
 interface CSVImportModalProps {
   intent: Intent;
   platform: 'hevy' | 'strong';
-  onFileSelect: (file: File, gender: BodyMapGender, unit: WeightUnit) => void;
+  variant?: CSVImportVariant;
+  onFileSelect?: (file: File, gender: BodyMapGender, unit: WeightUnit) => void;
+  onContinue?: (gender: BodyMapGender, unit: WeightUnit) => void;
+  continueLabel?: string;
   isLoading?: boolean;
   initialGender?: BodyMapGender;
   initialUnit?: WeightUnit;
   errorMessage?: string | null;
   onBack?: () => void;
   onClose?: () => void;
+  onClearCache?: () => void;
   onGenderChange?: (gender: BodyMapGender) => void;
   onUnitChange?: (unit: WeightUnit) => void;
 }
@@ -26,12 +33,16 @@ export const CSVImportModal: React.FC<CSVImportModalProps> = ({
   intent,
   platform,
   onFileSelect,
+  variant = 'csv',
+  onContinue,
+  continueLabel = 'Continue',
   isLoading = false,
   initialGender,
   initialUnit,
   errorMessage,
   onBack,
   onClose,
+  onClearCache,
   onGenderChange,
   onUnitChange,
 }) => {
@@ -66,7 +77,7 @@ export const CSVImportModal: React.FC<CSVImportModalProps> = ({
       return;
     }
     if (file && (file.type === 'text/csv' || file.name.endsWith('.csv'))) {
-      onFileSelect(file, selectedGender, selectedUnit);
+      onFileSelect?.(file, selectedGender, selectedUnit);
     } else {
       alert('Please choose a valid .csv file');
     }
@@ -92,49 +103,70 @@ export const CSVImportModal: React.FC<CSVImportModalProps> = ({
     
     const file = e.dataTransfer.files?.[0];
     if (file && (file.type === 'text/csv' || file.name.endsWith('.csv'))) {
-      onFileSelect(file, selectedGender, selectedUnit);
+      onFileSelect?.(file, selectedGender, selectedUnit);
     } else {
       alert('Drop a valid .csv file');
     }
   };
 
+  const handleContinue = () => {
+    if (!selectedGender) {
+      alert('Choose a body type to continue');
+      return;
+    }
+    if (!selectedUnit) {
+      alert('Choose a weight unit to continue');
+      return;
+    }
+    onContinue?.(selectedGender, selectedUnit);
+  };
+
   return (
-    <div className="fixed inset-0 z-50 bg-black/90 overflow-y-auto overscroll-contain">
+    <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-sm overflow-y-auto overscroll-contain">
       <div className="min-h-full w-full px-2 sm:px-3 pt-10 pb-4 sm:pt-12 sm:pb-6">
         <div className="max-w-4xl mx-auto">
-          <div className="grid grid-cols-3 items-start gap-4 mb-6">
-            <div className="flex items-center justify-start">
-              {onBack ? (
-                <button
-                  type="button"
-                  onClick={onBack}
-                  className="inline-flex items-center justify-center w-9 h-9 rounded-md text-xs font-semibold bg-black/60 hover:bg-black/70 border border-slate-700/50 text-slate-200"
-                >
-                  <ArrowLeft className="w-4 h-4" />
-                </button>
-              ) : null}
+          <div className="relative bg-black/60 border border-slate-700/50 rounded-2xl p-5 sm:p-6 overflow-hidden backdrop-blur-md">
+            <div className="absolute inset-0 pointer-events-none">
+              <div className="absolute -top-24 -right-28 w-72 h-72 rounded-full blur-3xl bg-emerald-500/10" />
+              <div className="absolute -bottom-28 -left-28 w-72 h-72 rounded-full blur-3xl bg-violet-500/10" />
+              <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-black/20" />
             </div>
 
-            <div className="flex justify-center">
-              <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">LiftShift</h2>
-            </div>
+            <div className="relative grid grid-cols-3 items-start gap-4 mb-6">
+              <div className="flex items-center justify-start">
+                {onBack ? (
+                  <button
+                    type="button"
+                    onClick={onBack}
+                    className={UNIFORM_HEADER_ICON_BUTTON_CLASS}
+                  >
+                    <ArrowLeft className="w-4 h-4" />
+                  </button>
+                ) : null}
+              </div>
 
-            <div className="flex items-center justify-end">
-              {intent === 'update' && onClose ? (
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="inline-flex items-center gap-2 h-9 px-3 rounded-md text-xs font-semibold bg-black/60 hover:bg-black/70 border border-slate-700/50 text-slate-200"
-                >
-                  <X className="w-4 h-4" />
-                  <span className="hidden sm:inline">Close</span>
-                </button>
-              ) : null}
+              <div className="flex justify-center">
+                <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">LiftShift</h2>
+              </div>
+
+              <div className="flex items-center justify-end">
+                {intent === 'update' && onClose ? (
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className={`${UNIFORM_HEADER_BUTTON_CLASS} gap-2`}
+                  >
+                    <X className="w-4 h-4" />
+                    <span className="hidden sm:inline">Close</span>
+                  </button>
+                ) : null}
+              </div>
             </div>
-          </div>
 
           <p className="text-slate-400 mb-6 text-center text-xs sm:text-sm">
-            {platform === 'strong'
+            {variant === 'preferences'
+              ? 'Let’s get set up. Choose your body type and unit, then continue.'
+              : platform === 'strong'
               ? 'Let’s get set up. Choose your body type and unit, then upload your Strong CSV export.'
               : 'Let’s get set up. Choose your body type and unit, then upload your Hevy CSV export.'}
           </p>
@@ -158,7 +190,10 @@ export const CSVImportModal: React.FC<CSVImportModalProps> = ({
 
           {/* Gender Selection with Body Map Preview */}
           <div className="w-full mb-6">
-            <p className="text-sm font-semibold text-slate-300 mb-3 text-center">Choose your body type</p>
+            <p className="text-sm font-semibold text-slate-300 mb-3 text-center inline-flex items-center justify-center gap-2 w-full">
+              <UserRound className="w-4 h-4 text-slate-300" />
+              <span>Choose your body type</span>
+            </p>
             <div className="grid grid-cols-2 gap-3">
             {/* Male Option */}
             <button
@@ -218,7 +253,10 @@ export const CSVImportModal: React.FC<CSVImportModalProps> = ({
 
           {/* Weight Unit Selection */}
           <div className="w-full mb-6">
-            <p className="text-sm font-semibold text-slate-300 mb-3 text-center">Choose your weight unit</p>
+            <p className="text-sm font-semibold text-slate-300 mb-3 text-center inline-flex items-center justify-center gap-2 w-full">
+              <Weight className="w-4 h-4 text-slate-300" />
+              <span>Choose your weight unit</span>
+            </p>
             <div className="grid grid-cols-2 gap-3">
             {/* KG Option */}
             <button
@@ -280,87 +318,118 @@ export const CSVImportModal: React.FC<CSVImportModalProps> = ({
             </div>
           </div>
 
-          {/* Drag and Drop Area - Only enabled after gender and unit selection */}
-          <div
-            onDragOver={(selectedGender && selectedUnit) ? handleDragOver : undefined}
-            onDrop={(selectedGender && selectedUnit) ? handleDrop : undefined}
-            onClick={() => (selectedGender && selectedUnit) && fileInputRef.current?.click()}
-            className={`w-full p-6 mb-6 border-2 border-dashed rounded-xl transition-all flex flex-col items-center justify-center ${
-              (selectedGender && selectedUnit)
-                ? 'border-slate-600 hover:border-slate-400 hover:bg-black/60 cursor-pointer'
-                : 'border-slate-800 bg-black/40 cursor-not-allowed opacity-50'
-            }`}
-          >
-            <Upload className={`w-6 h-6 sm:w-8 sm:h-8 mb-3 ${(selectedGender && selectedUnit) ? 'text-slate-500' : 'text-slate-600'}`} />
-            <p className={`font-medium text-center text-sm sm:text-base ${(selectedGender && selectedUnit) ? 'text-slate-300' : 'text-slate-500'}`}>
-              {(selectedGender && selectedUnit)
-                ? `Drop your ${platform === 'strong' ? 'Strong' : 'Hevy'} CSV here`
-                : 'Choose body type + unit first'}
-            </p>
-            <p className="text-slate-500 text-xs sm:text-sm mt-1">
-              {(selectedGender && selectedUnit) ? 'or click to choose a file' : 'Then upload your CSV'}
-            </p>
-          </div>
-
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".csv"
-            onChange={handleFileChange}
-            className="hidden"
-            disabled={isLoading || !selectedGender || !selectedUnit}
-          />
-
-          <div className="w-full mb-4">
+          {variant === 'preferences' ? (
             <button
               type="button"
-              onClick={() => setShowExportHelp((v) => !v)}
-              className="w-full text-center text-sm font-semibold text-blue-400 hover:text-blue-300 underline underline-offset-4"
+              onClick={handleContinue}
+              disabled={isLoading || !selectedGender || !selectedUnit}
+              className={`${UNIFORM_HEADER_BUTTON_CLASS} w-full h-11 text-sm font-semibold disabled:opacity-60 gap-2`}
             >
-              {showExportHelp ? 'Hide: See how to export .CSV' : 'See how to export .CSV'}
+              <span>{continueLabel}</span>
+              <ArrowRight className="w-4 h-4" />
             </button>
+          ) : (
+            <>
+              {/* Drag and Drop Area - Only enabled after gender and unit selection */}
+              <div
+                onDragOver={(selectedGender && selectedUnit) ? handleDragOver : undefined}
+                onDrop={(selectedGender && selectedUnit) ? handleDrop : undefined}
+                onClick={() => (selectedGender && selectedUnit) && fileInputRef.current?.click()}
+                className={`w-full p-6 mb-6 border-2 border-dashed rounded-xl transition-all flex flex-col items-center justify-center ${
+                  (selectedGender && selectedUnit)
+                    ? 'border-slate-600 hover:border-slate-400 hover:bg-black/60 cursor-pointer'
+                    : 'border-slate-800 bg-black/40 cursor-not-allowed opacity-50'
+                }`}
+              >
+                <Upload className={`w-6 h-6 sm:w-8 sm:h-8 mb-3 ${(selectedGender && selectedUnit) ? 'text-slate-500' : 'text-slate-600'}`} />
+                <p className={`font-medium text-center text-sm sm:text-base ${(selectedGender && selectedUnit) ? 'text-slate-300' : 'text-slate-500'}`}>
+                  {(selectedGender && selectedUnit)
+                    ? `Drop your ${platform === 'strong' ? 'Strong' : 'Hevy'} CSV here`
+                    : 'Choose body type + unit first'}
+                </p>
+                <p className="text-slate-500 text-xs sm:text-sm mt-1">
+                  {(selectedGender && selectedUnit) ? 'or click to choose a file' : 'Then upload your CSV'}
+                </p>
+              </div>
 
-            {showExportHelp ? (
-              platform === 'hevy' ? (
-                <div className="mt-3 space-y-3">
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                    <img src="/Step1.png" className="w-full h-auto rounded-lg border border-slate-700" alt="Hevy export step 1" loading="lazy" decoding="async" />
-                    <img src="/Step2.png" className="w-full h-auto rounded-lg border border-slate-700" alt="Hevy export step 2" loading="lazy" decoding="async" />
-                    <img src="/Step3.png" className="w-full h-auto rounded-lg border border-slate-700" alt="Hevy export step 3" loading="lazy" decoding="async" />
-                    <img src="/Step4.png" className="w-full h-auto rounded-lg border border-slate-700" alt="Hevy export step 4" loading="lazy" decoding="async" />
-                  </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".csv"
+                onChange={handleFileChange}
+                className="hidden"
+                disabled={isLoading || !selectedGender || !selectedUnit}
+              />
+            </>
+          )}
 
-                  <div className="flex justify-center">
-                    <img
-                      src="/step5.png"
-                      className="w-full max-w-xs h-auto rounded-lg border border-slate-700/60"
-                      alt="Set Hevy export language to English"
-                      loading="lazy"
-                      decoding="async"
-                    />
-                  </div>
+          {variant === 'csv' ? (
+            <div className="w-full mb-4">
+              <button
+                type="button"
+                onClick={() => setShowExportHelp((v) => !v)}
+                className="w-full text-center text-sm font-semibold text-blue-400 hover:text-blue-300 underline underline-offset-4"
+              >
+                {showExportHelp ? 'Hide: See how to export .CSV' : 'See how to export .CSV'}
+              </button>
 
-                  <div className="text-xs text-slate-400 text-center">
-                    Support is English-only right now. Make sure your Hevy app language is set to English before exporting.
+              {showExportHelp ? (
+                platform === 'hevy' ? (
+                  <div className="mt-3 space-y-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      <img src="/Step1.png" className="w-full h-auto rounded-lg border border-slate-700" alt="Hevy export step 1" loading="lazy" decoding="async" />
+                      <img src="/Step2.png" className="w-full h-auto rounded-lg border border-slate-700" alt="Hevy export step 2" loading="lazy" decoding="async" />
+                      <img src="/Step3.png" className="w-full h-auto rounded-lg border border-slate-700" alt="Hevy export step 3" loading="lazy" decoding="async" />
+                      <img src="/Step4.png" className="w-full h-auto rounded-lg border border-slate-700" alt="Hevy export step 4" loading="lazy" decoding="async" />
+                    </div>
+
+                    <div className="flex justify-center">
+                      <img
+                        src="/step5.png"
+                        className="w-full max-w-xs h-auto rounded-lg border border-slate-700/60"
+                        alt="Set Hevy export language to English"
+                        loading="lazy"
+                        decoding="async"
+                      />
+                    </div>
+
+                    <div className="text-xs text-slate-400 text-center">
+                      Support is English-only right now. Make sure your Hevy app language is set to English before exporting.
+                    </div>
                   </div>
-                </div>
-              ) : (
-                <div className="mt-3 space-y-3">
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                    <img src="/StrongStep1.png" className="w-full h-auto rounded-lg border border-slate-700" alt="Strong export step 1" loading="lazy" decoding="async" />
-                    <img src="/StrongStep2.png" className="w-full h-auto rounded-lg border border-slate-700" alt="Strong export step 2" loading="lazy" decoding="async" />
-                    <img src="/StrongStep3.png" className="w-full h-auto rounded-lg border border-slate-700" alt="Strong export step 3" loading="lazy" decoding="async" />
+                ) : (
+                  <div className="mt-3 space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      <img src="/StrongStep1.png" className="w-full h-auto rounded-lg border border-slate-700" alt="Strong export step 1" loading="lazy" decoding="async" />
+                      <img src="/StrongStep2.png" className="w-full h-auto rounded-lg border border-slate-700" alt="Strong export step 2" loading="lazy" decoding="async" />
+                      <img src="/StrongStep3.png" className="w-full h-auto rounded-lg border border-slate-700" alt="Strong export step 3" loading="lazy" decoding="async" />
+                    </div>
                   </div>
-                </div>
-              )
-            ) : null}
-          </div>
+                )
+              ) : null}
+            </div>
+          ) : null}
 
           {isLoading && (
             <p className="text-slate-400 text-xs sm:text-sm text-center">
               Importing your data...
             </p>
           )}
+
+          {onClearCache ? (
+            <div className="mt-4 flex justify-center">
+              <button
+                type="button"
+                onClick={onClearCache}
+                disabled={isLoading}
+                className={`${UNIFORM_HEADER_BUTTON_CLASS} h-10 text-sm font-semibold disabled:opacity-60 gap-2`}
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>Clear cache</span>
+              </button>
+            </div>
+          ) : null}
+          </div>
         </div>
       </div>
     </div>

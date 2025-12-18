@@ -95,6 +95,15 @@ export const calculateTooltipPosition = (
   return style;
 };
 
+export const UNIFORM_HEADER_BUTTON_CLASS =
+  'inline-flex items-center justify-center whitespace-nowrap rounded-md text-xs font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-9 px-3 py-1.5 bg-transparent border border-[color:rgb(var(--uniform-btn-border-rgb)/0.8)] text-slate-200 hover:border-[color:rgb(var(--uniform-btn-border-hover-rgb)/1)] hover:text-white hover:bg-white/5 transition-all duration-200';
+
+export const UNIFORM_FOOTER_BUTTON_CLASS =
+  'inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-10 px-4 py-2 bg-transparent border border-[color:rgb(var(--uniform-btn-border-rgb)/0.8)] text-slate-200 hover:border-[color:rgb(var(--uniform-btn-border-hover-rgb)/1)] hover:text-white hover:bg-white/5 transition-all duration-200 flex-1 sm:flex-none min-w-[140px] sm:min-w-0';
+
+export const UNIFORM_HEADER_ICON_BUTTON_CLASS =
+  'inline-flex items-center justify-center whitespace-nowrap rounded-md text-xs font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 w-9 h-9 bg-transparent border border-[color:rgb(var(--uniform-btn-border-rgb)/0.8)] text-slate-200 hover:border-[color:rgb(var(--uniform-btn-border-hover-rgb)/1)] hover:text-white hover:bg-white/5 transition-all duration-200';
+
 export const calculateCenteredTooltipPosition = (
   rect: DOMRect,
   maxWidth: number = TOOLTIP_CONFIG.WIDTH
