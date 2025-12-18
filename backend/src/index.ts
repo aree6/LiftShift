@@ -12,6 +12,25 @@ const app = express();
 app.disable('x-powered-by');
 app.use(express.json({ limit: '1mb' }));
 
+const isProd = process.env.NODE_ENV === 'production';
+
+const isPrivateLanOrigin = (origin: string): boolean => {
+  try {
+    const u = new URL(origin);
+    const host = u.hostname;
+
+    if (host === 'localhost' || host === '127.0.0.1') return true;
+    // RFC1918 private ranges.
+    if (/^10\./.test(host)) return true;
+    if (/^192\.168\./.test(host)) return true;
+    if (/^172\.(1[6-9]|2\d|3[0-1])\./.test(host)) return true;
+
+    return false;
+  } catch {
+    return false;
+  }
+};
+
 const allowedOrigins = (process.env.CORS_ORIGINS ?? '')
   .split(',')
   .map((s) => s.trim())
@@ -23,6 +42,7 @@ app.use(
       if (!origin) return cb(null, true);
       if (allowedOrigins.length === 0) return cb(null, true);
       if (allowedOrigins.includes(origin)) return cb(null, true);
+      if (!isProd && isPrivateLanOrigin(origin)) return cb(null, true);
       return cb(new Error('CORS blocked'), false);
     },
     methods: ['GET', 'POST', 'OPTIONS'],
@@ -146,6 +166,14 @@ app.get('/api/hevy/sets', async (req, res) => {
   }
 });
 
+app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  const message = err instanceof Error ? err.message : 'Internal server error';
+  if (message === 'CORS blocked') return res.status(403).json({ error: message });
+
+  const status = (err as any)?.statusCode ?? 500;
+  res.status(status).json({ error: message });
+});
+
 app.listen(PORT, () => {
-  console.log(`HevyAnalytics backend listening on :${PORT}`);
+  console.log(`LiftShift backend listening on :${PORT}`);
 });

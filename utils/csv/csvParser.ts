@@ -125,7 +125,7 @@ const validateHevyCSV = (fields: string[] | undefined): HeaderMode => {
 
   if (robust.missing.length > 0) {
     throw new Error(
-      'Invalid CSV format. HevyAnalytics only supports the workout CSV exported from the Hevy app. If you exported in another language, switch the Hevy app language to English before exporting and try again.'
+      'Invalid CSV format. LiftShift only supports the workout CSV exported from the Hevy app. If you exported in another language, switch the Hevy app language to English before exporting and try again.'
     );
   }
 

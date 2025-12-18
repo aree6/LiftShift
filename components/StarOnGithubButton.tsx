@@ -16,9 +16,9 @@ const StarOnGithubButton: React.FC<{
   return (
     <button
       type="button"
-      onClick={() => window.open('https://github.com/aree6/HevyAnalytics', '_blank', 'noopener,noreferrer')}
+      onClick={() => window.open('https://github.com/aree6/LiftShift', '_blank', 'noopener,noreferrer')}
       className={`${baseClass} gap-2 ${className ?? ''}`.trim()}
-      title="HevyAnalytics on GitHub"
+      title="LiftShift on GitHub"
       aria-label="Star on GitHub"
     >
       <Github className="w-4 h-4" />

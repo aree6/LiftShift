@@ -1,27 +1,75 @@
 <div align="center">
-  <img src="./HevyAnalytics.png" alt="HevyAnalytics Logo" width="200" height="200" />
+  <img src="./LiftShift.png" alt="LiftShift Logo" width="200" height="200" />
 </div>
 
-# HevyAnalytics 🏋️  
 
-**Transform your Hevy app CSV exports into powerful workout insights.**  
+# LiftShift
 
-> 🌐 **Check it out live:** [**HevyAnalytics Website**](https://liftshift.app)
+LiftShift turns workout exports into structured analytics and insights.
 
-[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![React](https://img.shields.io/badge/React-61DAFB?style=flat-square&logo=react&logoColor=black)](https://react.dev/)
-[![Vite](https://img.shields.io/badge/Vite-646CFF?style=flat-square&logo=vite&logoColor=white)](https://vitejs.dev/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](./LICENSE)
+## Official Website
+
+- https://liftshift.app
+
+## Official Deployment
+
+LiftShift has one canonical hosted instance:
+
+- **Canonical domain:** https://liftshift.app
+
+Deployments on any other domain are **unofficial**. Unofficial deployments may be modified and may not follow the same security practices. Do not assume an unofficial deployment is trustworthy with any credentials.
+
+## License (AGPL-3.0)
+
+This project is licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)**.
+
+- **Local license file:** `./LICENSE`
+- **Full license text (online):** https://www.gnu.org/licenses/agpl-3.0.txt
+
+If you run a modified version for users to interact with over a network, the AGPL requires making the **Corresponding Source** for the running version available to those users (see AGPL §13).
+
+## Trademark & Branding
+
+The AGPL covers copyright licensing. It does **not** grant rights under trademark law.
+
+The following are protected brand identifiers of the LiftShift project maintainers:
+
+- **Name:** LiftShift
+- **Logos / brand assets:** including `LiftShift.png` and related marks
+- **Official domain and branding:** https://liftshift.app
+
+You may use, modify, and redistribute the software under the AGPL. You may **not** use LiftShift branding in a way that implies endorsement, affiliation, or that your fork is the official deployment.
+
+
+## Attribution Requirement
+
+Public deployments must include visible attribution to the upstream project.
+
+Minimum acceptable attribution:
+
+- **Link to official site:** https://liftshift.app
+- **Source link:** a publicly accessible link to the Corresponding Source for the exact version running
+
+Attribution must be reasonably discoverable during normal use (for example: footer, About modal, or Settings). Removing, hiding, or obscuring attribution is treated as non-compliance.
+
+
+
+## Contributing & CLA
+
+By submitting a contribution (code, documentation, or any other material) to this repository, you agree that:
+
+- Your contribution is provided under **AGPL-3.0** terms for inclusion in this project.
+- You have the right to submit the contribution and it does not contain confidential information.
 
 ---
 
-## 🎬 Quick Start
+## Quick Start
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/aree6/HevyAnalytics/main/public/Step1.png" alt="Export data from Hevy app" width="200" />
-  <img src="https://raw.githubusercontent.com/aree6/HevyAnalytics/main/public/Step2.png" alt="Upload CSV to HevyAnalytics" width="200" />
-  <img src="https://raw.githubusercontent.com/aree6/HevyAnalytics/main/public/Step3.png" alt="Explore analytics dashboard" width="200" />
-  <img src="https://raw.githubusercontent.com/aree6/HevyAnalytics/main/public/Step4.png" alt="Get real-time feedback and filter data" width="200" />
+  <img src="https://raw.githubusercontent.com/aree6/LiftShift/main/public/Step1.png" alt="Export data from Hevy app" width="200" />
+  <img src="https://raw.githubusercontent.com/aree6/LiftShift/main/public/Step2.png" alt="Upload CSV to LiftShift" width="200" />
+  <img src="https://raw.githubusercontent.com/aree6/LiftShift/main/public/Step3.png" alt="Explore analytics dashboard" width="200" />
+  <img src="https://raw.githubusercontent.com/aree6/LiftShift/main/public/Step4.png" alt="Get real-time feedback and filter data" width="200" />
 </div>
 
 
@@ -32,7 +80,7 @@
 
 ---
 
-## 🛠️ Troubleshooting
+## Troubleshooting
 
 If you see this error:
 
@@ -42,35 +90,32 @@ Do the following:
 
 1. Switch your Hevy app language to **English**
 2. Export your workout CSV again
-3. Re-upload it to HevyAnalytics
+3. Re-upload it to LiftShift
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/aree6/HevyAnalytics/main/public/step5.png" alt="Set Hevy export language to English" width="260" />
+  <img src="https://raw.githubusercontent.com/aree6/LiftShift/main/public/step5.png" alt="Set Hevy export language to English" width="260" />
 </div>
 
 ---
 
-> ⚡ **Pro Tip:** Don’t forget to visit the live site for instant access:  
-[**Open HevyAnalytics Live**](https://liftshift.app)
+## Features
+
+- **Dashboard Analytics** - Volume trends, workout distribution, key metrics
+- **Exercise Tracking** - Personal records, 1RM estimates, performance trends
+- **History Visualization** - Detailed workout logs with date filtering
+- **Set-by-Set Feedback** - Real-time feedback on your performance
+- **Local Storage** - Data saved in your browser
+- **Dark Mode UI** - Responsive UI
 
 ---
 
-## ✨ Features
+## Local Development
 
-- 📊 **Dashboard Analytics** - Volume trends, workout distribution, key metrics
-- 💪 **Exercise Tracking** - Personal records, 1RM estimates, performance trends
-- 📈 **History Visualization** - Detailed workout logs with date filtering
-- 🔍 **Set-by-Set Wisdom** - Real-time feedback on your performance
-- 💾 **Local Storage** - All data saved in your browser, nothing uploaded
-- 🎨 **Dark Mode UI** - Beautiful, responsive design
-
----
-
-## 🚀 Installation
+This is intended for local development and contributor workflows. It is not a production deployment guide.
 
 ```bash
-git clone https://github.com/aree6/HevyAnalytics.git
-cd HevyAnalytics
+git clone https://github.com/aree6/LiftShift.git
+cd LiftShift
 npm install
 npm run dev
 
@@ -78,17 +123,24 @@ npm run dev
 
 ---
 
-## 👤 Developer
+## Maintainer
 
-- **GitHub repo**: https://github.com/aree6/HevyAnalytics
+- **GitHub repo**: https://github.com/aree6/LiftShift
 - **GitHub profile**: https://github.com/aree6
 - **Email**: mohammadar336@gmail.com
 
 ---
 
-## ❤️ Support / Donations
+## Support
 
 If you find this project helpful, you can support it here:
 
 - **Buy Me a Coffee**: https://www.buymeacoffee.com/aree6
 - **Ko-fi**: https://ko-fi.com/aree6
+
+---
+
+## Security Notice
+
+- The only official deployment is https://liftshift.app.
+- Any other domain is unofficial. Do not enter credentials into an unofficial deployment.

@@ -1,6 +1,6 @@
 # Quick Start Guide
 
-Get up and running with HevyAnalytics in 5 minutes!
+Get up and running with LiftShift in 5 minutes!
 
 ## 🚀 Installation
 
@@ -12,8 +12,8 @@ Get up and running with HevyAnalytics in 5 minutes!
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/aree6/HevyAnalytics.git
-   cd HevyAnalytics
+   git clone https://github.com/aree6/LiftShift.git
+   cd LiftShift
    ```
 
 2. **Install dependencies**
@@ -35,7 +35,7 @@ That's it! The app is now running locally. 🎉
 
 ---
 
-## 📊 Using HevyAnalytics
+## 📊 Using LiftShift
 
 ### First Time Setup
 
@@ -133,6 +133,17 @@ npm run build
 - Check file format is `.csv`
 - Try with smaller file first
 
+### Works on Mac but "Load failed" on phone
+
+If you open the dev server from your phone (for example `http://192.168.x.x:3000`) and actions like Hevy login fail with a network error, it usually means the frontend is trying to call the backend at `http://localhost:...`.
+
+On your phone, `localhost` points to the phone itself.
+
+Fix:
+
+- Keep using the LAN URL for the frontend, and ensure the frontend uses same-origin `/api/...` (Vite will proxy it to the backend).
+- Alternatively, set `VITE_BACKEND_URL` to your Mac's LAN IP (example: `http://192.168.x.x:5050`).
+
 ---
 
 ## 📚 Learn More
@@ -146,7 +157,7 @@ npm run build
 ## 💪 Tips & Tricks
 
 ### Export Regularly
-Export your Hevy data monthly to keep HevyAnalytics updated.
+Export your Hevy data monthly to keep LiftShift updated.
 
 ### Use Filters
 Filter by month to see training trends and seasonal patterns.
@@ -163,7 +174,7 @@ Take screenshots or export data to share progress with coaches/friends.
 
 - Check [Troubleshooting](#troubleshooting) section
 - Read [Full README](./README.md)
-- Open [GitHub Issue](https://github.com/aree6/HevyAnalytics/issues)
+- Open [GitHub Issue](https://github.com/aree6/LiftShift/issues)
 
 ---
 

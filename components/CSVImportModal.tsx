@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Upload, Check, X } from 'lucide-react';
+import { Upload, Check, X, ArrowLeft } from 'lucide-react';
 import MaleFrontBodyMapGroup from './MaleFrontBodyMapGroup';
 import FemaleFrontBodyMapGroup from './FemaleFrontBodyMapGroup';
 import type { BodyMapGender } from './BodyMap';
@@ -38,6 +38,7 @@ export const CSVImportModal: React.FC<CSVImportModalProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedGender, setSelectedGender] = useState<BodyMapGender | null>(initialGender ?? null);
   const [selectedUnit, setSelectedUnit] = useState<WeightUnit | null>(initialUnit ?? null);
+  const [showExportHelp, setShowExportHelp] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -99,37 +100,26 @@ export const CSVImportModal: React.FC<CSVImportModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/90 overflow-y-auto overscroll-contain">
-      <div className="min-h-full w-full px-2 sm:px-3 py-4 sm:py-6">
+      <div className="min-h-full w-full px-2 sm:px-3 pt-10 pb-4 sm:pt-12 sm:pb-6">
         <div className="max-w-4xl mx-auto">
-          <div className="flex items-start justify-between gap-4 mb-6">
-            <div className="w-28 flex items-center">
+          <div className="grid grid-cols-3 items-start gap-4 mb-6">
+            <div className="flex items-center justify-start">
               {onBack ? (
                 <button
                   type="button"
                   onClick={onBack}
-                  className="inline-flex items-center gap-2 h-9 px-3 rounded-md text-xs font-semibold bg-black/60 hover:bg-black/70 border border-slate-700/50 text-slate-200"
+                  className="inline-flex items-center justify-center w-9 h-9 rounded-md text-xs font-semibold bg-black/60 hover:bg-black/70 border border-slate-700/50 text-slate-200"
                 >
-                  Back
+                  <ArrowLeft className="w-4 h-4" />
                 </button>
               ) : null}
             </div>
 
-            <div className="w-full flex justify-center">
-              <div className="inline-flex items-center gap-3">
-                <img
-                  src="/HevyAnalytics.png"
-                  alt="HevyAnalytics"
-                  className="w-10 h-10 rounded-lg object-contain bg-black/20 border border-slate-700/50"
-                  loading="eager"
-                  decoding="async"
-                />
-                <div>
-                  <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">HevyAnalytics</h2>
-                </div>
-              </div>
+            <div className="flex justify-center">
+              <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">LiftShift</h2>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center justify-end">
               {intent === 'update' && onClose ? (
                 <button
                   type="button"
@@ -321,26 +311,50 @@ export const CSVImportModal: React.FC<CSVImportModalProps> = ({
             disabled={isLoading || !selectedGender || !selectedUnit}
           />
 
-          {/* Welcome Steps */}
-          {platform === 'hevy' ? (
-            <div className="w-full mb-4">
-              <p className="text-xs text-slate-500 mb-2 text-center">Export from Hevy (steps):</p>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                <div className="flex flex-col items-center">
-                  <img src="/Step1.png" className="w-full h-auto rounded-lg border border-slate-700" alt="Step 1" loading="lazy" decoding="async" />
+          <div className="w-full mb-4">
+            <button
+              type="button"
+              onClick={() => setShowExportHelp((v) => !v)}
+              className="w-full text-center text-sm font-semibold text-blue-400 hover:text-blue-300 underline underline-offset-4"
+            >
+              {showExportHelp ? 'Hide: See how to export .CSV' : 'See how to export .CSV'}
+            </button>
+
+            {showExportHelp ? (
+              platform === 'hevy' ? (
+                <div className="mt-3 space-y-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    <img src="/Step1.png" className="w-full h-auto rounded-lg border border-slate-700" alt="Hevy export step 1" loading="lazy" decoding="async" />
+                    <img src="/Step2.png" className="w-full h-auto rounded-lg border border-slate-700" alt="Hevy export step 2" loading="lazy" decoding="async" />
+                    <img src="/Step3.png" className="w-full h-auto rounded-lg border border-slate-700" alt="Hevy export step 3" loading="lazy" decoding="async" />
+                    <img src="/Step4.png" className="w-full h-auto rounded-lg border border-slate-700" alt="Hevy export step 4" loading="lazy" decoding="async" />
+                  </div>
+
+                  <div className="flex justify-center">
+                    <img
+                      src="/step5.png"
+                      className="w-full max-w-xs h-auto rounded-lg border border-slate-700/60"
+                      alt="Set Hevy export language to English"
+                      loading="lazy"
+                      decoding="async"
+                    />
+                  </div>
+
+                  <div className="text-xs text-slate-400 text-center">
+                    Support is English-only right now. Make sure your Hevy app language is set to English before exporting.
+                  </div>
                 </div>
-                <div className="flex flex-col items-center">
-                  <img src="/Step2.png" className="w-full h-auto rounded-lg border border-slate-700" alt="Step 2" loading="lazy" decoding="async" />
+              ) : (
+                <div className="mt-3 space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <img src="/StrongStep1.png" className="w-full h-auto rounded-lg border border-slate-700" alt="Strong export step 1" loading="lazy" decoding="async" />
+                    <img src="/StrongStep2.png" className="w-full h-auto rounded-lg border border-slate-700" alt="Strong export step 2" loading="lazy" decoding="async" />
+                    <img src="/StrongStep3.png" className="w-full h-auto rounded-lg border border-slate-700" alt="Strong export step 3" loading="lazy" decoding="async" />
+                  </div>
                 </div>
-                <div className="flex flex-col items-center">
-                  <img src="/Step3.png" className="w-full h-auto rounded-lg border border-slate-700" alt="Step 3" loading="lazy" decoding="async" />
-                </div>
-                <div className="flex flex-col items-center">
-                  <img src="/Step4.png" className="w-full h-auto rounded-lg border border-slate-700" alt="Step 4" loading="lazy" decoding="async" />
-                </div>
-              </div>
-            </div>
-          ) : null}
+              )
+            ) : null}
+          </div>
 
           {isLoading && (
             <p className="text-slate-400 text-xs sm:text-sm text-center">

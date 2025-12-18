@@ -11,7 +11,7 @@ A comprehensive workout visualizer that transforms Hevy app CSV exports into pow
 
 **Full Description:**
 ```
-HevyAnalytics is a powerful web application that transforms your Hevy app workout CSV exports into comprehensive analytics and visualizations. Track your training volume, monitor personal records, analyze exercise performance, and get real-time feedback on your workout sets.
+LiftShift transforms your Hevy app workout CSV exports into comprehensive analytics and visualizations. Track your training volume, monitor personal records, analyze exercise performance, and get real-time feedback on your workout sets.
 
 ✨ Features:
 - Dashboard with volume trends and workout distribution
@@ -22,7 +22,6 @@ HevyAnalytics is a powerful web application that transforms your Hevy app workou
 - Local storage for privacy
 - Beautiful dark mode UI
 
-🚀 Built with React, TypeScript, and Vite for blazing-fast performance.
 ```
 
 ## 2. Repository Topics
@@ -71,7 +70,7 @@ In GitHub repository settings:
 Add a build status badge. For GitHub Actions, add to README:
 
 ```markdown
-![Build Status](https://github.com/YOUR_USERNAME/HevyAnalytics/workflows/Build%20and%20Deploy/badge.svg)
+![Build Status](https://github.com/YOUR_USERNAME/LiftShift/workflows/Build%20and%20Deploy/badge.svg)
 ```
 
 ## 6. Environment Secrets (Optional)
@@ -102,10 +101,10 @@ See [DEPLOYMENT.md](./DEPLOYMENT.md) for the recommended split deployment:
 Popular badges to add to README:
 
 ```markdown
-[![GitHub stars](https://img.shields.io/github/stars/aree6/HevyAnalytics.svg?style=flat-square)](https://github.com/aree6/HevyAnalytics)
-[![GitHub forks](https://img.shields.io/github/forks/aree6/HevyAnalytics.svg?style=flat-square)](https://github.com/aree6/HevyAnalytics)
-[![GitHub issues](https://img.shields.io/github/issues/aree6/HevyAnalytics.svg?style=flat-square)](https://github.com/aree6/HevyAnalytics/issues)
-[![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](https://github.com/aree6/HevyAnalytics/blob/main/LICENSE)
+[![GitHub stars](https://img.shields.io/github/stars/aree6/LiftShift.svg?style=flat-square)](https://github.com/aree6/LiftShift)
+[![GitHub forks](https://img.shields.io/github/forks/aree6/LiftShift.svg?style=flat-square)](https://github.com/aree6/LiftShift)
+[![GitHub issues](https://img.shields.io/github/issues/aree6/LiftShift.svg?style=flat-square)](https://github.com/aree6/LiftShift/issues)
+[![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](https://github.com/aree6/LiftShift/blob/main/LICENSE)
 ```
 
 ## 10. Publish to npm (Optional)

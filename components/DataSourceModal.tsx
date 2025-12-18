@@ -12,7 +12,7 @@ interface DataSourceModalProps {
 export const DataSourceModal: React.FC<DataSourceModalProps> = ({ intent, onSelect, onClose }) => {
   return (
     <div className="fixed inset-0 z-50 bg-black/90 overflow-y-auto overscroll-contain">
-      <div className="min-h-full w-full px-2 sm:px-3 py-6">
+      <div className="min-h-full w-full px-2 sm:px-3 pt-10 pb-6 sm:pt-12 sm:pb-6">
         <div className="max-w-2xl mx-auto slide-in-from-top-2">
           <div className="bg-black/60 border border-slate-700/50 rounded-2xl p-5 sm:p-6">
             <div className="flex items-start justify-between gap-3">
@@ -31,56 +31,64 @@ export const DataSourceModal: React.FC<DataSourceModalProps> = ({ intent, onSele
               </div>
             </div>
 
-            <p className="mt-2 text-center text-sm text-slate-300">
-              {intent === 'initial' ? 'Select how you want to load your training data.' : 'Switch or update your data source.'}
-            </p>
+            <div className="mt-8 flex justify-center">
+              <div className="grid grid-cols-2 gap-8 sm:gap-10 place-items-center">
+                <button
+                  type="button"
+                  onClick={() => onSelect('hevy')}
+                  className="relative group flex flex-col items-center justify-center w-36 sm:w-40 h-36 sm:h-40 rounded-2xl transition-colors"
+                >
+                  <span className="absolute top-0.5 right-0.5 rounded-full border border-amber-500/30 bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-amber-400">
+                    BETA
+                  </span>
+                  <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-[30px] bg-black/20 border border-slate-700/50 flex items-center justify-center group-hover:border-slate-500/60 transition-colors">
+                    <img src="/hevy.png" alt="Hevy" className="w-14 h-14 sm:w-16 sm:h-16 object-contain" loading="lazy" decoding="async" />
+                  </div>
+                  <div className="mt-2 text-white font-semibold">Hevy</div>
+                </button>
 
-            <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => onSelect('hevy')}
-                className="group rounded-xl border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/15 px-4 py-4 text-left transition-colors"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <div className="text-white font-semibold text-lg">Hevy</div>
-                  <span className="inline-flex items-center rounded-full border border-amber-500/30 bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-amber-400">BETA</span>
-                </div>
-                <div className="mt-1 text-xs text-slate-200/90">
-                  Login or import CSV.
-                </div>
-              </button>
+                <button
+                  type="button"
+                  onClick={() => onSelect('strong')}
+                  className="relative group flex flex-col items-center justify-center w-36 sm:w-40 h-36 sm:h-40 rounded-2xl transition-colors"
+                >
+                  <span className="absolute top-0.5 right-0.5 rounded-full border border-rose-500/30 bg-rose-500/15 px-2 py-0.5 text-[10px] font-semibold text-rose-300">
+                    EXP
+                  </span>
+                  <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-[30px] bg-black/20 border border-slate-700/50 flex items-center justify-center group-hover:border-slate-500/60 transition-colors">
+                    <img src="/strong.png" alt="Strong" className="w-14 h-14 sm:w-16 sm:h-16 object-contain" loading="lazy" decoding="async" />
+                  </div>
+                  <div className="mt-2 text-white font-semibold">Strong</div>
+                </button>
 
-              <button
-                type="button"
-                onClick={() => onSelect('strong')}
-                className="group rounded-xl border border-slate-700/60 bg-white/5 hover:bg-white/10 px-4 py-4 text-left transition-colors"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <div className="text-white font-semibold text-lg">Strong</div>
-                  <span className="inline-flex items-center rounded-full border border-slate-500/30 bg-slate-500/10 px-2 py-0.5 text-[10px] font-semibold text-slate-300">EXPERIMENTAL</span>
-                </div>
-                <div className="mt-1 text-xs text-slate-200/90">
-                  Import a CSV export and analyze locally.
-                </div>
-              </button>
+                <button
+                  type="button"
+                  disabled
+                  className="relative group flex flex-col items-center justify-center w-28 sm:w-32 h-28 sm:h-32 rounded-2xl opacity-60 cursor-not-allowed"
+                >
+                  <span className="absolute top-0.5 right-0.5 rounded-full border border-slate-600/30 bg-slate-600/10 px-2 py-0.5 text-[10px] font-semibold text-slate-300">
+                    SOON
+                  </span>
+                  <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-[20px] bg-black/20 border border-slate-700/50 flex items-center justify-center">
+                    <img src="/fitbod.png" alt="Fitbod" className="w-9 h-9 sm:w-10 sm:h-10 object-contain" loading="lazy" decoding="async" />
+                  </div>
+                  <div className="mt-2 text-white font-semibold text-sm">Fitbod</div>
+                </button>
 
-              <button
-                type="button"
-                disabled
-                className="group rounded-xl border border-slate-800/80 bg-white/5 px-4 py-4 text-left opacity-60 cursor-not-allowed"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <div className="text-white font-semibold text-lg">Jefit</div>
-                  <span className="inline-flex items-center rounded-full border border-slate-600/30 bg-slate-600/10 px-2 py-0.5 text-[10px] font-semibold text-slate-300">COMING SOON</span>
-                </div>
-                <div className="mt-1 text-xs text-slate-200/90">
-                  Not available yet.
-                </div>
-              </button>
-            </div>
-
-            <div className="mt-5 text-[11px] text-slate-400">
-              Your data is processed locally in your browser. Hevy login is sent to your own backend to retrieve a token.
+                <button
+                  type="button"
+                  disabled
+                  className="relative group flex flex-col items-center justify-center w-28 sm:w-32 h-28 sm:h-32 rounded-2xl opacity-60 cursor-not-allowed"
+                >
+                  <span className="absolute top-0.5 right-0.5 rounded-full border border-slate-600/30 bg-slate-600/10 px-2 py-0.5 text-[10px] font-semibold text-slate-300">
+                    SOON
+                  </span>
+                  <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-[20px] bg-black/20 border border-slate-700/50 flex items-center justify-center">
+                    <img src="/Jefit.png" alt="Jefit" className="w-9 h-9 sm:w-10 sm:h-10 object-contain" loading="lazy" decoding="async" />
+                  </div>
+                  <div className="mt-2 text-white font-semibold text-sm">Jefit</div>
+                </button>
+              </div>
             </div>
           </div>
         </div>

@@ -1,9 +1,23 @@
 const normalizeBaseUrl = (url: string): string => url.replace(/\/+$/g, '');
 
+const isLocalhostUrl = (url: string): boolean => {
+  try {
+    const u = new URL(url);
+    return u.hostname === 'localhost' || u.hostname === '127.0.0.1';
+  } catch {
+    return false;
+  }
+};
+
 export const getBackendBaseUrl = (): string => {
   const envUrl = (import.meta as any).env?.VITE_BACKEND_URL as string | undefined;
-  if (envUrl && typeof envUrl === 'string' && envUrl.trim()) return normalizeBaseUrl(envUrl.trim());
-  if ((import.meta as any).env?.DEV) return 'http://localhost:5000';
+  if (envUrl && typeof envUrl === 'string' && envUrl.trim()) {
+    const normalized = normalizeBaseUrl(envUrl.trim());
+    // In dev, prefer same-origin + Vite proxy so the app works on LAN devices.
+    if ((import.meta as any).env?.DEV && isLocalhostUrl(normalized)) return '';
+    return normalized;
+  }
+  if ((import.meta as any).env?.DEV) return '';
   return '';
 };
 
@@ -35,11 +49,14 @@ export interface BackendSetsResponse<TSet> {
   };
 }
 
-export const hevyBackendLogin = async (emailOrUsername: string, password: string): Promise<BackendLoginResponse> => {
+const buildBackendUrl = (path: string): string => {
   const base = getBackendBaseUrl();
-  if (!base) throw new Error('Missing VITE_BACKEND_URL (backend API).');
+  if (!base && !(import.meta as any).env?.DEV) throw new Error('Missing VITE_BACKEND_URL (backend API).');
+  return base ? `${base}${path}` : path;
+};
 
-  const res = await fetch(`${base}/api/hevy/login`, {
+export const hevyBackendLogin = async (emailOrUsername: string, password: string): Promise<BackendLoginResponse> => {
+  const res = await fetch(buildBackendUrl('/api/hevy/login'), {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ emailOrUsername, password }),
@@ -50,10 +67,7 @@ export const hevyBackendLogin = async (emailOrUsername: string, password: string
 };
 
 export const hevyBackendGetAccount = async (authToken: string): Promise<{ username: string }> => {
-  const base = getBackendBaseUrl();
-  if (!base) throw new Error('Missing VITE_BACKEND_URL (backend API).');
-
-  const res = await fetch(`${base}/api/hevy/account`, {
+  const res = await fetch(buildBackendUrl('/api/hevy/account'), {
     method: 'GET',
     headers: {
       'content-type': 'application/json',
@@ -68,11 +82,8 @@ export const hevyBackendGetAccount = async (authToken: string): Promise<{ userna
 };
 
 export const hevyBackendGetSets = async <TSet>(authToken: string, username: string): Promise<BackendSetsResponse<TSet>> => {
-  const base = getBackendBaseUrl();
-  if (!base) throw new Error('Missing VITE_BACKEND_URL (backend API).');
-
   const params = new URLSearchParams({ username });
-  const res = await fetch(`${base}/api/hevy/sets?${params.toString()}`, {
+  const res = await fetch(buildBackendUrl(`/api/hevy/sets?${params.toString()}`), {
     method: 'GET',
     headers: {
       'content-type': 'application/json',

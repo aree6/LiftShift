@@ -1,6 +1,6 @@
-# Contributing to HevyAnalytics
+# Contributing to LiftShift
 
-Thank you for your interest in contributing to HevyAnalytics! We welcome contributions from everyone. This document provides guidelines and instructions for contributing.
+Thank you for your interest in contributing to LiftShift! We welcome contributions from everyone. This document provides guidelines and instructions for contributing.
 
 ## 📋 Table of Contents
 
@@ -36,19 +36,19 @@ This project is committed to providing a welcoming and inspiring community for a
 
 1. **Fork the repository**
    ```bash
-   # Visit https://github.com/aree6/HevyAnalytics
+   # Visit https://github.com/aree6/LiftShift
    # Click "Fork" button
    ```
 
 2. **Clone your fork**
    ```bash
-   git clone https://github.com/<your-username>/HevyAnalytics.git
-   cd HevyAnalytics
+   git clone https://github.com/<your-username>/LiftShift.git
+   cd LiftShift
    ```
 
 3. **Add upstream remote**
    ```bash
-   git remote add upstream https://github.com/aree6/HevyAnalytics.git
+   git remote add upstream https://github.com/aree6/LiftShift.git
    ```
 
 4. **Install dependencies**
@@ -79,7 +79,7 @@ We appreciate all types of contributions:
 
 ### Before Submitting a Bug Report
 
-- Check if the bug has already been reported in [Issues](https://github.com/aree6/HevyAnalytics/issues)
+- Check if the bug has already been reported in [Issues](https://github.com/aree6/LiftShift/issues)
 - Try to reproduce with the latest code
 - Collect information about the bug
 
@@ -325,4 +325,4 @@ docs: update deployment instructions for Netlify + Render
 
 ## Acknowledgments
 
-Thank you for contributing! Your efforts help make HevyAnalytics better for everyone. 🙏
+Thank you for contributing! Your efforts help make LiftShift better for everyone. 🙏

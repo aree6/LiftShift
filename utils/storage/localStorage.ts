@@ -92,6 +92,14 @@ export const getWeightUnit = (): WeightUnit => {
   }
 };
 
+export const clearWeightUnit = (): void => {
+  try {
+    localStorage.removeItem(WEIGHT_UNIT_KEY);
+  } catch (error) {
+    console.error('Failed to clear weight unit from local storage:', error);
+  }
+};
+
 export const saveBodyMapGender = (gender: StoredBodyMapGender): void => {
   try {
     localStorage.setItem(BODY_MAP_GENDER_KEY, gender);
@@ -107,6 +115,14 @@ export const getBodyMapGender = (): StoredBodyMapGender => {
   } catch (error) {
     console.error('Failed to retrieve body map gender from local storage:', error);
     return 'male';
+  }
+};
+
+export const clearBodyMapGender = (): void => {
+  try {
+    localStorage.removeItem(BODY_MAP_GENDER_KEY);
+  } catch (error) {
+    console.error('Failed to clear body map gender from local storage:', error);
   }
 };
 
@@ -131,5 +147,13 @@ export const getThemeMode = (): ThemeMode => {
   } catch (error) {
     console.error('Failed to retrieve theme mode from local storage:', error);
     return 'midnight-dark';
+  }
+};
+
+export const clearThemeMode = (): void => {
+  try {
+    localStorage.removeItem(THEME_MODE_KEY);
+  } catch (error) {
+    console.error('Failed to clear theme mode from local storage:', error);
   }
 };

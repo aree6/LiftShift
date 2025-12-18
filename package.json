@@ -1,13 +1,13 @@
 {
-  "name": "hevyanalytics",
+  "name": "LiftShift",
   "version": "1.0.0",
   "description": "A comprehensive workout visualizer that transforms Hevy app CSV exports into powerful insights with analytics, personal records tracking, and training performance analysis.",
   "author": "Areeb <mohammadar336@gmail.com>",
-  "license": "MIT",
-  "homepage": "https://github.com/aree6/HevyAnalytics",
+  "license": "AGPL-3.0-only",
+  "homepage": "https://github.com/aree6/LiftShift",
   "repository": {
     "type": "git",
-    "url": "https://github.com/aree6/HevyAnalytics.git"
+    "url": "https://github.com/aree6/LiftShift.git"
   },
   "keywords": [
     "fitness",

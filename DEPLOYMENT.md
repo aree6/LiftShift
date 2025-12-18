@@ -18,6 +18,12 @@ You will deploy two things:
 - Frontend repo root (this folder)
 - Backend folder `backend/` (a separate service)
 
+Note on environment files:
+
+- `.env.example` files are templates and are committed to GitHub.
+- Your real secrets belong in `.env` (local dev) or in the Render/Netlify environment variable UI.
+- `.env` is gitignored in this repo (so you should not commit it).
+
 
 ## 1) Deploy the backend on Render (recommended)
 
@@ -144,6 +150,11 @@ Add:
 
 - `VITE_BACKEND_URL` = `https://YOUR_BACKEND_URL`
 
+Notes:
+
+- `VITE_BACKEND_URL` must be the public URL of your deployed backend (Render/Railway), not `localhost`.
+- Example: `https://liftshift-backend.onrender.com`
+
 ### 3.2 Trigger a deploy
 
 1. Go to **Deploys** tab
@@ -162,6 +173,16 @@ After both are deployed:
    - Hevy (Login or CSV)
 4. After setup, you should see the dashboard
 
+Backend verification (recommended):
+
+- Open: `https://YOUR_BACKEND_URL/api/health`
+- Expected: `{ "status": "ok" }`
+
+If Hevy login fails in production, verify backend environment variables:
+
+- `HEVY_X_API_KEY` is set
+- `CORS_ORIGINS` includes your frontend origin (example: `https://liftshift.app`)
+
 If you ever want to restart onboarding:
 
 - Open DevTools
@@ -174,3 +195,24 @@ If you ever want to restart onboarding:
 - Hevy login is proxied through your backend.
 - The app stores the Hevy token in your browser (localStorage).
 - Your workouts are processed client-side into `WorkoutSet[]`.
+
+
+## Local development on your phone (LAN)
+
+If the app works on your Mac but fails on your phone with a network error like “Load failed”, it’s almost always because the frontend is trying to call the backend at `http://localhost:...`.
+
+On a phone, `localhost` means the phone itself (not your Mac).
+
+Recommended setup:
+
+1. Start the backend on your Mac (default `:5000`, or whatever `backend/.env` `PORT` is set to).
+2. Start the frontend (Vite) on your Mac.
+3. Open the Vite URL from your phone using your Mac’s LAN IP, for example:
+
+   - `http://192.168.x.x:3000/`
+
+Important notes:
+
+- In development, the frontend calls the backend via same-origin `/api/...` and Vite proxies it to your backend.
+- If you set `VITE_BACKEND_URL` locally and it points to `http://localhost:...`, the frontend will ignore it in dev and still use the proxy, so LAN devices work.
+- If you want to bypass the proxy in dev, set `VITE_BACKEND_URL` to your Mac’s LAN IP instead (example: `http://192.168.x.x:5050`).

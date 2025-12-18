@@ -13,7 +13,19 @@ const HistoryView = React.lazy(() => import('./components/HistoryView').then(m =
 const MuscleAnalysis = React.lazy(() => import('./components/MuscleAnalysis').then(m => ({ default: m.MuscleAnalysis })));
 const FlexView = React.lazy(() => import('./components/FlexView').then(m => ({ default: m.FlexView })));
 import { CSVImportModal } from './components/CSVImportModal';
-import { saveCSVData, getCSVData, clearCSVData, saveWeightUnit, getWeightUnit, WeightUnit, getBodyMapGender, saveBodyMapGender } from './utils/storage/localStorage';
+import {
+  saveCSVData,
+  getCSVData,
+  clearCSVData,
+  saveWeightUnit,
+  getWeightUnit,
+  clearWeightUnit,
+  WeightUnit,
+  getBodyMapGender,
+  saveBodyMapGender,
+  clearBodyMapGender,
+  clearThemeMode,
+} from './utils/storage/localStorage';
 import { LayoutDashboard, Dumbbell, History, CheckCircle2, X, Calendar, BicepsFlexed, Pencil, RefreshCw, Sparkles } from 'lucide-react';
 import { format, isSameDay, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
 import { CalendarSelector } from './components/CalendarSelector';
@@ -31,13 +43,16 @@ import type { DataSourceChoice } from './utils/dataSources/types';
 import {
   getDataSourceChoice,
   saveDataSourceChoice,
+  clearDataSourceChoice,
   getHevyAuthToken,
   saveHevyAuthToken,
   clearHevyAuthToken,
   getLastCsvPlatform,
   saveLastCsvPlatform,
+  clearLastCsvPlatform,
   getSetupComplete,
   saveSetupComplete,
+  clearSetupComplete,
 } from './utils/storage/dataSourceStorage';
 import { hevyBackendGetAccount, hevyBackendGetSets, hevyBackendLogin } from './utils/api/hevyBackend';
 import { parseHevyDateString } from './utils/date/parseHevyDateString';
@@ -148,6 +163,19 @@ const App: React.FC = () => {
     }
     pendingNavRef.current = { tab, kind };
     setActiveTab(tab);
+  }, []);
+
+  const clearCacheAndRestart = useCallback(() => {
+    clearCSVData();
+    clearHevyAuthToken();
+    clearDataSourceChoice();
+    clearLastCsvPlatform();
+    clearSetupComplete();
+    clearWeightUnit();
+    clearBodyMapGender();
+    clearThemeMode();
+    computationCache.clear();
+    window.location.reload();
   }, []);
   
   // Gender state with localStorage persistence
@@ -629,7 +657,7 @@ const App: React.FC = () => {
                       className="font-bold text-lg sm:text-xl tracking-tight inline-flex items-start whitespace-nowrap"
                       style={{ color: 'var(--app-fg)' }}
                     >
-                      <span>HevyAnalytics</span>
+                      <span>LiftShift</span>
                       <sup className="ml-1 inline-block rounded-full border border-amber-500/30 bg-amber-500/15 px-1.5 py-0.5 text-[9px] sm:text-[10px] font-semibold leading-none tracking-wide text-amber-400 align-super -translate-y-0.5 -translate-x-2">
                         BETA
                       </sup>
@@ -884,7 +912,11 @@ const App: React.FC = () => {
               setOnboarding({ intent: onboarding.intent, step: 'strong_csv', platform: 'strong' });
               return;
             }
-            setOnboarding({ intent: onboarding.intent, step: 'hevy_method', platform: 'hevy' });
+            setOnboarding({
+              intent: onboarding.intent,
+              step: getHevyAuthToken() ? 'hevy_method' : 'hevy_login',
+              platform: 'hevy',
+            });
           }}
           onClose={
             onboarding.intent === 'update'
@@ -898,6 +930,7 @@ const App: React.FC = () => {
         <HevyMethodModal
           intent={onboarding.intent}
           hasSavedSession={Boolean(getHevyAuthToken())}
+          onClearCache={clearCacheAndRestart}
           onBack={() => setOnboarding({ intent: onboarding.intent, step: 'platform' })}
           onClose={
             onboarding.intent === 'update'
@@ -959,7 +992,9 @@ const App: React.FC = () => {
           errorMessage={hevyLoginError}
           isLoading={isAnalyzing}
           onLogin={handleHevyLogin}
-          onBack={() => setOnboarding({ intent: onboarding.intent, step: 'hevy_method', platform: 'hevy' })}
+          onClearCache={clearCacheAndRestart}
+          onImportCsv={() => setOnboarding({ intent: onboarding.intent, step: 'hevy_csv', platform: 'hevy' })}
+          onBack={() => setOnboarding({ intent: onboarding.intent, step: 'platform' })}
           onClose={
             onboarding.intent === 'update'
               ? () => setOnboarding(null)
