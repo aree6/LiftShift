@@ -1231,7 +1231,7 @@ export const ExerciseView: React.FC<ExerciseViewProps> = ({ stats, filtersSlot, 
                             return (
                               <span
                                 key={i}
-                                className={`inline-flex items-center px-2 py-0.5 rounded-md border ${currentStatus.bgColor} ${currentStatus.borderColor} ${isStrengthLike ? currentStatus.color : 'text-slate-300'} ${isStrengthLike ? 'font-bold' : 'font-mono'} text-[10px] whitespace-nowrap`}
+                                className={`inline-flex items-center px-2 py-0.5 rounded-md border max-w-full ${currentStatus.bgColor} ${currentStatus.borderColor} ${isStrengthLike ? currentStatus.color : 'text-slate-300'} ${isStrengthLike ? 'font-bold' : 'font-mono'} text-[10px] whitespace-normal break-words`}
                               >
                                 {t}
                               </span>
