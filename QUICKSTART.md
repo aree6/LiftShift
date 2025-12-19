@@ -47,6 +47,8 @@ That's it! The app is now running locally. 🎉
    - Strong: choose body type + unit, then import Strong CSV
    - Hevy: choose body type + unit, then Continue to login/sync (or import Hevy CSV)
 
+  Strong CSV imports support common export variants, including semicolon-delimited (`;`) files with quoted fields and unit-suffixed headers like `Weight (kg)`.
+
 3. **Explore your data**
    - **Dashboard** - Overview of your training
    - **Exercises** - Detailed performance per exercise

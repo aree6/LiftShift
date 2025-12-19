@@ -78,6 +78,10 @@ By submitting a contribution (code, documentation, or any other material) to thi
 3. **Explore** your analytics across Dashboard, Exercises, and History tabs  
 4. **Get insights** with real-time feedback and flexible filtering  
 
+ Strong CSV imports support common export variants, including:
+ - Semicolon-delimited (`;`) files with quoted fields
+ - Unit-suffixed headers like `Weight (kg)` and `Distance (meters)`
+
 ---
 
 ## Troubleshooting
