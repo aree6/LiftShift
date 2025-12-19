@@ -1,12 +1,11 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { AreaChart as AreaChartIcon, BarChart3, Infinity, Trophy } from 'lucide-react';
 import {
   Area,
-  AreaChart,
   Bar,
-  BarChart,
   CartesianGrid,
-  Legend,
+  ComposedChart,
+  Line,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -14,6 +13,7 @@ import {
 } from 'recharts';
 import type { TimeFilterMode } from '../../utils/storage/localStorage';
 import { formatSignedNumber } from '../../utils/format/formatters';
+import { addEmaSeries, DEFAULT_EMA_HALF_LIFE_DAYS } from '../../utils/analysis/ema';
 import {
   BadgeLabel,
   ChartDescription,
@@ -50,6 +50,13 @@ export const PrTrendCard = ({
   prTrendDelta7d: any | null;
 }) => {
   const formatSigned = (n: number) => formatSignedNumber(n, { maxDecimals: 2 });
+
+  const chartData = useMemo(() => {
+    return addEmaSeries(prsData, 'count', 'emaCount', {
+      halfLifeDays: DEFAULT_EMA_HALF_LIFE_DAYS,
+      timestampKey: 'timestamp',
+    });
+  }, [prsData]);
 
   return (
     <div className="bg-black/70 border border-slate-700/50 p-4 sm:p-6 rounded-xl shadow-lg min-h-[400px] sm:min-h-[480px] flex flex-col transition-all duration-300 hover:shadow-xl">
@@ -121,22 +128,26 @@ export const PrTrendCard = ({
       <div className={`flex-1 w-full min-h-[250px] sm:min-h-[300px] transition-all duration-700 delay-100 ${isMounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
         <LazyRender className="h-full w-full" placeholder={<ChartSkeleton className="h-full min-h-[250px] sm:min-h-[300px]" />}>
           <ResponsiveContainer width="100%" height={300} minWidth={0}>
-            {view === 'area' ? (
-              <AreaChart key="area" data={prsData} margin={{ left: -20, right: 10, top: 10, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="gPRs" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#eab308" stopOpacity={0.4} />
-                    <stop offset="95%" stopColor="#eab308" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
-                <XAxis dataKey="dateFormatted" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
-                <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} allowDecimals={false} />
-                <Tooltip
-                  contentStyle={tooltipStyle as any}
-                  cursor={{ stroke: 'rgb(var(--border-rgb) / 0.35)' }}
-                  labelFormatter={(l, p) => (p as any)?.[0]?.payload?.tooltipLabel || l}
-                />
+            <ComposedChart key={view} data={chartData} margin={{ left: -20, right: 10, top: 10, bottom: 0 }}>
+              <defs>
+                <linearGradient id="gPRs" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#eab308" stopOpacity={0.4} />
+                  <stop offset="95%" stopColor="#eab308" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
+              <XAxis dataKey="dateFormatted" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
+              <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} allowDecimals={false} />
+              <Tooltip
+                contentStyle={tooltipStyle as any}
+                cursor={view === 'bar' ? ({ fill: 'rgb(var(--overlay-rgb) / 0.12)' } as any) : ({ stroke: 'rgb(var(--border-rgb) / 0.35)' } as any)}
+                labelFormatter={(l, p) => (p as any)?.[0]?.payload?.tooltipLabel || l}
+                formatter={(val: number, name) => {
+                  if (name === 'EMA') return [Math.round(val), 'EMA'];
+                  return [Math.round(val), name];
+                }}
+              />
+              {view === 'area' ? (
                 <Area
                   type="monotone"
                   dataKey="count"
@@ -148,20 +159,22 @@ export const PrTrendCard = ({
                   activeDot={{ r: 5, strokeWidth: 0 }}
                   animationDuration={1500}
                 />
-              </AreaChart>
-            ) : (
-              <BarChart key="bar" data={prsData} margin={{ left: -20, right: 10, top: 10, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
-                <XAxis dataKey="dateFormatted" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
-                <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} allowDecimals={false} />
-                <Tooltip
-                  contentStyle={tooltipStyle as any}
-                  cursor={{ fill: 'rgb(var(--overlay-rgb) / 0.12)' }}
-                  labelFormatter={(l, p) => (p as any)?.[0]?.payload?.tooltipLabel || l}
-                />
+              ) : (
                 <Bar dataKey="count" name="PRs" fill="#eab308" radius={[8, 8, 0, 0]} animationDuration={1500} />
-              </BarChart>
-            )}
+              )}
+              <Line
+                type="monotone"
+                dataKey="emaCount"
+                name="EMA"
+                stroke="#eab308"
+                strokeOpacity={0.95}
+                strokeWidth={2.25}
+                strokeDasharray="6 4"
+                dot={false}
+                activeDot={{ r: 4, strokeWidth: 0 }}
+                animationDuration={1500}
+              />
+            </ComposedChart>
           </ResponsiveContainer>
         </LazyRender>
       </div>

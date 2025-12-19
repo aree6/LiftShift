@@ -1,19 +1,19 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { AreaChart as AreaChartIcon, BarChart3, Infinity, Timer } from 'lucide-react';
 import {
   Area,
-  AreaChart,
   Bar,
-  BarChart,
   CartesianGrid,
-  Legend,
+  ComposedChart,
+  Line,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from 'recharts';
 import type { TimeFilterMode, WeightUnit } from '../../utils/storage/localStorage';
-import { formatSignedNumber } from '../../utils/format/formatters';
+import { formatNumber, formatSignedNumber } from '../../utils/format/formatters';
+import { addEmaSeries, DEFAULT_EMA_HALF_LIFE_DAYS } from '../../utils/analysis/ema';
 import {
   BadgeLabel,
   ChartDescription,
@@ -52,6 +52,13 @@ export const VolumeDensityCard = ({
   tooltipStyle: Record<string, unknown>;
 }) => {
   const formatSigned = (n: number) => formatSignedNumber(n, { maxDecimals: 2 });
+
+  const chartData = useMemo(() => {
+    return addEmaSeries(volumeDurationData, 'volumePerSet', 'emaVolumePerSet', {
+      halfLifeDays: DEFAULT_EMA_HALF_LIFE_DAYS,
+      timestampKey: 'timestamp',
+    });
+  }, [volumeDurationData]);
 
   return (
     <div className="bg-black/70 border border-slate-700/50 p-4 sm:p-6 rounded-xl shadow-lg min-h-[400px] sm:min-h-[520px] flex flex-col transition-all duration-300 hover:shadow-xl">
@@ -126,63 +133,68 @@ export const VolumeDensityCard = ({
 
       <div className={`flex-1 w-full min-h-[250px] sm:min-h-[300px] transition-all duration-700 delay-100 ${isMounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
         <ResponsiveContainer width="100%" height={300} minWidth={0}>
-          {view === 'area' ? (
-            <AreaChart key="area" data={volumeDurationData} margin={{ left: -20, right: 10, top: 10, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="gDensityArea" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.5} />
-                    <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
-                <XAxis dataKey="dateFormatted" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
-                <YAxis stroke="#8b5cf6" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(val) => `${val}${weightUnit}`} />
-                <Tooltip
-                  contentStyle={tooltipStyle as any}
-                  labelFormatter={(l, p) => (p as any)?.[0]?.payload?.tooltipLabel || l}
-                  formatter={(val: number, name) => {
-                    if (name === `Volume per Set (${weightUnit})`) return [`${val} ${weightUnit}`, name];
-                    return [val, name];
-                  }}
-                />
-                <Legend />
-                <Area
-                  type="monotone"
-                  dataKey="volumePerSet"
-                  name={`Volume per Set (${weightUnit})`}
-                  stroke="#8b5cf6"
-                  strokeWidth={3}
-                  fill="url(#gDensityArea)"
-                  dot={{ r: 3, fill: '#8b5cf6' }}
-                  activeDot={{ r: 5, strokeWidth: 0 }}
-                  animationDuration={1500}
-                />
-            </AreaChart>
-          ) : (
-            <BarChart key="bar" data={volumeDurationData} margin={{ left: -20, right: 10, top: 10, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
-                <XAxis dataKey="dateFormatted" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
-                <YAxis stroke="#8b5cf6" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(val) => `${val}${weightUnit}`} />
-                <Tooltip
-                  contentStyle={tooltipStyle as any}
-                  cursor={{ fill: 'rgb(var(--overlay-rgb) / 0.12)' }}
-                  labelFormatter={(l, p) => (p as any)?.[0]?.payload?.tooltipLabel || l}
-                  formatter={(val: number, name) => {
-                    if (name === `Volume per Set (${weightUnit})`) return [`${val} ${weightUnit}`, name];
-                    if (name === 'Set Count') return [`${val} sets`, name];
-                    return [val, name];
-                  }}
-                />
-                <Legend />
-                <Bar
-                  dataKey="volumePerSet"
-                  name={`Volume per Set (${weightUnit})`}
-                  fill="#8b5cf6"
-                  radius={[8, 8, 0, 0]}
-                  animationDuration={1500}
-                />
-            </BarChart>
-          )}
+          <ComposedChart key={view} data={chartData} margin={{ left: -20, right: 10, top: 10, bottom: 0 }}>
+            <defs>
+              <linearGradient id="gDensityArea" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.5} />
+                <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
+            <XAxis dataKey="dateFormatted" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
+            <YAxis
+              stroke="#8b5cf6"
+              fontSize={11}
+              tickLine={false}
+              axisLine={false}
+              tickFormatter={(val) => `${formatNumber(Number(val), { maxDecimals: 0 })}${weightUnit}`}
+            />
+            <Tooltip
+              contentStyle={tooltipStyle as any}
+              cursor={view === 'bar' ? ({ fill: 'rgb(var(--overlay-rgb) / 0.12)' } as any) : ({ stroke: 'rgb(var(--border-rgb) / 0.35)' } as any)}
+              labelFormatter={(l, p) => (p as any)?.[0]?.payload?.tooltipLabel || l}
+              formatter={(val: number, name) => {
+                const v = formatNumber(Number(val), { maxDecimals: 1 });
+                if (name === `Volume per Set (${weightUnit})`) return [`${v} ${weightUnit}`, name];
+                if (name === 'EMA') return [`${v} ${weightUnit}`, 'EMA'];
+                if (name === 'Set Count') return [`${val} sets`, name];
+                return [val, name];
+              }}
+            />
+            {view === 'area' ? (
+              <Area
+                type="monotone"
+                dataKey="volumePerSet"
+                name={`Volume per Set (${weightUnit})`}
+                stroke="#8b5cf6"
+                strokeWidth={3}
+                fill="url(#gDensityArea)"
+                dot={{ r: 3, fill: '#8b5cf6' }}
+                activeDot={{ r: 5, strokeWidth: 0 }}
+                animationDuration={1500}
+              />
+            ) : (
+              <Bar
+                dataKey="volumePerSet"
+                name={`Volume per Set (${weightUnit})`}
+                fill="#8b5cf6"
+                radius={[8, 8, 0, 0]}
+                animationDuration={1500}
+              />
+            )}
+            <Line
+              type="monotone"
+              dataKey="emaVolumePerSet"
+              name="EMA"
+              stroke="#8b5cf6"
+              strokeOpacity={0.95}
+              strokeWidth={2.25}
+              strokeDasharray="6 4"
+              dot={false}
+              activeDot={{ r: 4, strokeWidth: 0 }}
+              animationDuration={1500}
+            />
+          </ComposedChart>
         </ResponsiveContainer>
       </div>
 

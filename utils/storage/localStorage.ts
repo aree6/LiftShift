@@ -128,6 +128,37 @@ export const clearBodyMapGender = (): void => {
   }
 };
 
+// EMA (Exponential Moving Average) preference
+// Default is enabled because it helps users see the underlying trend signal through noisy sessions.
+const EMA_ENABLED_KEY = 'hevy_analytics_ema_enabled';
+
+export const saveEmaEnabled = (enabled: boolean): void => {
+  try {
+    localStorage.setItem(EMA_ENABLED_KEY, enabled ? 'true' : 'false');
+  } catch (error) {
+    console.error('Failed to save EMA enabled flag to local storage:', error);
+  }
+};
+
+export const getEmaEnabled = (): boolean => {
+  try {
+    const v = localStorage.getItem(EMA_ENABLED_KEY);
+    if (v === null) return true;
+    return v === 'true';
+  } catch (error) {
+    console.error('Failed to retrieve EMA enabled flag from local storage:', error);
+    return true;
+  }
+};
+
+export const clearEmaEnabled = (): void => {
+  try {
+    localStorage.removeItem(EMA_ENABLED_KEY);
+  } catch (error) {
+    console.error('Failed to clear EMA enabled flag from local storage:', error);
+  }
+};
+
 export const savePreferencesConfirmed = (confirmed: boolean): void => {
   try {
     localStorage.setItem(PREFERENCES_CONFIRMED_KEY, confirmed ? 'true' : 'false');

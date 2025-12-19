@@ -24,8 +24,9 @@ import {
 import { WeightUnit, getSmartFilterMode, TimeFilterMode } from '../utils/storage/localStorage';
 import { convertWeight, getStandardWeightIncrementKg } from '../utils/format/units';
 import { summarizeExerciseHistory, analyzeExerciseTrendCore, ExerciseSessionEntry, ExerciseTrendStatus, MIN_SESSIONS_FOR_TREND } from '../utils/analysis/exerciseTrend';
-import { formatSignedNumber } from '../utils/format/formatters';
+import { formatNumber, formatSignedNumber } from '../utils/format/formatters';
 import { pickDeterministic } from '../utils/analysis/messageVariations';
+import { addEmaSeries, DEFAULT_EMA_HALF_LIFE_DAYS } from '../utils/analysis/ema';
 
 // --- TYPES & LOGIC ---
 type ExerciseStatus = ExerciseTrendStatus;
@@ -349,6 +350,42 @@ const DeltaBadge: React.FC<{ delta: number; suffix?: string; invert?: boolean; s
   );
 };
 
+const ConfidenceBadge: React.FC<{ confidence?: 'low' | 'medium' | 'high' }> = ({ confidence }) => {
+  if (!confidence) return null;
+
+  const meta = (() => {
+    switch (confidence) {
+      case 'high':
+        return {
+          label: 'High confidence',
+          cls: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+        };
+      case 'medium':
+        return {
+          label: 'Medium confidence',
+          cls: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+        };
+      case 'low':
+      default:
+        return {
+          label: 'Low confidence',
+          cls: 'bg-slate-700/20 text-slate-400 border-slate-700/30',
+        };
+    }
+  })();
+
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md border text-[10px] font-bold whitespace-nowrap ${meta.cls}`}
+      title="Confidence reflects how consistent/recent your logged sessions are for this exercise."
+      aria-label={meta.label}
+    >
+      <span className="w-1.5 h-1.5 rounded-full bg-current" />
+      {meta.label}
+    </span>
+  );
+};
+
 const StatCard = ({ label, value, unit, icon: Icon, delta, deltaSuffix }: { 
   label: string; 
   value: string | number; 
@@ -385,9 +422,12 @@ const CustomTooltip = ({ active, payload, label, weightUnit }: any) => {
   if (active && payload && payload.length) {
     const unit = weightUnit || 'kg';
     const oneRM = payload.find((p: any) => p.dataKey === 'oneRepMax')?.value;
+    const emaValue = payload.find((p: any) => p.dataKey === 'emaValue')?.value;
     const lifted = payload.find((p: any) => p.dataKey === 'weight')?.value;
     const reps = payload.find((p: any) => p.dataKey === 'reps')?.value;
     const sets = payload.find((p: any) => p.dataKey === 'sets')?.value;
+
+    const fmt1 = (v: unknown) => formatNumber(typeof v === 'number' ? v : Number(v), { maxDecimals: 1 });
     return (
       <div
         className="p-3 rounded-lg shadow-2xl"
@@ -403,23 +443,33 @@ const CustomTooltip = ({ active, payload, label, weightUnit }: any) => {
           {typeof reps === 'number' ? (
             <p className="text-sm font-bold text-blue-400 flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-blue-500"></span>
-              Reps: <span style={FANCY_FONT}>{reps}</span>
+              Reps: <span style={FANCY_FONT}>{Math.round(reps)}</span>
             </p>
           ) : (
             <p className="text-sm font-bold text-blue-400 flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-blue-500"></span>
-              1RM: <span style={FANCY_FONT}>{oneRM} {unit}</span>
+              1RM: <span style={FANCY_FONT}>{fmt1(oneRM)} {unit}</span>
             </p>
           )}
+
+          {typeof emaValue === 'number' ? (
+            <p className="text-xs text-slate-300 flex items-center gap-2">
+              <span className="w-2 h-0.5 bg-white/80"></span>
+              EMA:{' '}
+              <span style={FANCY_FONT}>
+                {typeof reps === 'number' ? fmt1(emaValue) : `${fmt1(emaValue)} ${unit}`}
+              </span>
+            </p>
+          ) : null}
           {typeof sets === 'number' ? (
             <p className="text-xs text-slate-500 flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-slate-600"></span>
-              Sets: {sets}
+              Sets: {Math.round(sets)}
             </p>
           ) : typeof lifted === 'number' ? (
             <p className="text-xs text-slate-500 flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-slate-600"></span>
-              Lifted: {lifted} {unit}
+              Lifted: {fmt1(lifted)} {unit}
             </p>
           ) : null}
         </div>
@@ -441,7 +491,7 @@ interface ExerciseViewProps {
   stickyHeader?: boolean;
 }
 
-export const ExerciseView: React.FC<ExerciseViewProps> = ({ stats, filtersSlot, highlightedExercise, onHighlightApplied, weightUnit = 'kg', bodyMapGender = 'male', stickyHeader = false }) => {
+export const ExerciseView: React.FC<ExerciseViewProps> = ({ stats, filtersSlot, highlightedExercise, onHighlightApplied, weightUnit = 'kg' as WeightUnit, bodyMapGender = 'male', stickyHeader = false }) => {
   const [selectedExerciseName, setSelectedExerciseName] = useState<string>(highlightedExercise || stats[0]?.name || "");
   const [trendFilter, setTrendFilter] = useState<ExerciseTrendStatus | null>(null);
 
@@ -586,11 +636,11 @@ export const ExerciseView: React.FC<ExerciseViewProps> = ({ stats, filtersSlot, 
   }, []);
 
   // Memoize status map to prevent recalc on every render
-  const statusMap = useMemo(() => {
-    const map: Record<string, StatusResult> = {};
-    stats.forEach(s => {
+  const statusMap = useMemo<Record<string, StatusResult>>(() => {
+    const map: Record<string, StatusResult> = Object.create(null);
+    for (const s of stats) {
       map[s.name] = analyzeExerciseTrend(s, weightUnit);
-    });
+    }
     return map;
   }, [stats, weightUnit]);
 
@@ -785,6 +835,7 @@ export const ExerciseView: React.FC<ExerciseViewProps> = ({ stats, filtersSlot, 
     const history = [...selectedSessions].sort((a, b) => a.date.getTime() - b.date.getTime());
     if (viewMode === 'all') {
       return history.map(h => ({
+        timestamp: h.date.getTime(),
         date: formatDayContraction(h.date),
         weight: convertWeight(h.weight, weightUnit),
         oneRepMax: convertWeight(h.oneRepMax, weightUnit),
@@ -812,6 +863,7 @@ export const ExerciseView: React.FC<ExerciseViewProps> = ({ stats, filtersSlot, 
     return Array.from(buckets.values())
       .sort((a, b) => a.ts - b.ts)
       .map(b => ({
+        timestamp: b.ts,
         date: b.label,
         oneRepMax: convertWeight(Number(b.oneRmMax.toFixed(1)), weightUnit),
         weight: convertWeight(Number(b.weightMax.toFixed(1)), weightUnit),
@@ -821,6 +873,15 @@ export const ExerciseView: React.FC<ExerciseViewProps> = ({ stats, filtersSlot, 
   }, [selectedStats, selectedSessions, viewMode, weightUnit]);
 
   const currentStatus = selectedStats ? statusMap[selectedStats.name] : null;
+  const isBodyweightLike = currentStatus?.isBodyweightLike ?? false;
+
+  const chartDataWithEma = useMemo(() => {
+    const key = isBodyweightLike ? 'reps' : 'oneRepMax';
+    return addEmaSeries(chartData, key, 'emaValue', {
+      halfLifeDays: DEFAULT_EMA_HALF_LIFE_DAYS,
+      timestampKey: 'timestamp',
+    });
+  }, [chartData, isBodyweightLike]);
   const isSelectedEligible = useMemo(() => {
     if (!selectedStats) return true;
     return trainingStructure.eligibilityByName.get(selectedStats.name)?.isEligible ?? false;
@@ -861,8 +922,6 @@ export const ExerciseView: React.FC<ExerciseViewProps> = ({ stats, filtersSlot, 
     const sum = last3.reduce((acc, s) => acc + s.maxReps, 0);
     return sum / last3.length;
   }, [selectedSessions]);
-
-  const isBodyweightLike = currentStatus?.isBodyweightLike ?? false;
 
   return (
     <div className="flex flex-col gap-2 w-full text-slate-200 pb-10">
@@ -1125,10 +1184,10 @@ export const ExerciseView: React.FC<ExerciseViewProps> = ({ stats, filtersSlot, 
                 >
                   <div className="absolute inset-0 bg-slate-700/10 pointer-events-none" />
                   <div className="relative z-10">
-                    <h4 className="text-sm sm:text-m text-slate-300 mb-1" style={FANCY_FONT}>
+                    <h4 className="text-sm sm:text-base text-slate-300 mb-1" style={FANCY_FONT}>
                       Inactive
                     </h4>
-                    <p className="text-slate-300 text-xs sm:text-s leading-tight">
+                    <p className="text-slate-300 text-xs sm:text-sm leading-tight">
                       {inactiveReason?.parts?.length
                         ? inactiveReason.parts.join(' · ')
                         : 'This exercise is inactive because it has not been trained recently or there is not enough data to generate meaningful insights.'}
@@ -1138,46 +1197,65 @@ export const ExerciseView: React.FC<ExerciseViewProps> = ({ stats, filtersSlot, 
                 </div>
               ) : (
                 <div
-                  className={`rounded-lg p-3 border ${currentStatus.borderColor} relative overflow-hidden group transition-all duration-500`}
+                  className={`rounded-lg p-2.5 sm:p-3 border ${currentStatus.borderColor} relative overflow-hidden transition-all duration-500`}
                   style={{ backgroundColor: 'rgb(var(--panel-rgb) / 0.85)' }}
                 >
                   <div className={`absolute inset-0 ${currentStatus.bgColor} pointer-events-none`} />
-                  <div className="relative z-10 flex gap-3 h-full items-center">
-                    <div className={`p-2 rounded-lg bg-black/50 h-fit ${currentStatus.color} flex-shrink-0`}>
-                      <currentStatus.icon size={24} />
+                  <div className="relative z-10 flex items-start gap-2.5">
+                    <div className={`p-2 rounded-lg bg-black/40 ${currentStatus.color} flex-shrink-0`}>
+                      <currentStatus.icon size={20} />
                     </div>
-                    <div>
-                      <h4 
-                        className={`text-sm sm:text-m ${currentStatus.color} mb-0.5`}
-                        style={FANCY_FONT}
-                      >
-                        {currentStatus.title}
-                      </h4>
-                      <p className="text-slate-300 text-xs sm:text-s leading-tight">{currentStatus.description}</p>
-                      {currentStatus.subtext && (
-                         <div className="mt-1.5 text-[11px] sm:text-[13px] font-mono opacity-75 flex items-center gap-1">
-                           <span className="w-1 h-1 bg-current rounded-full" />
-                           {currentStatus.subtext}
-                         </div>
-                      )}
-                      {currentStatus.confidence && (
-                        <div className="mt-1 text-[10px] font-mono text-slate-400 opacity-80">
-                          Confidence: {currentStatus.confidence}
+
+                    <div className="min-w-0 flex-1 flex flex-col">
+                      <div className="flex items-center justify-between gap-2">
+                        <h4
+                          className={`text-sm sm:text-base ${currentStatus.color} leading-tight`}
+                          style={FANCY_FONT}
+                        >
+                          {currentStatus.title}
+                        </h4>
+
+                        <div className="flex flex-wrap items-center justify-end gap-1.5 shrink-0">
+                          <ConfidenceBadge confidence={currentStatus.confidence} />
+                        </div>
+                      </div>
+
+                      <p className="mt-0.5 text-slate-300 text-xs sm:text-sm leading-snug">
+                        {currentStatus.description}
+                      </p>
+
+                      {currentStatus.evidence && currentStatus.evidence.length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          {currentStatus.evidence.slice(0, 2).map((t, i) => {
+                            const isStrengthLike = /^(Strength|Reps):\s/.test(t);
+                            return (
+                              <span
+                                key={i}
+                                className={`inline-flex items-center px-2 py-0.5 rounded-md border ${currentStatus.bgColor} ${currentStatus.borderColor} ${isStrengthLike ? currentStatus.color : 'text-slate-300'} ${isStrengthLike ? 'font-bold' : 'font-mono'} text-[10px] whitespace-nowrap`}
+                              >
+                                {t}
+                              </span>
+                            );
+                          })}
                         </div>
                       )}
-                      {currentStatus.evidence && currentStatus.evidence.length > 0 && (
-                        <div className="mt-1 text-[10px] sm:text-[11px] font-mono text-slate-400 space-y-0.5">
-                          {currentStatus.evidence.slice(0, 2).map((t, i) => (
-                            <div key={i} className="flex items-start gap-1.5">
-                              <span className="mt-1 w-1 h-1 rounded-full bg-slate-500 flex-shrink-0" />
-                              <span className="leading-snug">{t}</span>
+
+                      {currentStatus.subtext && (
+                        <div className="mt-2">
+                          <div className={`relative inline-flex flex-col w-fit max-w-full rounded-md border px-2 py-1.5 ${currentStatus.borderColor} overflow-hidden`}>
+                            <div className="absolute inset-0 bg-black/30" />
+                            <div className={`absolute inset-0 ${currentStatus.bgColor}`} />
+                            <div className="relative z-10">
+                              <div className={`text-[10px] uppercase tracking-wider font-bold ${currentStatus.color}`}>Next</div>
+                              <div className="mt-0.5 text-[11px] sm:text-xs font-mono text-slate-200 leading-snug whitespace-normal">
+                                {currentStatus.subtext}
+                              </div>
                             </div>
-                          ))}
+                          </div>
                         </div>
                       )}
                     </div>
                   </div>
-                  <div className={`absolute -right-10 -top-10 w-32 h-32 rounded-full blur-3xl opacity-20 transition-all duration-700 group-hover:opacity-30 ${currentStatus.color.replace('text', 'bg')}`} />
                 </div>
               )}
             </div>
@@ -1269,6 +1347,9 @@ export const ExerciseView: React.FC<ExerciseViewProps> = ({ stats, filtersSlot, 
                     <div className="flex items-center gap-2 text-blue-400">
                       <span className="w-2.5 h-2.5 rounded bg-blue-500/20 border border-blue-500"></span> Top reps
                     </div>
+                    <div className="flex items-center gap-2 text-slate-200">
+                      <span className="w-2.5 h-0.5 bg-white/80"></span> EMA
+                    </div>
                     <div className="flex items-center gap-2 text-slate-500">
                       <span className="w-2.5 h-0.5 bg-slate-500 border-t border-dashed border-slate-500"></span> Sets
                     </div>
@@ -1278,11 +1359,15 @@ export const ExerciseView: React.FC<ExerciseViewProps> = ({ stats, filtersSlot, 
                     <div className="flex items-center gap-2 text-blue-400">
                       <span className="w-2.5 h-2.5 rounded bg-blue-500/20 border border-blue-500"></span> Est. 1RM
                     </div>
+                    <div className="flex items-center gap-2 text-slate-200">
+                      <span className="w-2.5 h-0.5 bg-white/80"></span> EMA
+                    </div>
                     <div className="flex items-center gap-2 text-slate-500">
                       <span className="w-2.5 h-0.5 bg-slate-500 border-t border-dashed border-slate-500"></span> Lift Weight
                     </div>
                   </>
                 )}
+
                 <div className="bg-black/70 p-1 rounded-lg flex gap-1 border border-slate-700/50">
                   <button onClick={() => setViewMode('all')} className={`px-2 py-1 rounded text-[10px] font-bold ${viewMode==='all'?'bg-blue-600 text-white':'text-slate-500 hover:text-slate-300 hover:bg-black/60'}`}>all</button>
                   <button onClick={() => setViewMode('weekly')} className={`px-2 py-1 rounded text-[10px] font-bold ${viewMode==='weekly'?'bg-blue-600 text-white':'text-slate-500 hover:text-slate-300 hover:bg-black/60'}`}>wk</button>
@@ -1299,7 +1384,7 @@ export const ExerciseView: React.FC<ExerciseViewProps> = ({ stats, filtersSlot, 
             ) : (
             <LazyRender className="w-full h-full" placeholder={<ChartSkeleton className="h-full min-h-[260px]" />}>
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <AreaChart data={chartDataWithEma} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <defs>
                     <linearGradient id="color1RM" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
@@ -1318,7 +1403,11 @@ export const ExerciseView: React.FC<ExerciseViewProps> = ({ stats, filtersSlot, 
                     fontSize={10}
                     tickLine={false}
                     axisLine={false}
-                    tickFormatter={(val) => isBodyweightLike ? `${val}` : `${val}${weightUnit}`}
+                    tickFormatter={(val) =>
+                      isBodyweightLike
+                        ? `${formatNumber(Number(val), { maxDecimals: 0 })}`
+                        : `${formatNumber(Number(val), { maxDecimals: 1 })}${weightUnit}`
+                    }
                   />
                   <Tooltip
                     content={<CustomTooltip weightUnit={weightUnit} />}
@@ -1332,6 +1421,18 @@ export const ExerciseView: React.FC<ExerciseViewProps> = ({ stats, filtersSlot, 
                     fill="url(#color1RM)"
                     dot={{ r: 3, fill: '#3b82f6' }}
                     activeDot={{ r: 5, strokeWidth: 0 }}
+                    isAnimationActive={true}
+                    animationDuration={1000}
+                  />
+
+                  <Line
+                    type="monotone"
+                    dataKey="emaValue"
+                    stroke="var(--text-primary)"
+                    strokeOpacity={0.9}
+                    strokeWidth={2}
+                    dot={false}
+                    activeDot={{ r: 4, strokeWidth: 0 }}
                     isAnimationActive={true}
                     animationDuration={1000}
                   />

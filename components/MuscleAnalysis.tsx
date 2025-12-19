@@ -30,6 +30,8 @@ import { LazyRender } from './LazyRender';
 import { ChartSkeleton } from './ChartSkeleton';
 import { Tooltip as HoverTooltip, TooltipData } from './Tooltip';
 import { CHART_TOOLTIP_STYLE } from '../utils/ui/uiConstants';
+import { addEmaSeries, DEFAULT_EMA_HALF_LIFE_DAYS } from '../utils/analysis/ema';
+import { formatNumber } from '../utils/format/formatters';
 import {
   SVG_TO_MUSCLE_GROUP,
   MUSCLE_GROUP_ORDER,
@@ -407,7 +409,7 @@ export const MuscleAnalysis: React.FC<MuscleAnalysisProps> = ({ data, filtersSlo
       
       return Array.from(dayMap.values())
         .sort((a, b) => a.ts - b.ts)
-        .map(d => ({ period: d.label, sets: Math.round(d.sets * 10) / 10 }));
+        .map(d => ({ period: d.label, timestamp: d.ts, sets: Math.round(d.sets * 10) / 10 }));
     }
     
     // For weekly/monthly, aggregate by period
@@ -468,8 +470,15 @@ export const MuscleAnalysis: React.FC<MuscleAnalysisProps> = ({ data, filtersSlo
     
     return Array.from(periodMap.values())
       .sort((a, b) => a.ts - b.ts)
-      .map(d => ({ period: d.label, sets: Math.round(d.sets * 10) / 10 }));
-  }, [selectedMuscle, data, exerciseMuscleData, trendPeriod, viewMode, matchesTarget, activeQuickFilter]);
+      .map(p => ({ period: p.label, timestamp: p.ts, sets: Math.round(p.sets * 10) / 10 }));
+  }, [exerciseMuscleData, data, selectedMuscle, viewMode, activeQuickFilter, trendPeriod, matchesTarget]);
+
+  const trendDataWithEma = useMemo(() => {
+    return addEmaSeries(trendData as any[], 'sets', 'emaSets', {
+      halfLifeDays: DEFAULT_EMA_HALF_LIFE_DAYS,
+      timestampKey: 'timestamp',
+    });
+  }, [trendData]);
 
   // Volume delta calculation - compare current vs previous period
   const volumeDelta = useMemo(() => {
@@ -878,7 +887,7 @@ export const MuscleAnalysis: React.FC<MuscleAnalysisProps> = ({ data, filtersSlo
                 {trendData.length > 0 ? (
                   <LazyRender className="w-full h-full" placeholder={<ChartSkeleton className="h-full" />}>
                     <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={trendData}>
+                      <AreaChart data={trendDataWithEma}>
                         <defs>
                           <linearGradient id="muscleColorGradient" x1="0" y1="0" x2="0" y2="1">
                             <stop offset="5%" stopColor="hsl(var(--heatmap-hue), 75%, 50%)" stopOpacity={0.4}/>
@@ -896,7 +905,10 @@ export const MuscleAnalysis: React.FC<MuscleAnalysisProps> = ({ data, filtersSlo
                         <RechartsTooltip
                           contentStyle={CHART_TOOLTIP_STYLE}
                           labelStyle={{ color: 'var(--text-primary)' }}
-                          formatter={(value: number) => [`${value} sets`, '']}
+                          formatter={(value: number, name: string) => {
+                            const v = formatNumber(Number(value), { maxDecimals: 1 });
+                            return [`${v} sets`, ''];
+                          }}
                         />
                         <Area
                           type="monotone"
@@ -904,6 +916,18 @@ export const MuscleAnalysis: React.FC<MuscleAnalysisProps> = ({ data, filtersSlo
                           stroke="hsl(var(--heatmap-hue), 75%, 50%)"
                           strokeWidth={2}
                           fill="url(#muscleColorGradient)"
+                        />
+
+                        <Area
+                          type="monotone"
+                          dataKey="emaSets"
+                          name="EMA"
+                          stroke="hsl(var(--heatmap-hue), 75%, 50%)"
+                          strokeOpacity={0.95}
+                          strokeWidth={2}
+                          strokeDasharray="6 4"
+                          fillOpacity={0}
+                          fill="transparent"
                         />
                       </AreaChart>
                     </ResponsiveContainer>

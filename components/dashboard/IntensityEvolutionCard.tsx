@@ -1,12 +1,12 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { AreaChart as AreaChartIcon, ChartColumnStacked, Infinity, Layers } from 'lucide-react';
 import {
   Area,
-  AreaChart,
   Bar,
-  BarChart,
   CartesianGrid,
+  ComposedChart,
   Legend,
+  Line,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -25,7 +25,8 @@ import {
 } from './ChartBits';
 import { LazyRender } from '../LazyRender';
 import { ChartSkeleton } from '../ChartSkeleton';
-import { formatSignedNumber } from '../../utils/format/formatters';
+import { formatNumber, formatSignedNumber } from '../../utils/format/formatters';
+import { addEmaSeries, DEFAULT_EMA_HALF_LIFE_DAYS } from '../../utils/analysis/ema';
 
 type IntensityView = 'area' | 'stackedBar';
 
@@ -49,6 +50,40 @@ export const IntensityEvolutionCard = ({
   tooltipStyle: Record<string, unknown>;
 }) => {
   const formatSigned = (n: number) => formatSignedNumber(n, { maxDecimals: 2 });
+
+  const baseData = useMemo(() => {
+    if (!Array.isArray(intensityData)) return [];
+    return intensityData.map((d: any) => {
+      const s = Number(d?.Strength ?? 0);
+      const h = Number(d?.Hypertrophy ?? 0);
+      const e = Number(d?.Endurance ?? 0);
+      return { ...d, Strength: s, Hypertrophy: h, Endurance: e, total: s + h + e };
+    });
+  }, [intensityData]);
+
+  const chartData = useMemo(() => {
+    const withStrength = addEmaSeries(baseData, 'Strength', 'emaStrength', {
+      halfLifeDays: DEFAULT_EMA_HALF_LIFE_DAYS,
+      timestampKey: 'timestamp',
+    });
+    const withHyper = addEmaSeries(withStrength, 'Hypertrophy', 'emaHypertrophy', {
+      halfLifeDays: DEFAULT_EMA_HALF_LIFE_DAYS,
+      timestampKey: 'timestamp',
+    });
+    return addEmaSeries(withHyper, 'Endurance', 'emaEndurance', {
+      halfLifeDays: DEFAULT_EMA_HALF_LIFE_DAYS,
+      timestampKey: 'timestamp',
+    });
+  }, [baseData]);
+
+  const legendPayload = useMemo(() => {
+    // Only show primary series in legend (EMA lines are still visible as dashed overlays).
+    return [
+      { value: 'Strength (1-5)', type: 'line', color: '#3b82f6', id: 'Strength' },
+      { value: 'Hypertrophy (6-12)', type: 'line', color: '#10b981', id: 'Hypertrophy' },
+      { value: 'Endurance (13+)', type: 'line', color: '#a855f7', id: 'Endurance' },
+    ] as any[];
+  }, []);
 
   return (
     <div className="bg-black/70 border border-slate-700/50 p-4 sm:p-6 rounded-xl shadow-lg min-h-[400px] sm:min-h-[480px] flex flex-col transition-all duration-300 hover:shadow-xl">
@@ -124,8 +159,7 @@ export const IntensityEvolutionCard = ({
         >
           <LazyRender className="w-full" placeholder={<ChartSkeleton style={{ height: 250 }} />}>
             <ResponsiveContainer width="100%" height={250}>
-              {view === 'area' ? (
-                <AreaChart key="area" data={intensityData} margin={{ left: -20, right: 10, top: 10, bottom: 0 }}>
+              <ComposedChart key={view} data={chartData} margin={{ left: -20, right: 10, top: 10, bottom: 0 }}>
                   <defs>
                     <linearGradient id="gStrength" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8} />
@@ -143,24 +177,70 @@ export const IntensityEvolutionCard = ({
                   <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
                   <XAxis dataKey="dateFormatted" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
                   <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
-                  <Tooltip contentStyle={tooltipStyle as any} />
-                  <Legend wrapperStyle={{ fontSize: '11px' }} />
-                  <Area type="monotone" dataKey="Strength" name="Strength (1-5)" stackId="1" stroke="#3b82f6" fill="url(#gStrength)" animationDuration={1500} />
-                  <Area type="monotone" dataKey="Hypertrophy" name="Hypertrophy (6-12)" stackId="1" stroke="#10b981" fill="url(#gHyper)" animationDuration={1500} />
-                  <Area type="monotone" dataKey="Endurance" name="Endurance (13+)" stackId="1" stroke="#a855f7" fill="url(#gEndure)" animationDuration={1500} />
-                </AreaChart>
-              ) : (
-                <BarChart key="bar" data={intensityData} margin={{ left: -20, right: 10, top: 10, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
-                  <XAxis dataKey="dateFormatted" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
-                  <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
-                  <Tooltip contentStyle={tooltipStyle as any} cursor={{ fill: 'rgb(var(--overlay-rgb) / 0.12)' }} />
-                  <Legend wrapperStyle={{ fontSize: '11px' }} />
-                  <Bar dataKey="Strength" name="Strength (1-5)" stackId="1" fill="#3b82f6" radius={[0, 0, 0, 0]} animationDuration={1500} />
-                  <Bar dataKey="Hypertrophy" name="Hypertrophy (6-12)" stackId="1" fill="#10b981" radius={[0, 0, 0, 0]} animationDuration={1500} />
-                  <Bar dataKey="Endurance" name="Endurance (13+)" stackId="1" fill="#a855f7" radius={[8, 8, 0, 0]} animationDuration={1500} />
-                </BarChart>
-              )}
+                  <Tooltip
+                    contentStyle={tooltipStyle as any}
+                    formatter={(val: number, name) => {
+                      if (name === 'Strength EMA') return [formatNumber(Number(val), { maxDecimals: 1 }), 'Strength EMA'];
+                      if (name === 'Hypertrophy EMA') return [formatNumber(Number(val), { maxDecimals: 1 }), 'Hypertrophy EMA'];
+                      if (name === 'Endurance EMA') return [formatNumber(Number(val), { maxDecimals: 1 }), 'Endurance EMA'];
+                      return [formatNumber(Number(val), { maxDecimals: 0 }), name];
+                    }}
+                  />
+                  <Legend wrapperStyle={{ fontSize: '11px' }} payload={legendPayload as any} />
+
+                  {view === 'area' ? (
+                    <>
+                      <Area type="monotone" dataKey="Strength" name="Strength (1-5)" stackId="1" stroke="#3b82f6" fill="url(#gStrength)" animationDuration={1500} />
+                      <Area type="monotone" dataKey="Hypertrophy" name="Hypertrophy (6-12)" stackId="1" stroke="#10b981" fill="url(#gHyper)" animationDuration={1500} />
+                      <Area type="monotone" dataKey="Endurance" name="Endurance (13+)" stackId="1" stroke="#a855f7" fill="url(#gEndure)" animationDuration={1500} />
+                    </>
+                  ) : (
+                    <>
+                      <Bar dataKey="Strength" name="Strength (1-5)" stackId="1" fill="#3b82f6" radius={[0, 0, 0, 0]} animationDuration={1500} />
+                      <Bar dataKey="Hypertrophy" name="Hypertrophy (6-12)" stackId="1" fill="#10b981" radius={[0, 0, 0, 0]} animationDuration={1500} />
+                      <Bar dataKey="Endurance" name="Endurance (13+)" stackId="1" fill="#a855f7" radius={[8, 8, 0, 0]} animationDuration={1500} />
+                    </>
+                  )}
+
+                  <Line
+                    type="monotone"
+                    dataKey="emaStrength"
+                    name="Strength EMA"
+                    stroke="#3b82f6"
+                    strokeOpacity={0.95}
+                    strokeWidth={2.25}
+                    strokeDasharray="6 4"
+                    dot={false}
+                    activeDot={{ r: 4, strokeWidth: 0 }}
+                    animationDuration={1500}
+                  />
+
+                  <Line
+                    type="monotone"
+                    dataKey="emaHypertrophy"
+                    name="Hypertrophy EMA"
+                    stroke="#10b981"
+                    strokeOpacity={0.95}
+                    strokeWidth={2.25}
+                    strokeDasharray="6 4"
+                    dot={false}
+                    activeDot={{ r: 4, strokeWidth: 0 }}
+                    animationDuration={1500}
+                  />
+
+                  <Line
+                    type="monotone"
+                    dataKey="emaEndurance"
+                    name="Endurance EMA"
+                    stroke="#a855f7"
+                    strokeOpacity={0.95}
+                    strokeWidth={2.25}
+                    strokeDasharray="6 4"
+                    dot={false}
+                    activeDot={{ r: 4, strokeWidth: 0 }}
+                    animationDuration={1500}
+                  />
+                </ComposedChart>
             </ResponsiveContainer>
           </LazyRender>
         </div>

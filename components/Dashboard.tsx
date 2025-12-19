@@ -379,6 +379,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
             const totalSets = w.setSum;
             const volumePerSetKg = totalSets > 0 ? totalVol / totalSets : 0;
             return {
+              timestamp: w.timestamp,
               dateFormatted: formatWeekContraction(new Date(w.timestamp)),
               tooltipLabel: `wk of ${formatDayYearContraction(new Date(w.timestamp))}${isCurrent ? ' (to date)' : ''}`,
               totalVolume: getDisplayVolume(totalVol, weightUnit, { round: 'int' }),
@@ -405,6 +406,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
             const totalVol = m.volSum;
             const totalSets = m.setSum;
             return {
+              timestamp: m.timestamp,
               dateFormatted: formatMonthYearContraction(new Date(m.timestamp)),
               tooltipLabel: `${format(new Date(m.timestamp), 'MMMM yyyy')}${isCurrent ? ' (to date)' : ''}`,
               totalVolume: getDisplayVolume(totalVol, weightUnit, { round: 'int' }),
@@ -768,22 +770,22 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
         now={effectiveNow}
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 sm:gap-2">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 sm:gap-2">
         
-        {/* 2. PR TRENDS (Area/Bar) */}
-        <Suspense fallback={<ChartSkeleton className="min-h-[400px] sm:min-h-[480px]" />}>
-          <PrTrendCard
-            isMounted={isMounted}
-            mode={chartModes.prTrend}
-            onToggle={(m) => toggleChartMode('prTrend', m)}
-            view={prTrendView}
-            onViewToggle={setPrTrendView}
-            prsData={prsData}
-            tooltipStyle={TooltipStyle as any}
-            prTrendDelta={prTrendDelta}
-            prTrendDelta7d={prTrendDelta7d}
-          />
-        </Suspense>
+          {/* 2. PR TRENDS (Area/Bar) */}
+          <Suspense fallback={<ChartSkeleton className="min-h-[400px] sm:min-h-[480px]" />}>
+            <PrTrendCard
+              isMounted={isMounted}
+              mode={chartModes.prTrend}
+              onToggle={(m) => toggleChartMode('prTrend', m)}
+              view={prTrendView}
+              onViewToggle={setPrTrendView}
+              prsData={prsData}
+              tooltipStyle={TooltipStyle as any}
+              prTrendDelta={prTrendDelta}
+              prTrendDelta7d={prTrendDelta7d}
+            />
+          </Suspense>
 
         {/* 3. WEEKLY SETS (Radar/Heatmap) */}
         <Suspense fallback={<ChartSkeleton className="min-h-[400px] sm:min-h-[480px]" />}>
