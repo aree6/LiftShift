@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="public/UI/logo.svg" alt="LiftShift Logo" width="200" height="200" />
+  <img src="UI/logo.svg" alt="LiftShift Logo" width="200" height="200" />
 </div>
 
 
