@@ -761,7 +761,7 @@ const App: React.FC = () => {
               {/* Top Row: Logo and Nav Buttons */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-                  <img src="public/UI/LiftShiftLogo3.png" alt="LiftShift Logo" className="w-7 h-7 sm:w-8 sm:h-8" decoding="async" />
+                  <img src="public/UI/logo.svg" alt="LiftShift Logo" className="w-7 h-7 sm:w-8 sm:h-8" decoding="async" />
                   <div className="flex items-center gap-3 min-w-0">
                     <span
                       className="font-bold text-lg sm:text-xl tracking-tight inline-flex items-start whitespace-nowrap"
