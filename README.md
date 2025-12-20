@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="public/UI/LiftShitLogo.png" alt="LiftShift Logo" width="200" height="200" />
+  <img src="public/UI/LiftShitLogo2.png" alt="LiftShift Logo" width="200" height="200" />
 </div>
 
 
@@ -73,18 +73,6 @@ This project is licensed under the **GNU Affero General Public License v3.0 (AGP
 - **Full license text (online):** https://www.gnu.org/licenses/agpl-3.0.txt
 
 If you run a modified version for users to interact with over a network, the AGPL requires making the **Corresponding Source** for the running version available to those users (see AGPL §13).
-
-## Trademark & Branding
-
-The AGPL covers copyright licensing. It does **not** grant rights under trademark law.
-
-The following are protected brand identifiers of the LiftShift project maintainers:
-
-- **Name:** LiftShift
-- **Logos / brand assets:** including `LiftShift.png` and related marks
-- **Official domain and branding:** https://liftshift.app
-
-You may use, modify, and redistribute the software under the AGPL. You may **not** use LiftShift branding in a way that implies endorsement, affiliation, or that your fork is the official deployment.
 
 
 ## Attribution Requirement
