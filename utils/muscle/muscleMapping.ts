@@ -5,12 +5,15 @@ import {
   INTERACTIVE_MUSCLE_IDS,
   FULL_BODY_TARGET_GROUPS,
 } from './muscleMappingConstants';
+import { createExerciseNameResolver, type ExerciseNameResolver } from '../exercise/exerciseNameResolver';
 
 /**
  * Maps CSV muscle names (from exercise data) to SVG muscle element IDs.
  * Used to highlight the correct body parts on the interactive body map.
+ * Supports both generic names (Chest, Biceps) and anatomical names (deltoid_anterior, latissimus_dorsi).
  */
 export const CSV_TO_SVG_MUSCLE_MAP: Record<string, string[]> = {
+  // Generic muscle names (from original Hevy data)
   'Abdominals': ['lower-abdominals', 'upper-abdominals'],
   'Abductors': ['gluteus-medius'],
   'Adductors': ['inner-thigh'],
@@ -29,6 +32,69 @@ export const CSV_TO_SVG_MUSCLE_MAP: Record<string, string[]> = {
   'Triceps': ['medial-head-triceps', 'long-head-triceps', 'lateral-head-triceps'],
   'Upper Back': ['lats', 'upper-trapezius', 'lower-trapezius', 'traps-middle', 'posterior-deltoid'],
   'Obliques': ['obliques'],
+  
+  // Anatomical muscle names (from Lyfta/detailed datasets)
+  // Chest
+  'chest_clavicular_head': ['upper-pectoralis'],
+  'chest_sternal_head': ['mid-lower-pectoralis'],
+  'pectoralis_major': ['mid-lower-pectoralis', 'upper-pectoralis'],
+  'pectoralis_minor': ['mid-lower-pectoralis'],
+  
+  // Shoulders / Deltoids
+  'deltoid_anterior': ['anterior-deltoid'],
+  'deltoid_lateral': ['lateral-deltoid'],
+  'deltoid_posterior': ['posterior-deltoid'],
+  'deltoids': ['anterior-deltoid', 'lateral-deltoid', 'posterior-deltoid'],
+  'anterior_deltoid': ['anterior-deltoid'],
+  'lateral_deltoid': ['lateral-deltoid'],
+  'posterior_deltoid': ['posterior-deltoid'],
+  
+  // Arms
+  'biceps_brachii': ['long-head-bicep', 'short-head-bicep'],
+  'triceps_brachii': ['medial-head-triceps', 'long-head-triceps', 'lateral-head-triceps'],
+  'brachialis': ['long-head-bicep', 'short-head-bicep'],
+  'brachioradialis': ['wrist-flexors'],
+  
+  // Back
+  'latissimus_dorsi': ['lats'],
+  'trapezius': ['upper-trapezius', 'lower-trapezius', 'traps-middle'],
+  'rhomboid_major': ['traps-middle'],
+  'rhomboid_minor': ['traps-middle'],
+  'rhomboids': ['traps-middle'],
+  'infraspinatus': ['posterior-deltoid'],
+  'supraspinatus': ['posterior-deltoid'],
+  'teres_major': ['lats'],
+  'teres_minor': ['posterior-deltoid'],
+  'erector_spinae': ['lowerback'],
+  
+  // Legs
+  'gluteus_maximus': ['gluteus-maximus'],
+  'gluteus_medius': ['gluteus-medius'],
+  'gluteus_minimus': ['gluteus-medius'],
+  'rectus_femoris': ['rectus-femoris'],
+  'vastus_lateralis': ['outer-quadricep'],
+  'vastus_medialis': ['inner-quadricep'],
+  'vastus_intermedius': ['rectus-femoris'],
+  'biceps_femoris': ['lateral-hamstrings'],
+  'semitendinosus': ['medial-hamstrings'],
+  'semimembranosus': ['medial-hamstrings'],
+  'gastrocnemius': ['gastrocnemius'],
+  'soleus': ['soleus'],
+  'tibialis_anterior': ['tibialis'],
+  'hip_adductors': ['inner-thigh'],
+  'hip_abductors': ['gluteus-medius'],
+  'sartorius': ['inner-quadricep'],
+  'gracilis': ['inner-thigh'],
+  'iliopsoas': ['lower-abdominals'],
+  'psoas': ['lower-abdominals'],
+  
+  // Core
+  'rectus_abdominis': ['lower-abdominals', 'upper-abdominals'],
+  'transverse_abdominis': ['lower-abdominals'],
+  'transversus_abdominis': ['lower-abdominals'],
+  'internal_oblique': ['obliques'],
+  'external_oblique': ['obliques'],
+  'serratus_anterior': ['obliques'],
 };
 
 const CSV_TO_SVG_MUSCLE_MAP_LOWER: Record<string, string[]> = Object.fromEntries(
@@ -209,6 +275,46 @@ export const loadExerciseMuscleData = async (): Promise<Map<string, ExerciseMusc
   }
 };
 
+// Cached resolver for fuzzy exercise name matching
+let exerciseResolverCache: ExerciseNameResolver | null = null;
+let exerciseResolverRef: Map<string, ExerciseMuscleData> | null = null;
+
+const getExerciseResolver = (muscleData: Map<string, ExerciseMuscleData>): ExerciseNameResolver => {
+  if (exerciseResolverRef === muscleData && exerciseResolverCache) {
+    return exerciseResolverCache;
+  }
+  // Create resolver from the canonical names (values, not keys which are lowercased)
+  const canonicalNames = Array.from(muscleData.values()).map(d => d.name);
+  exerciseResolverCache = createExerciseNameResolver(canonicalNames);
+  exerciseResolverRef = muscleData;
+  return exerciseResolverCache;
+};
+
+/**
+ * Look up exercise muscle data with fuzzy name matching.
+ * This handles variations in exercise names from different CSV sources.
+ */
+export const lookupExerciseMuscleData = (
+  exerciseTitle: string,
+  muscleData: Map<string, ExerciseMuscleData>
+): ExerciseMuscleData | undefined => {
+  if (!exerciseTitle) return undefined;
+  
+  // Try exact lowercase match first (fast path)
+  const exactMatch = muscleData.get(exerciseTitle.toLowerCase());
+  if (exactMatch) return exactMatch;
+  
+  // Use fuzzy resolver for non-exact matches
+  const resolver = getExerciseResolver(muscleData);
+  const resolution = resolver.resolve(exerciseTitle);
+  
+  if (resolution.method !== 'none' && resolution.name) {
+    return muscleData.get(resolution.name.toLowerCase());
+  }
+  
+  return undefined;
+};
+
 function parseCSVLine(line: string): string[] {
   const result: string[] = [];
   let current = '';
@@ -263,7 +369,8 @@ export const calculateMuscleVolume = async (
   for (const set of data) {
     if (!set.exercise_title || !set.parsedDate) continue;
     
-    const exerciseData = exerciseMuscleData.get(set.exercise_title.toLowerCase());
+    // Use fuzzy lookup for better matching across different CSV sources
+    const exerciseData = lookupExerciseMuscleData(set.exercise_title, exerciseMuscleData);
     if (!exerciseData) continue;
     
     const primaryMuscle = exerciseData.primary_muscle;
@@ -400,20 +507,38 @@ export const getExerciseMuscleVolumes = (
     return { volumes, maxVolume: 1 };
   }
   
-  const primary = exerciseData.primary_muscle;
-  const secondaries = String(exerciseData.secondary_muscle ?? '')
+  // Parse primary muscles (may be comma-separated, e.g., "biceps, brachialis")
+  const primaries = String(exerciseData.primary_muscle ?? '')
     .split(',')
     .map(m => m.trim())
     .filter(m => m && m.toLowerCase() !== 'none');
-  const primaryKey = String(primary ?? '').trim().toLowerCase();
+  
+  // Parse secondary muscles
+  let secondaries = String(exerciseData.secondary_muscle ?? '')
+    .split(',')
+    .map(m => m.trim())
+    .filter(m => m && m.toLowerCase() !== 'none');
+
+  // Handle case where primary is empty but secondary has muscles
+  // This is common in anatomical datasets where all muscles are listed together
+  if (primaries.length === 0 && secondaries.length > 0) {
+    // Use first secondary as primary, rest as secondary
+    primaries.push(secondaries[0]);
+    secondaries = secondaries.slice(1);
+  }
+
+  // Skip if no muscles at all
+  if (primaries.length === 0) {
+    return { volumes, maxVolume: 1 };
+  }
 
   // Skip Cardio entirely
-  if (primaryKey === 'cardio') {
+  if (primaries.some(p => p.toLowerCase() === 'cardio')) {
     return { volumes, maxVolume: 1 };
   }
 
   // Handle Full Body - add 1 set to every muscle group
-  if (primaryKey === 'full body' || primaryKey === 'full-body') {
+  if (primaries.some(p => /^full[\s-]*body$/i.test(p))) {
     for (const muscleName of FULL_BODY_MUSCLES) {
       const svgIds = CSV_TO_SVG_MUSCLE_MAP[muscleName] || [];
       for (const svgId of svgIds) {
@@ -423,10 +548,13 @@ export const getExerciseMuscleVolumes = (
     return { volumes, maxVolume: 1 };
   }
   
-  // Primary muscle gets 1
-  const primarySvgIds = CSV_TO_SVG_MUSCLE_MAP_LOWER[primaryKey] || [];
-  for (const svgId of primarySvgIds) {
-    volumes.set(svgId, 1);
+  // Primary muscles get 1
+  for (const primary of primaries) {
+    const primaryKey = primary.toLowerCase();
+    const primarySvgIds = CSV_TO_SVG_MUSCLE_MAP_LOWER[primaryKey] || [];
+    for (const svgId of primarySvgIds) {
+      volumes.set(svgId, 1);
+    }
   }
   
   // Secondary muscles get 0.5

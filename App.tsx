@@ -42,6 +42,8 @@ import { CsvLoadingAnimation } from './components/CsvLoadingAnimation';
 import { DataSourceModal } from './components/DataSourceModal';
 import { LandingPage } from './components/LandingPage';
 import { HevyLoginModal } from './components/HevyLoginModal';
+import { LyfataLoginModal } from './components/LyfataLoginModal';
+import { LyftaMethodModal } from './components/LyftaMethodModal';
 import type { DataSourceChoice } from './utils/dataSources/types';
 import {
   getDataSourceChoice,
@@ -50,6 +52,9 @@ import {
   getHevyAuthToken,
   saveHevyAuthToken,
   clearHevyAuthToken,
+  getLyfataApiKey,
+  saveLyfataApiKey,
+  clearLyfataApiKey,
   getLastCsvPlatform,
   saveLastCsvPlatform,
   clearLastCsvPlatform,
@@ -58,6 +63,7 @@ import {
   clearSetupComplete,
 } from './utils/storage/dataSourceStorage';
 import { hevyBackendGetAccount, hevyBackendGetSets, hevyBackendLogin } from './utils/api/hevyBackend';
+import { lyfatBackendGetSets } from './utils/api/lyfataBackend';
 import { parseHevyDateString } from './utils/date/parseHevyDateString';
 import { useTheme } from './components/ThemeProvider';
 
@@ -70,7 +76,7 @@ enum Tab {
 }
 
 type OnboardingIntent = 'initial' | 'update';
-type OnboardingStep = 'platform' | 'strong_csv' | 'lyfta_csv' | 'hevy_prefs' | 'hevy_login' | 'hevy_csv';
+type OnboardingStep = 'platform' | 'strong_csv' | 'lyfta_csv' | 'lyfta_prefs' | 'lyfta_login' | 'hevy_prefs' | 'hevy_login' | 'hevy_csv';
 
 type OnboardingFlow = {
   intent: OnboardingIntent;
@@ -90,10 +96,11 @@ const App: React.FC = () => {
   });
   const [dataSource, setDataSource] = useState<DataSourceChoice | null>(() => getDataSourceChoice());
   const [hevyLoginError, setHevyLoginError] = useState<string | null>(null);
+  const [lyfatLoginError, setLyfatLoginError] = useState<string | null>(null);
   const [csvImportError, setCsvImportError] = useState<string | null>(null);
   const [highlightedExercise, setHighlightedExercise] = useState<string | null>(null);
   const [initialMuscleForAnalysis, setInitialMuscleForAnalysis] = useState<{ muscleId: string; viewMode: 'muscle' | 'group' } | null>(null);
-  const [loadingKind, setLoadingKind] = useState<'hevy' | 'csv' | null>(null);
+  const [loadingKind, setLoadingKind] = useState<'hevy' | 'lyfta' | 'csv' | null>(null);
 
   // Loading State
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -146,6 +153,20 @@ const App: React.FC = () => {
     return 'Failed to fetch Hevy data. Please try again.';
   };
 
+  const getLyfatErrorMessage = (err: unknown): string => {
+    if (err instanceof Error && err.message) {
+      const msg = err.message;
+      if (msg.toLowerCase().includes('401') || msg.toLowerCase().includes('unauthorized') || msg.toLowerCase().includes('invalid')) {
+        return 'Invalid API key. Please check your Lyfta API key and try again.';
+      }
+      if (msg.toLowerCase().includes('load failed') || msg.toLowerCase().includes('failed to fetch')) {
+        return `Network error: ${msg}. This is often caused by content blockers, VPNs, or network issues. Try disabling ad blockers or switching browsers.`;
+      }
+      return msg;
+    }
+    return 'Failed to fetch Lyfta data. Please try again.';
+  };
+
   useEffect(() => {
     const el = mainRef.current;
     if (!el) return;
@@ -182,6 +203,7 @@ const App: React.FC = () => {
   const clearCacheAndRestart = useCallback(() => {
     clearCSVData();
     clearHevyAuthToken();
+    clearLyfataApiKey();
     clearDataSourceChoice();
     clearLastCsvPlatform();
     clearSetupComplete();
@@ -374,6 +396,41 @@ const App: React.FC = () => {
             finishProgress(startedAt);
           });
       }, 0);
+      return;
+    }
+
+    // Check for Lyfta API key
+    const lyfatApiKey = getLyfataApiKey();
+    if (lyfatApiKey) {
+      setLoadingKind('lyfta');
+      setIsAnalyzing(true);
+      setLoadingStep(0);
+      const startedAt = startProgress();
+      Promise.resolve()
+        .then(() => {
+          setLoadingStep(1);
+          return lyfatBackendGetSets<WorkoutSet>(lyfatApiKey);
+        })
+        .then((resp) => {
+          setLoadingStep(2);
+          const hydrated = (resp.sets ?? []).map((s) => ({
+            ...s,
+            parsedDate: s.parsedDate instanceof Date ? s.parsedDate : new Date(s.parsedDate || ''),
+          }));
+          const enriched = identifyPersonalRecords(hydrated);
+          setParsedData(enriched);
+          setLyfatLoginError(null);
+          setCsvImportError(null);
+        })
+        .catch((err) => {
+          clearLyfataApiKey();
+          saveSetupComplete(false);
+          setLyfatLoginError(getHevyErrorMessage(err));
+          setOnboarding({ intent: 'initial', step: 'platform' });
+        })
+        .finally(() => {
+          finishProgress(startedAt);
+        });
       return;
     }
 
@@ -625,12 +682,13 @@ const App: React.FC = () => {
   const handleOpenUpdateFlow = () => {
     setCsvImportError(null);
     setHevyLoginError(null);
+    setLyfatLoginError(null);
     if (dataSource === 'strong') {
       setOnboarding({ intent: 'update', step: 'strong_csv', platform: 'strong' });
       return;
     }
     if (dataSource === 'lyfta') {
-      setOnboarding({ intent: 'update', step: 'lyfta_csv', platform: 'lyfta' });
+      setOnboarding({ intent: 'update', step: 'lyfta_prefs', platform: 'lyfta' });
       return;
     }
     if (dataSource === 'hevy') {
@@ -711,6 +769,67 @@ const App: React.FC = () => {
       })
       .catch((err) => {
         setHevyLoginError(getHevyErrorMessage(err));
+      })
+      .finally(() => {
+        finishProgress(startedAt);
+      });
+  };
+
+  const handleLyfatSyncSaved = () => {
+    const apiKey = getLyfataApiKey();
+    if (!apiKey) return;
+
+    setLyfatLoginError(null);
+    setLoadingKind('lyfta');
+    setIsAnalyzing(true);
+    setLoadingStep(0);
+    const startedAt = startProgress();
+
+    lyfatBackendGetSets<WorkoutSet>(apiKey)
+      .then((resp) => {
+        setLoadingStep(2);
+        const hydrated = (resp.sets ?? []).map((s) => ({
+          ...s,
+          parsedDate: s.parsedDate instanceof Date ? s.parsedDate : new Date(s.parsedDate || ''),
+        }));
+        const enriched = identifyPersonalRecords(hydrated);
+        setParsedData(enriched);
+        setDataSource('lyfta');
+        saveSetupComplete(true);
+        setOnboarding(null);
+      })
+      .catch((err) => {
+        clearLyfataApiKey();
+        setLyfatLoginError(getLyfatErrorMessage(err));
+      })
+      .finally(() => {
+        finishProgress(startedAt);
+      });
+  };
+
+  const handleLyfatLogin = (apiKey: string) => {
+    setLyfatLoginError(null);
+    setLoadingKind('lyfta');
+    setIsAnalyzing(true);
+    setLoadingStep(0);
+    const startedAt = startProgress();
+
+    lyfatBackendGetSets<WorkoutSet>(apiKey)
+      .then((resp) => {
+        setLoadingStep(2);
+        saveLyfataApiKey(apiKey);
+        const hydrated = (resp.sets ?? []).map((s) => ({
+          ...s,
+          parsedDate: s.parsedDate instanceof Date ? s.parsedDate : new Date(s.parsedDate || ''),
+        }));
+        const enriched = identifyPersonalRecords(hydrated);
+        setParsedData(enriched);
+        setDataSource('lyfta');
+        saveSetupComplete(true);
+        setOnboarding(null);
+      })
+      .catch((err) => {
+        setLyfatLoginError(getLyfatErrorMessage(err));
       })
       .finally(() => {
         finishProgress(startedAt);
@@ -1031,12 +1150,13 @@ const App: React.FC = () => {
           onSelectPlatform={(source) => {
             setCsvImportError(null);
             setHevyLoginError(null);
+            setLyfatLoginError(null);
             if (source === 'strong') {
               setOnboarding({ intent: onboarding.intent, step: 'strong_csv', platform: 'strong' });
               return;
             }
             if (source === 'lyfta') {
-              setOnboarding({ intent: onboarding.intent, step: 'lyfta_csv', platform: 'lyfta' });
+              setOnboarding({ intent: onboarding.intent, step: 'lyfta_prefs', platform: 'lyfta' });
               return;
             }
             setOnboarding({ intent: onboarding.intent, step: 'hevy_prefs', platform: 'hevy' });
@@ -1051,12 +1171,13 @@ const App: React.FC = () => {
           onSelect={(source) => {
             setCsvImportError(null);
             setHevyLoginError(null);
+            setLyfatLoginError(null);
             if (source === 'strong') {
               setOnboarding({ intent: onboarding.intent, step: 'strong_csv', platform: 'strong' });
               return;
             }
             if (source === 'lyfta') {
-              setOnboarding({ intent: onboarding.intent, step: 'lyfta_csv', platform: 'lyfta' });
+              setOnboarding({ intent: onboarding.intent, step: 'lyfta_prefs', platform: 'lyfta' });
               return;
             }
             setOnboarding({ intent: onboarding.intent, step: 'hevy_prefs', platform: 'hevy' });
@@ -1095,6 +1216,29 @@ const App: React.FC = () => {
         />
       ) : null}
 
+      {onboarding?.step === 'lyfta_prefs' ? (
+        <LyftaMethodModal
+          intent={onboarding.intent}
+          hasSavedSession={Boolean(getLyfataApiKey()) && getPreferencesConfirmed()}
+          onSelect={(method) => {
+            if (method === 'saved') {
+              handleLyfatSyncSaved();
+            } else if (method === 'login') {
+              setOnboarding({ intent: onboarding.intent, step: 'lyfta_login', platform: 'lyfta' });
+            } else if (method === 'csv') {
+              setOnboarding({ intent: onboarding.intent, step: 'lyfta_csv', platform: 'lyfta' });
+            }
+          }}
+          onBack={() => setOnboarding({ intent: onboarding.intent, step: 'platform' })}
+          onClose={
+            onboarding.intent === 'update'
+              ? () => setOnboarding(null)
+              : undefined
+          }
+          onClearCache={clearCacheAndRestart}
+        />
+      ) : null}
+
       {onboarding?.step === 'hevy_login' ? (
         <HevyLoginModal
           intent={onboarding.intent}
@@ -1110,6 +1254,30 @@ const App: React.FC = () => {
             onboarding.intent === 'initial'
               ? () => setOnboarding({ intent: onboarding.intent, step: 'hevy_prefs', platform: 'hevy' })
               : () => setOnboarding({ intent: onboarding.intent, step: 'platform' })
+          }
+          onClose={
+            onboarding.intent === 'update'
+              ? () => setOnboarding(null)
+              : undefined
+          }
+        />
+      ) : null}
+
+      {onboarding?.step === 'lyfta_login' ? (
+        <LyfataLoginModal
+          intent={onboarding.intent}
+          errorMessage={lyfatLoginError}
+          isLoading={isAnalyzing}
+          onLogin={handleLyfatLogin}
+          loginLabel={onboarding.intent === 'initial' ? 'Continue' : 'Login with Lyfta'}
+          hasSavedSession={Boolean(getLyfataApiKey())}
+          onSyncSaved={handleLyfatSyncSaved}
+          onClearCache={clearCacheAndRestart}
+          onImportCsv={() => setOnboarding({ intent: onboarding.intent, step: 'lyfta_csv', platform: 'lyfta', backStep: 'lyfta_login' })}
+          onBack={
+            onboarding.intent === 'initial'
+              ? () => setOnboarding({ intent: onboarding.intent, step: 'lyfta_prefs', platform: 'lyfta' })
+              : () => setOnboarding({ intent: onboarding.intent, step: 'lyfta_prefs', platform: 'lyfta' })
           }
           onClose={
             onboarding.intent === 'update'
@@ -1168,11 +1336,10 @@ const App: React.FC = () => {
           onGenderChange={(g) => setBodyMapGender(g)}
           onUnitChange={(u) => setWeightUnit(u)}
           errorMessage={csvImportError}
-          onBack={
-            onboarding.intent === 'initial'
-              ? () => setOnboarding({ intent: onboarding.intent, step: 'platform' })
-              : () => setOnboarding({ intent: onboarding.intent, step: 'platform' })
-          }
+          onBack={() => {
+            const backStep = onboarding.backStep ?? 'lyfta_prefs';
+            setOnboarding({ intent: onboarding.intent, step: backStep, platform: 'lyfta' });
+          }}
           onClose={
             onboarding.intent === 'update'
               ? () => setOnboarding(null)

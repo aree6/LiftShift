@@ -10,6 +10,7 @@ import {
 import { ExerciseStats, ExerciseHistoryEntry } from '../types';
 import { CHART_TOOLTIP_STYLE, FANCY_FONT } from '../utils/ui/uiConstants';
 import { getExerciseAssets, ExerciseAsset } from '../utils/data/exerciseAssets';
+import { createExerciseAssetLookup, ExerciseAssetLookup } from '../utils/exercise/exerciseAssetLookup';
 import { getDateKey, TimePeriod, formatRelativeDay, formatDayContraction } from '../utils/date/dateUtils';
 import { BodyMap, BodyMapGender } from './BodyMap';
 import { LazyRender } from './LazyRender';
@@ -19,7 +20,8 @@ import {
   ExerciseMuscleData, 
   getExerciseMuscleVolumes,
   getVolumeColor,
-  SVG_MUSCLE_NAMES
+  SVG_MUSCLE_NAMES,
+  lookupExerciseMuscleData,
 } from '../utils/muscle/muscleMapping';
 import { WeightUnit, getSmartFilterMode, TimeFilterMode } from '../utils/storage/localStorage';
 import { convertWeight, getStandardWeightIncrementKg } from '../utils/format/units';
@@ -573,6 +575,12 @@ export const ExerciseView: React.FC<ExerciseViewProps> = ({ stats, filtersSlot, 
   const [viewModeOverride, setViewModeOverride] = useState<TimeFilterMode | null>(null);
   const [exerciseMuscleData, setExerciseMuscleData] = useState<Map<string, ExerciseMuscleData>>(new Map());
 
+  // Create fuzzy asset lookup that can resolve exercise name variations
+  const assetLookup = useMemo<ExerciseAssetLookup | null>(() => {
+    if (!assetsMap) return null;
+    return createExerciseAssetLookup(assetsMap);
+  }, [assetsMap]);
+
   // Selected exercise stats
   const selectedStats = useMemo(() => 
     stats.find(s => s.name === selectedExerciseName), 
@@ -659,7 +667,7 @@ export const ExerciseView: React.FC<ExerciseViewProps> = ({ stats, filtersSlot, 
   }, [stats]);
 
   const selectedExerciseMuscleInfo = useMemo(() => {
-    const exData = selectedStats ? exerciseMuscleData.get(selectedStats.name.toLowerCase()) : undefined;
+    const exData = selectedStats ? lookupExerciseMuscleData(selectedStats.name, exerciseMuscleData) : undefined;
     const { volumes, maxVolume } = getExerciseMuscleVolumes(exData);
 
     // Aggregate by display name (e.g. Chest has multiple SVG ids)
@@ -988,7 +996,8 @@ export const ExerciseView: React.FC<ExerciseViewProps> = ({ stats, filtersSlot, 
           {filteredExercises.map((ex) => {
             const status = statusMap[ex.name];
             const isSelected = selectedExerciseName === ex.name;
-            const asset = assetsMap?.get(ex.name);
+            // Use fuzzy asset lookup to handle exercise name variations
+            const asset = assetLookup?.getAsset(ex.name);
             const isEligible = trainingStructure.eligibilityByName.get(ex.name)?.isEligible ?? false;
             const subLabel = isEligible
               ? status.label
@@ -1130,8 +1139,9 @@ export const ExerciseView: React.FC<ExerciseViewProps> = ({ stats, filtersSlot, 
                   )}
                 </div>
 
-                {assetsMap && selectedStats && (() => {
-                  const a = assetsMap.get(selectedStats.name);
+                {assetLookup && selectedStats && (() => {
+                  // Use fuzzy asset lookup to handle exercise name variations
+                  const a = assetLookup.getAsset(selectedStats.name);
                   if (!a) return null;
 
                   const videoSrc = (a.sourceType === 'video' ? (a.video ?? a.source) : undefined) ?? undefined;

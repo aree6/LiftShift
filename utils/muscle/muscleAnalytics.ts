@@ -27,6 +27,7 @@ import { buildTimeSeries } from '../analysis/aggregators';
 import { format, startOfDay } from 'date-fns';
 import { getMuscleContributionsFromAsset } from './muscleContributions';
 import { isWarmupSet } from '../analysis/setClassification';
+import { createExerciseNameResolver, type ExerciseNameResolver } from '../exercise/exerciseNameResolver';
 import {
   getMuscleVolumeTimeSeriesRolling,
   getLatestRollingWeeklyVolume,
@@ -216,6 +217,10 @@ export const getDetailedMuscleCompositionLatest = (
 let cachedLowerMap: Map<string, ExerciseAsset> | null = null;
 let cachedAssetsMapRef: Map<string, ExerciseAsset> | null = null;
 
+/** Cached fuzzy resolver for exercise name matching */
+let cachedResolver: ExerciseNameResolver | null = null;
+let cachedResolverRef: Map<string, ExerciseAsset> | null = null;
+
 function getLowerMap(assetsMap: Map<string, ExerciseAsset>): Map<string, ExerciseAsset> {
   if (cachedAssetsMapRef === assetsMap && cachedLowerMap) return cachedLowerMap;
   
@@ -225,12 +230,43 @@ function getLowerMap(assetsMap: Map<string, ExerciseAsset>): Map<string, Exercis
   return cachedLowerMap;
 }
 
+function getResolver(assetsMap: Map<string, ExerciseAsset>): ExerciseNameResolver {
+  if (cachedResolverRef === assetsMap && cachedResolver) return cachedResolver;
+  
+  const names = Array.from(assetsMap.keys());
+  cachedResolver = createExerciseNameResolver(names);
+  cachedResolverRef = assetsMap;
+  return cachedResolver;
+}
+
+/**
+ * Look up an exercise asset with fuzzy name matching.
+ * This handles variations in exercise names from different CSV sources.
+ */
 function lookupAsset(
   name: string,
   assetsMap: Map<string, ExerciseAsset>,
   lowerMap: Map<string, ExerciseAsset>
 ): ExerciseAsset | undefined {
-  return assetsMap.get(name) ?? lowerMap.get(name.toLowerCase());
+  if (!name) return undefined;
+  
+  // Fast path: exact match
+  const exact = assetsMap.get(name);
+  if (exact) return exact;
+  
+  // Fast path: case-insensitive match
+  const lower = lowerMap.get(name.toLowerCase());
+  if (lower) return lower;
+  
+  // Fallback: fuzzy matching
+  const resolver = getResolver(assetsMap);
+  const resolution = resolver.resolve(name);
+  
+  if (resolution.method !== 'none' && resolution.name) {
+    return assetsMap.get(resolution.name) ?? lowerMap.get(resolution.name.toLowerCase());
+  }
+  
+  return undefined;
 }
 
 /**

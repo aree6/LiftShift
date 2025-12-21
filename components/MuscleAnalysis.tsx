@@ -11,6 +11,7 @@ import {
   MuscleVolumeEntry,
   getExerciseMuscleVolumes,
   getVolumeColor,
+  lookupExerciseMuscleData,
 } from '../utils/muscle/muscleMapping';
 import { getExerciseAssets, ExerciseAsset } from '../utils/data/exerciseAssets';
 import { format, startOfWeek, startOfMonth, subWeeks, subMonths, isWithinInterval } from 'date-fns';
@@ -167,7 +168,7 @@ export const MuscleAnalysis: React.FC<MuscleAnalysisProps> = ({ data, filtersSlo
 
     for (const set of data) {
       if (!set.exercise_title) continue;
-      const exData = exerciseMuscleData.get(set.exercise_title.toLowerCase());
+      const exData = lookupExerciseMuscleData(set.exercise_title, exerciseMuscleData);
       if (!exData) continue;
 
       const primaryGroup = normalizeMuscleGroup(exData.primary_muscle);
@@ -226,7 +227,7 @@ export const MuscleAnalysis: React.FC<MuscleAnalysisProps> = ({ data, filtersSlo
 
     for (const setRow of data) {
       if (!setRow.exercise_title) continue;
-      const exData = exerciseMuscleData.get(setRow.exercise_title.toLowerCase());
+      const exData = lookupExerciseMuscleData(setRow.exercise_title, exerciseMuscleData);
       if (!exData) continue;
 
       const primaryGroup = normalizeMuscleGroup(exData.primary_muscle);
@@ -291,7 +292,7 @@ export const MuscleAnalysis: React.FC<MuscleAnalysisProps> = ({ data, filtersSlo
 
     for (const setRow of data) {
       if (!setRow.exercise_title) continue;
-      const exData = exerciseMuscleData.get(setRow.exercise_title.toLowerCase());
+      const exData = lookupExerciseMuscleData(setRow.exercise_title, exerciseMuscleData);
       if (!exData) continue;
 
       const primaryGroup = normalizeMuscleGroup(exData.primary_muscle);
@@ -367,7 +368,7 @@ export const MuscleAnalysis: React.FC<MuscleAnalysisProps> = ({ data, filtersSlo
       
       for (const set of data) {
         if (!set.parsedDate || !set.exercise_title) continue;
-        const exData = exerciseMuscleData.get(set.exercise_title.toLowerCase());
+        const exData = lookupExerciseMuscleData(set.exercise_title, exerciseMuscleData);
         if (!exData) continue;
         
         const primaryMuscle = exData.primary_muscle;
@@ -417,7 +418,7 @@ export const MuscleAnalysis: React.FC<MuscleAnalysisProps> = ({ data, filtersSlo
     
     for (const set of data) {
       if (!set.parsedDate || !set.exercise_title) continue;
-      const exData = exerciseMuscleData.get(set.exercise_title.toLowerCase());
+      const exData = lookupExerciseMuscleData(set.exercise_title, exerciseMuscleData);
       if (!exData) continue;
       
       const primaryMuscle = exData.primary_muscle;
@@ -953,7 +954,7 @@ export const MuscleAnalysis: React.FC<MuscleAnalysisProps> = ({ data, filtersSlo
                   {contributingExercises.map((ex, i) => {
                     const asset = assetsMap?.get(ex.name);
                     const imgUrl = asset?.sourceType === 'video' ? asset.thumbnail : (asset?.thumbnail || asset?.source);
-                    const exData = exerciseMuscleData.get(ex.name.toLowerCase());
+                    const exData = lookupExerciseMuscleData(ex.name, exerciseMuscleData);
                     const { volumes: exVolumes, maxVolume: exMaxVol } = getExerciseMuscleVolumes(exData);
                     const totalSetsForCalc = quickFilterData
                       ? (quickFilterData.sets || 1)

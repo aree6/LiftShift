@@ -13,7 +13,8 @@ import {
   CSV_TO_SVG_MUSCLE_MAP,
   FULL_BODY_MUSCLES,
   getExerciseMuscleVolumes,
-  SVG_MUSCLE_NAMES
+  SVG_MUSCLE_NAMES,
+  lookupExerciseMuscleData,
 } from '../utils/muscle/muscleMapping';
 import { ViewHeader } from './ViewHeader';
 import { FANCY_FONT, TOOLTIP_THEMES, calculateCenteredTooltipPosition } from '../utils/ui/uiConstants';
@@ -85,7 +86,7 @@ const buildSessionMuscleHeatmap = (
   for (const set of sets) {
     if (!set.exercise_title) continue;
     if (isWarmupSet(set)) continue;
-    const ex = exerciseMuscleData.get(set.exercise_title.toLowerCase());
+    const ex = lookupExerciseMuscleData(set.exercise_title, exerciseMuscleData);
     if (!ex) continue;
 
     const primary = ex.primary_muscle;
@@ -1176,7 +1177,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ data, filtersSlot, wei
 
                         {/* Muscle Heat Map - Right Side */}
                         {(() => {
-                          const exData = exerciseMuscleData.get(group.exerciseName.toLowerCase());
+                          const exData = lookupExerciseMuscleData(group.exerciseName, exerciseMuscleData);
                           const { volumes, maxVolume } = buildExerciseMuscleHeatmap(group.sets, exData);
                           
                           // Aggregate by display name

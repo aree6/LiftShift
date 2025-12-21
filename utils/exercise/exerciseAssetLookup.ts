@@ -1,18 +1,19 @@
 import type { ExerciseAsset } from '../data/exerciseAssets';
 import {
-  createExerciseNameResolver,
-  ExerciseNameResolution,
-  ExerciseNameResolver,
-} from './exerciseNameResolver';
+  createFingerprintMatcher,
+  type MatchResult,
+} from './exerciseFingerprint';
 
 export interface ExerciseAssetLookup {
-  resolveName: (rawName: string) => ExerciseNameResolution;
+  resolveName: (rawName: string) => MatchResult;
   getAsset: (rawName: string) => ExerciseAsset | undefined;
 }
 
-let resolverCache: ExerciseNameResolver | null = null;
-let resolverRef: Map<string, ExerciseAsset> | null = null;
+// Cache for fingerprint matcher
+let matcherCache: ReturnType<typeof createFingerprintMatcher> | null = null;
+let matcherRef: Map<string, ExerciseAsset> | null = null;
 
+// Cache for lowercase lookups
 let lowerCache: Map<string, ExerciseAsset> | null = null;
 let lowerRef: Map<string, ExerciseAsset> | null = null;
 
@@ -25,22 +26,38 @@ const getLowerMap = (assetsMap: Map<string, ExerciseAsset>): Map<string, Exercis
   return m;
 };
 
-const getResolver = (assetsMap: Map<string, ExerciseAsset>): ExerciseNameResolver => {
-  if (resolverRef === assetsMap && resolverCache) return resolverCache;
-  resolverCache = createExerciseNameResolver(assetsMap.keys());
-  resolverRef = assetsMap;
-  return resolverCache;
+const getMatcher = (assetsMap: Map<string, ExerciseAsset>) => {
+  if (matcherRef === assetsMap && matcherCache) return matcherCache;
+  matcherCache = createFingerprintMatcher(Array.from(assetsMap.keys()));
+  matcherRef = assetsMap;
+  return matcherCache;
 };
 
 export const createExerciseAssetLookup = (assetsMap: Map<string, ExerciseAsset>): ExerciseAssetLookup => {
   const lower = getLowerMap(assetsMap);
-  const resolver = getResolver(assetsMap);
+  const matcher = getMatcher(assetsMap);
 
-  const resolveName = (rawName: string) => resolver.resolve(rawName);
+  const resolveName = (rawName: string): MatchResult => matcher.match(rawName);
 
   const getAsset = (rawName: string): ExerciseAsset | undefined => {
-    const resolved = resolver.resolve(rawName);
-    return assetsMap.get(resolved.name) ?? lower.get(resolved.name.toLowerCase());
+    // Fast path: exact match
+    if (assetsMap.has(rawName)) {
+      return assetsMap.get(rawName);
+    }
+    
+    // Fast path: case-insensitive match
+    const lowerAsset = lower.get(rawName.toLowerCase());
+    if (lowerAsset) {
+      return lowerAsset;
+    }
+    
+    // Use fingerprint matcher for fuzzy matching
+    const resolved = matcher.match(rawName);
+    if (resolved.method !== 'none' && resolved.name) {
+      return assetsMap.get(resolved.name) ?? lower.get(resolved.name.toLowerCase());
+    }
+    
+    return undefined;
   };
 
   return { resolveName, getAsset };

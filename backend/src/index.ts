@@ -3,7 +3,9 @@ import express from 'express';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 import { hevyGetAccount, hevyGetWorkoutsPaged, hevyLogin, hevyValidateAuthToken } from './hevyApi';
+import { lyfatGetAllWorkouts, lyfatValidateApiKey } from './lyfta';
 import { mapHevyWorkoutsToWorkoutSets } from './mapToWorkoutSets';
+import { mapLyfataWorkoutsToWorkoutSets } from './mapLyfataWorkoutsToWorkoutSets';
 
 const PORT = Number(process.env.PORT ?? 5000);
 const isProd = process.env.NODE_ENV === 'production';
@@ -170,6 +172,38 @@ app.get('/api/hevy/sets', async (req, res) => {
 
     const sets = mapHevyWorkoutsToWorkoutSets(allWorkouts);
     res.json({ sets, meta: { workouts: allWorkouts.length } });
+  } catch (err) {
+    const status = (err as any).statusCode ?? 500;
+    res.status(status).json({ error: (err as Error).message || 'Failed to fetch sets' });
+  }
+});
+
+// Lyfta API endpoints
+app.post('/api/lyfta/validate', loginLimiter, async (req, res) => {
+  const apiKey = String(req.body?.apiKey ?? '').trim();
+
+  if (!apiKey) {
+    return res.status(400).json({ error: 'Missing apiKey' });
+  }
+
+  try {
+    const valid = await lyfatValidateApiKey(apiKey);
+    res.json({ valid });
+  } catch (err) {
+    const status = (err as any).statusCode ?? 500;
+    res.status(status).json({ error: (err as Error).message || 'Validation failed' });
+  }
+});
+
+app.post('/api/lyfta/sets', async (req, res) => {
+  const apiKey = String(req.body?.apiKey ?? '').trim();
+
+  if (!apiKey) return res.status(400).json({ error: 'Missing apiKey' });
+
+  try {
+    const workouts = await lyfatGetAllWorkouts(apiKey);
+    const sets = mapLyfataWorkoutsToWorkoutSets(workouts);
+    res.json({ sets, meta: { workouts: workouts.length } });
   } catch (err) {
     const status = (err as any).statusCode ?? 500;
     res.status(status).json({ error: (err as Error).message || 'Failed to fetch sets' });
