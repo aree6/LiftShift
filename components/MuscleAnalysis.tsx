@@ -68,7 +68,7 @@ export const MuscleAnalysis: React.FC<MuscleAnalysisProps> = ({ data, filtersSlo
   const [muscleVolume, setMuscleVolume] = useState<Map<string, MuscleVolumeEntry>>(new Map());
   const [assetsMap, setAssetsMap] = useState<Map<string, ExerciseAsset> | null>(null);
   const [trendPeriodOverride, setTrendPeriodOverride] = useState<TrendPeriod | null>(null);
-  const [viewMode, setViewMode] = useState<ViewMode>('muscle');
+  const [viewMode, setViewMode] = useState<ViewMode>('group');
   const [activeQuickFilter, setActiveQuickFilter] = useState<QuickFilterCategory | null>(null);
   const [hoverTooltip, setHoverTooltip] = useState<TooltipData | null>(null);
 

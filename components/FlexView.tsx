@@ -17,7 +17,7 @@ import { getExerciseAssets, ExerciseAsset } from '../utils/data/exerciseAssets';
 import { isWarmupSet } from '../utils/analysis/setClassification';
 import { normalizeMuscleGroup, type NormalizedMuscleGroup } from '../utils/muscle/muscleNormalization';
 import { MUSCLE_GROUP_TO_SVG_IDS } from '../utils/muscle/muscleMappingConstants';
-import { BodyMap } from './BodyMap';
+import { BodyMap, BodyMapGender } from './BodyMap';
 import { format, getMonth, startOfMonth, endOfMonth, eachDayOfInterval, getDay } from 'date-fns';
 import { getEffectiveNowFromWorkoutData, getSessionKey } from '../utils/date/dateUtils';
 import CountUp from './CountUp';
@@ -31,6 +31,7 @@ interface FlexViewProps {
   dailySummaries?: DailySummary[];
   exerciseStats?: ExerciseStats[];
   stickyHeader?: boolean;
+  bodyMapGender?: BodyMapGender;
 }
 
 type ComparisonMode = 'best' | 'random';
@@ -836,7 +837,8 @@ const TopExercisesCard: React.FC<{
 const MuscleFocusCard: React.FC<{
   muscleData: { group: NormalizedMuscleGroup; sets: number }[];
   theme: CardTheme;
-}> = ({ muscleData, theme }) => {
+  gender?: BodyMapGender;
+}> = ({ muscleData, theme, gender = 'male' }) => {
   const isDark = theme === 'dark';
   const textPrimary = isDark ? 'text-white' : 'text-slate-900';
   const textSecondary = isDark ? 'text-slate-400' : 'text-slate-600';
@@ -999,6 +1001,7 @@ const MuscleFocusCard: React.FC<{
                 compact
                 compactFill
                 viewMode="group"
+                gender={gender}
               />
             </div>
           </div>
@@ -1162,6 +1165,7 @@ export const FlexView: React.FC<FlexViewProps> = ({
   dailySummaries: dailySummariesProp,
   exerciseStats: exerciseStatsProp,
   stickyHeader = false,
+  bodyMapGender = 'male',
 }) => {
   const { mode } = useTheme();
   const cardTheme: CardTheme = mode === 'light' ? 'light' : 'dark';
@@ -1438,7 +1442,7 @@ export const FlexView: React.FC<FlexViewProps> = ({
       case 'top-exercises':
         return <TopExercisesCard exercises={stats.topExercises} theme={cardTheme} />;
       case 'muscle-focus':
-        return <MuscleFocusCard muscleData={stats.muscleData} theme={cardTheme} />;
+        return <MuscleFocusCard muscleData={stats.muscleData} theme={cardTheme} gender={bodyMapGender} />;
       default:
         return null;
     }

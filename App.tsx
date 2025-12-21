@@ -43,7 +43,6 @@ import { DataSourceModal } from './components/DataSourceModal';
 import { LandingPage } from './components/LandingPage';
 import { HevyLoginModal } from './components/HevyLoginModal';
 import { LyfataLoginModal } from './components/LyfataLoginModal';
-import { LyftaMethodModal } from './components/LyftaMethodModal';
 import type { DataSourceChoice } from './utils/dataSources/types';
 import {
   getDataSourceChoice,
@@ -415,7 +414,7 @@ const App: React.FC = () => {
           setLoadingStep(2);
           const hydrated = (resp.sets ?? []).map((s) => ({
             ...s,
-            parsedDate: s.parsedDate instanceof Date ? s.parsedDate : new Date(s.parsedDate || ''),
+            parsedDate: parseHevyDateString(String(s.start_time ?? '')),
           }));
           const enriched = identifyPersonalRecords(hydrated);
           setParsedData(enriched);
@@ -688,7 +687,11 @@ const App: React.FC = () => {
       return;
     }
     if (dataSource === 'lyfta') {
-      setOnboarding({ intent: 'update', step: 'lyfta_prefs', platform: 'lyfta' });
+      if (!getPreferencesConfirmed()) {
+        setOnboarding({ intent: 'update', step: 'lyfta_prefs', platform: 'lyfta' });
+        return;
+      }
+      setOnboarding({ intent: 'update', step: 'lyfta_login', platform: 'lyfta' });
       return;
     }
     if (dataSource === 'hevy') {
@@ -790,7 +793,7 @@ const App: React.FC = () => {
         setLoadingStep(2);
         const hydrated = (resp.sets ?? []).map((s) => ({
           ...s,
-          parsedDate: s.parsedDate instanceof Date ? s.parsedDate : new Date(s.parsedDate || ''),
+          parsedDate: parseHevyDateString(String(s.start_time ?? '')),
         }));
         const enriched = identifyPersonalRecords(hydrated);
         setParsedData(enriched);
@@ -820,7 +823,7 @@ const App: React.FC = () => {
         saveLyfataApiKey(apiKey);
         const hydrated = (resp.sets ?? []).map((s) => ({
           ...s,
-          parsedDate: s.parsedDate instanceof Date ? s.parsedDate : new Date(s.parsedDate || ''),
+          parsedDate: parseHevyDateString(String(s.start_time ?? '')),
         }));
         const enriched = identifyPersonalRecords(hydrated);
         setParsedData(enriched);
@@ -1129,6 +1132,7 @@ const App: React.FC = () => {
                   dailySummaries={dailySummaries}
                   exerciseStats={exerciseStats}
                   stickyHeader={hasActiveCalendarFilter}
+                  bodyMapGender={bodyMapGender}
                 />
               )}
             </Suspense>
@@ -1217,25 +1221,32 @@ const App: React.FC = () => {
       ) : null}
 
       {onboarding?.step === 'lyfta_prefs' ? (
-        <LyftaMethodModal
+        <CSVImportModal
           intent={onboarding.intent}
-          hasSavedSession={Boolean(getLyfataApiKey()) && getPreferencesConfirmed()}
-          onSelect={(method) => {
-            if (method === 'saved') {
-              handleLyfatSyncSaved();
-            } else if (method === 'login') {
-              setOnboarding({ intent: onboarding.intent, step: 'lyfta_login', platform: 'lyfta' });
-            } else if (method === 'csv') {
-              setOnboarding({ intent: onboarding.intent, step: 'lyfta_csv', platform: 'lyfta' });
-            }
+          platform="lyfta"
+          variant="preferences"
+          continueLabel="Continue"
+          isLoading={isAnalyzing}
+          initialGender={getPreferencesConfirmed() ? bodyMapGender : undefined}
+          initialUnit={getPreferencesConfirmed() ? weightUnit : undefined}
+          onGenderChange={(g) => setBodyMapGender(g)}
+          onUnitChange={(u) => setWeightUnit(u)}
+          onContinue={(gender, unit) => {
+            setBodyMapGender(gender);
+            setWeightUnit(unit);
+            savePreferencesConfirmed(true);
+            setOnboarding({ intent: onboarding.intent, step: 'lyfta_login', platform: 'lyfta' });
           }}
-          onBack={() => setOnboarding({ intent: onboarding.intent, step: 'platform' })}
+          onBack={
+            onboarding.intent === 'initial'
+              ? () => setOnboarding({ intent: onboarding.intent, step: 'platform' })
+              : () => setOnboarding({ intent: onboarding.intent, step: 'platform' })
+          }
           onClose={
             onboarding.intent === 'update'
               ? () => setOnboarding(null)
               : undefined
           }
-          onClearCache={clearCacheAndRestart}
         />
       ) : null}
 
@@ -1270,14 +1281,14 @@ const App: React.FC = () => {
           isLoading={isAnalyzing}
           onLogin={handleLyfatLogin}
           loginLabel={onboarding.intent === 'initial' ? 'Continue' : 'Login with Lyfta'}
-          hasSavedSession={Boolean(getLyfataApiKey())}
+          hasSavedSession={Boolean(getLyfataApiKey()) && getPreferencesConfirmed()}
           onSyncSaved={handleLyfatSyncSaved}
           onClearCache={clearCacheAndRestart}
           onImportCsv={() => setOnboarding({ intent: onboarding.intent, step: 'lyfta_csv', platform: 'lyfta', backStep: 'lyfta_login' })}
           onBack={
             onboarding.intent === 'initial'
               ? () => setOnboarding({ intent: onboarding.intent, step: 'lyfta_prefs', platform: 'lyfta' })
-              : () => setOnboarding({ intent: onboarding.intent, step: 'lyfta_prefs', platform: 'lyfta' })
+              : () => setOnboarding({ intent: onboarding.intent, step: 'platform' })
           }
           onClose={
             onboarding.intent === 'update'

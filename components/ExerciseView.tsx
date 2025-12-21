@@ -1035,7 +1035,7 @@ export const ExerciseView: React.FC<ExerciseViewProps> = ({ stats, filtersSlot, 
                     );
                     const imgUrl = asset.sourceType === 'video' ? asset.thumbnail : (asset.thumbnail || asset.source);
                     return imgUrl ? (
-                      <img src={imgUrl} alt="" className="w-6 h-6 rounded object-cover flex-shrink-0" loading="lazy" decoding="async" />
+                      <img src={imgUrl} alt="" className="w-6 h-6 rounded object-cover flex-shrink-0 bg-white" loading="lazy" decoding="async" />
                     ) : (
                       <div className="w-6 h-6 rounded bg-black/50 flex items-center justify-center text-slate-500 flex-shrink-0">
                         <Dumbbell className="w-3.5 h-3.5" />

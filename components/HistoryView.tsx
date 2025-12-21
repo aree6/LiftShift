@@ -15,6 +15,7 @@ import {
   getExerciseMuscleVolumes,
   SVG_MUSCLE_NAMES,
   lookupExerciseMuscleData,
+  getSvgIdsForCsvMuscleName,
 } from '../utils/muscle/muscleMapping';
 import { ViewHeader } from './ViewHeader';
 import { FANCY_FONT, TOOLTIP_THEMES, calculateCenteredTooltipPosition } from '../utils/ui/uiConstants';
@@ -104,25 +105,60 @@ const buildSessionMuscleHeatmap = (
       continue;
     }
 
-    const primarySvgIds = CSV_TO_SVG_MUSCLE_MAP[primary] || [];
+    const primarySvgIds = getSvgIdsForCsvMuscleName(primary);
     for (const svgId of primarySvgIds) {
       const next = (volumes.get(svgId) || 0) + 1;
       volumes.set(svgId, next);
       if (next > maxVolume) maxVolume = next;
     }
 
-    const secondaries = ex.secondary_muscle
+    const secondaries = String(ex.secondary_muscle || '')
       .split(',')
       .map((m) => m.trim())
       .filter((m) => m && m !== 'None');
 
     for (const secondary of secondaries) {
-      const secondarySvgIds = CSV_TO_SVG_MUSCLE_MAP[secondary] || [];
+      const secondarySvgIds = getSvgIdsForCsvMuscleName(secondary);
       for (const svgId of secondarySvgIds) {
         const next = (volumes.get(svgId) || 0) + 0.5;
         volumes.set(svgId, next);
         if (next > maxVolume) maxVolume = next;
       }
+    }
+  }
+
+  // Propagate volume across muscle groups - if any part of a group is hit, all parts should light up
+  // This ensures e.g. all 3 deltoid heads light up when any one is targeted
+  const muscleGroups: Record<string, string[]> = {
+    'Shoulders': ['anterior-deltoid', 'lateral-deltoid', 'posterior-deltoid'],
+    'Traps': ['upper-trapezius', 'lower-trapezius', 'traps-middle'],
+    'Biceps': ['long-head-bicep', 'short-head-bicep'],
+    'Triceps': ['medial-head-triceps', 'long-head-triceps', 'lateral-head-triceps'],
+    'Chest': ['mid-lower-pectoralis', 'upper-pectoralis'],
+    'Quadriceps': ['outer-quadricep', 'rectus-femoris', 'inner-quadricep'],
+    'Hamstrings': ['medial-hamstrings', 'lateral-hamstrings'],
+    'Glutes': ['gluteus-maximus', 'gluteus-medius'],
+    'Calves': ['gastrocnemius', 'soleus', 'tibialis'],
+    'Abdominals': ['lower-abdominals', 'upper-abdominals'],
+    'Forearms': ['wrist-extensors', 'wrist-flexors'],
+  };
+  
+  for (const groupParts of Object.values(muscleGroups)) {
+    // Find max volume in this group
+    let maxGroupVolume = 0;
+    for (const part of groupParts) {
+      const vol = volumes.get(part) || 0;
+      if (vol > maxGroupVolume) maxGroupVolume = vol;
+    }
+    // If any part has volume, propagate to all parts
+    if (maxGroupVolume > 0) {
+      for (const part of groupParts) {
+        if (!volumes.has(part)) {
+          volumes.set(part, maxGroupVolume);
+        }
+      }
+      // Update maxVolume after propagation
+      if (maxGroupVolume > maxVolume) maxVolume = maxGroupVolume;
     }
   }
 
@@ -985,7 +1021,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ data, filtersSlot, wei
                               <img
                                 src={asset.thumbnail || asset.source}
                                 alt=""
-                                className="w-10 h-10 rounded object-cover flex-shrink-0 row-span-2"
+                                className="w-10 h-10 rounded object-cover flex-shrink-0 row-span-2 bg-white"
                                 loading="lazy"
                                 decoding="async"
                               />

@@ -392,7 +392,7 @@ export const PlateauAlert: React.FC<PlateauAlertProps> = ({ exerciseName, sugges
       className={`w-full flex items-start gap-3 p-3 bg-amber-500/5 border border-amber-500/20 rounded-lg text-left ${clickable ? 'cursor-pointer hover:bg-amber-500/10 transition-colors' : 'cursor-default'}`}
     >
       {imgSrc ? (
-        <img src={imgSrc} alt="" className="w-9 h-9 rounded-lg object-cover border border-amber-500/30 flex-shrink-0" loading="lazy" />
+        <img src={imgSrc} alt="" className="w-9 h-9 rounded-lg object-cover border border-amber-500/30 flex-shrink-0 bg-white" loading="lazy" />
       ) : (
         <div className="p-1.5 rounded-lg bg-amber-500/10 flex-shrink-0">
           <AlertTriangle className="w-4 h-4 text-amber-400" />
@@ -431,7 +431,7 @@ export const RecentPRCard: React.FC<RecentPRCardProps> = ({ pr, isLatest, asset,
       className={`w-full flex items-center gap-3 p-2 rounded-lg text-left ${isLatest ? 'bg-emerald-500/10 border border-emerald-500/20' : 'bg-black/50'} ${clickable ? 'cursor-pointer hover:bg-black/60 transition-colors' : 'cursor-default'}`}
     >
       {imgSrc ? (
-        <img src={imgSrc} alt="" className="w-9 h-9 rounded-lg object-cover flex-shrink-0" loading="lazy" />
+        <img src={imgSrc} alt="" className="w-9 h-9 rounded-lg object-cover flex-shrink-0 bg-white" loading="lazy" />
       ) : (
         <div className={`p-1.5 rounded-lg ${isLatest ? 'bg-emerald-500/20' : 'bg-black/50'} flex-shrink-0`}>
           <Dumbbell className={`w-4 h-4 ${isLatest ? 'text-emerald-400' : 'text-slate-500'}`} />

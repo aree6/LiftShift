@@ -141,7 +141,7 @@ const similarity = (a: string, b: string): number => {
     if (bBigrams.has(bigram)) matches++;
   }
 
-  return (2 * matches) / (aBigrams.size + bBigrams. size);
+  return (2 * matches) / (aBigrams.size + bBigrams.size);
 };
 
 /**
@@ -285,7 +285,7 @@ const parseDuration = (value: unknown): number => {
 
   // HH:MM:SS or MM:SS
   if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(s)) {
-    const parts = s.split(': ').map(p => parseInt(p, 10));
+     const parts = s.split(':').map(p => parseInt(p, 10));
     if (parts.some(p => isNaN(p))) return 0;
     if (parts.length === 2) return parts[0] * 60 + parts[1];
     if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
@@ -655,17 +655,34 @@ const findBestMatch = (
       }
     }
 
-    // Boost with value validation
-    if (score > 0 && config.validate && sampleValues.length > 0) {
+    // Boost with value validation (but not for exact/near-exact header matches)
+    const isExactMatch = score >= 0.95;
+    if (score > 0 && score < 0.95 && config.validate && sampleValues.length > 0) {
       const validValues = sampleValues.filter(v => v !== null && v !== undefined && v !== '');
       if (validValues.length > 0) {
         const validationScore = config.validate(validValues);
         score = score * 0.6 + validationScore * 0.4;
       }
     }
+    // For exact matches, only boost (never reduce) with validation
+    if (isExactMatch && config.validate && sampleValues.length > 0) {
+      const validValues = sampleValues.filter(v => v !== null && v !== undefined && v !== '');
+      if (validValues.length > 0) {
+        const validationScore = config.validate(validValues);
+        // Only boost if validation is positive, never reduce below exact match score
+        if (validationScore > 0.5) {
+          score = Math.max(score, score * 0.9 + validationScore * 0.1);
+        }
+      }
+    }
 
-    // Apply priority
-    const finalScore = score * (config.priority / 10);
+    // Apply priority, but give exact matches a significant boost to ensure they
+    // always beat partial/fuzzy matches from other fields
+    let finalScore = score * (config.priority / 10);
+    if (isExactMatch) {
+      // Exact header matches should always win - add bonus that exceeds max priority
+      finalScore += 1.0;
+    }
 
     if (finalScore > bestScore && score > 0.5) {
       bestScore = finalScore;
@@ -873,13 +890,13 @@ const inferWorkoutTitles = (sets: WorkoutSet[]): void => {
   }
 
   for (const [, dateSets] of byDate) {
-    const exercises = new Set(dateSets.map(s => s. exercise_title));
+    const exercises = new Set(dateSets.map(s => s.exercise_title));
     const title = exercises.size <= 3
       ? Array.from(exercises).slice(0, 3).join(' + ')
       : `Workout (${exercises.size} exercises)`;
 
     for (const set of dateSets) {
-      set. title = title;
+      set.title = title;
     }
   }
 };
@@ -991,7 +1008,7 @@ export const parseWorkoutCSV = (csvContent: string, options: ParseOptions): Pars
     meta: {
       confidence: avgConfidence,
       fieldMappings: fieldMappingsSummary,
-      unmatchedExercises: Array.from(stats. unmatched).sort(),
+      unmatchedExercises: Array.from(stats.unmatched).sort(),
       fuzzyMatches: stats.fuzzyMatches,
       representativeMatches: stats.representativeMatches,
       rowCount: rawRows.length,
