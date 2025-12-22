@@ -74,25 +74,39 @@ function DockItem({ item, mouseX }: DockItemProps) {
 
 export default function PlatformDock({ items, className = '' }: PlatformDockProps) {
   const mouseX = useMotionValue(Infinity);
+  const [isHovered, setIsHovered] = useState(false);
 
   return (
     <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] ${className}`}>
       <motion.div
         onMouseMove={(e) => mouseX.set(e.pageX)}
-        onMouseLeave={() => mouseX.set(Infinity)}
-        className="flex items-center gap-4 rounded-2xl border border-emerald-500/40 bg-black/90 backdrop-blur-xl px-5 py-3 shadow-2xl shadow-black/50"
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => {
+          mouseX.set(Infinity);
+          setIsHovered(false);
+        }}
+        onTouchStart={() => setIsHovered(true)}
+        onTouchEnd={() => setIsHovered(false)}
+        className="flex items-center gap-2"
       >
-       
-        
-        {/* Dock items */}
-        <div className="flex items-end gap-2">
-          {items.map((item, index) => (
-            <DockItem
-              key={index}
-              item={item}
-              mouseX={mouseX}
-            />
-          ))}
+        <div className="flex flex-col items-center gap-3 rounded-2xl border border-emerald-500/40 bg-slate-950/95 backdrop-blur-xs px-5 py-3 shadow-2xl shadow-black/50">
+          {/* Dock items */}
+          <div className="flex items-end gap-2">
+            {items.map((item, index) => (
+              <DockItem
+                key={index}
+                item={item}
+                mouseX={mouseX}
+              />
+            ))}
+          </div>
+          
+          {/* Choose your platform text */}
+          <div
+            className={`text-xs ${FANCY_FONT} text-emerald-400/80 select-none transition-opacity duration-300 ${isHovered ? 'opacity-0' : 'opacity-50'}`}
+          >
+            Choose your platform
+          </div>
         </div>
       </motion.div>
     </div>

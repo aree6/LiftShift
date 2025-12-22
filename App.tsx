@@ -1333,6 +1333,7 @@ const App: React.FC = () => {
         <CSVImportModal
           intent={onboarding.intent}
           platform="lyfta"
+          hideBodyTypeAndUnit
           onClearCache={clearCacheAndRestart}
           onFileSelect={(file, gender, unit) => {
             setBodyMapGender(gender);
