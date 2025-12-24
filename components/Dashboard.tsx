@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect, useCallback, Suspense } from 'react';
+import React, { useMemo, useState, useEffect, useCallback, Suspense, useRef } from 'react';
 import { DailySummary, ExerciseStats, WorkoutSet } from '../types';
 import { 
   getIntensityEvolution, 
@@ -17,12 +17,20 @@ import { bucketRollingWeeklySeriesToWeeks } from '../utils/muscle/rollingSeriesB
 import { getMuscleContributionsFromAsset } from '../utils/muscle/muscleContributions';
 import { ActivityHeatmap } from './dashboard/ActivityHeatmap';
 import { 
-  Clock, Dumbbell
+  Clock, Dumbbell, Copy, Check, ExternalLink, Brain
 } from 'lucide-react';
+
+// Simple monochrome SVG for Gemini (Google) that inherits color via currentColor
+const GeminiIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <svg width="18" height="18" viewBox="0 0 32 32" className={className} role="img" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+    <path d="M31,14h-1h-6h-8v5h7c-1.3,2.7-3.8,5.1-7,5.1c-4.5,0-8.1-3.6-8.1-8.1s3.6-8.1,8.1-8.1c2,0,3.6,0.8,5,2.1l6.7-3.3 C25,3.2,20.8,1,16,1C7.7,1,1,7.7,1,16s6.7,15,15,15s15-6.7,15-15C31,15.2,31.1,14.8,31,14z" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
 import { format, startOfDay, endOfDay, startOfWeek, startOfMonth, subDays } from 'date-fns';
 import { formatDayContraction, formatDayYearContraction, formatWeekContraction, formatMonthYearContraction, getEffectiveNowFromWorkoutData, getSessionKey } from '../utils/date/dateUtils';
 import { getExerciseAssets, ExerciseAsset } from '../utils/data/exerciseAssets';
 import { ViewHeader } from './ViewHeader';
+import exportAndCopyPackage, { exportPackageAndCopyText } from '../utils/export/clipboardExport';
 import { calculateDashboardInsights, detectPlateaus, calculateDelta, DashboardInsights, PlateauAnalysis, SparklinePoint, StreakInfo } from '../utils/analysis/insights';
 import { InsightsPanel, PlateauAlert, RecentPRsPanel } from './InsightCards';
 import { computationCache } from '../utils/storage/computationCache';
@@ -140,6 +148,52 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
   const [weeklySetsView, setWeeklySetsView] = useState<'radar' | 'heatmap'>('heatmap');
   
   const [assetsMap, setAssetsMap] = useState<Map<string, ExerciseAsset> | null>(null);
+  
+  const [exportWindow, setExportWindow] = useState<'1'|'2'|'3'|'6'|'12'|'all'>('1');
+  const [timelineSelected, setTimelineSelected] = useState<string | null>(null);
+  const [showTimelineChips, setShowTimelineChips] = useState(false);
+  const resetTimerRef = useRef<number | null>(null);
+  const [reCopyCopied, setReCopyCopied] = useState(false);
+  const reCopyTimerRef = useRef<number | null>(null);
+
+  // Export/copy state: initial click reveals timeline chips; selecting a chip performs the copy.
+  const [exportCopied, setExportCopied] = useState(false);
+  const handleExportAction = () => {
+    // Reveal timeline chips for selection; don't copy yet
+    setShowTimelineChips(true);
+  };
+
+  const performCopyForTimeline = async (k: string) => {
+    const months: number | 'all' = k === 'all' ? 'all' : Number(k);
+    try {
+      await exportPackageAndCopyText(fullData, dailyData, exerciseStats, months, new Date());
+      setExportCopied(true);
+      setExportWindow(k as any);
+      setTimelineSelected(k);
+      setShowTimelineChips(false);
+      // clear existing timer
+      if (resetTimerRef.current) {
+        window.clearTimeout(resetTimerRef.current);
+      }
+      // reset UI after 8s
+      resetTimerRef.current = window.setTimeout(() => {
+        setExportCopied(false);
+        setTimelineSelected(null);
+        setExportWindow('1');
+        setShowTimelineChips(false);
+        resetTimerRef.current = null;
+      }, 8000);
+    } catch (e) {
+      console.error('export failed', e);
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (resetTimerRef.current) window.clearTimeout(resetTimerRef.current);
+      if (reCopyTimerRef.current) window.clearTimeout(reCopyTimerRef.current);
+    };
+  }, []);
 
   const assetsLowerMap = useMemo(() => {
     if (!assetsMap) return null;
@@ -718,11 +772,94 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
             leftStats={[
               { icon: Clock, value: totalWorkouts, label: 'Workouts' },
             ]}
-            rightStats={[
-              { icon: Dumbbell, value: totalSets, label: 'Sets' },
-            ]}
             filtersSlot={filtersSlot}
             sticky={stickyHeader}
+            rightSlot={
+              <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-2">
+                  {!exportCopied && (
+                    <button
+                      onClick={handleExportAction}
+                      className="inline-flex items-center gap-2 justify-center whitespace-nowrap rounded-md text-xs font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-9 px-3 py-1.5 bg-transparent border border-slate-700/50 text-slate-200 hover:border-white hover:text-white hover:bg-white/5 transition-all duration-200"
+                      title="AI Analyze"
+                    >
+                      <Brain className="w-4 h-4 text-slate-300" />
+                      <span className="hidden sm:inline">AI Analyze</span>
+                    </button>
+                  )}
+
+                  {showTimelineChips && (
+                    <div className="relative">
+                      <button
+                        onClick={() => setShowTimelineChips((s) => !s)}
+                        aria-expanded={showTimelineChips}
+                        className="inline-flex items-center gap-2 justify-center whitespace-nowrap rounded-md text-xs font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-9 px-3 py-1.5 bg-transparent border border-slate-700/50 text-slate-200 hover:border-white hover:text-white hover:bg-white/5 transition-all duration-200"
+                        title="Choose timeframe"
+                      >
+                        <Clock className="w-3 h-3 text-slate-400" />
+                        <span className="text-sm">{exportWindow === 'all' ? 'All' : `${exportWindow}m`}</span>
+                        <svg className="w-3 h-3 text-slate-400 ml-1" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+                          <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </button>
+
+                      {showTimelineChips && (
+                        <div className="absolute right-0 mt-2 w-40 bg-black/90 border border-slate-700/50 rounded-xl shadow-xl z-50 p-2">
+                          {['1','2','3','6','all'].map((k) => {
+                            const label = k === 'all' ? 'All' : `${k} month${k === '1' ? '' : 's'}`;
+                            return (
+                              <button
+                                key={k}
+                                onClick={() => { performCopyForTimeline(k); setShowTimelineChips(false); }}
+                                className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-white/5 rounded-md"
+                              >
+                                {label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {exportCopied && timelineSelected && (
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => {
+                          const instruction = 'Paste the clipboard contents.';
+                          const url = `https://aistudio.google.com/prompts/new_chat?model=gemini-3-pro-preview&prompt=${encodeURIComponent(instruction)}`;
+                          window.open(url, '_blank');
+                        }}
+                        className="inline-flex items-center gap-2 justify-center whitespace-nowrap rounded-md text-xs font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-9 px-3 py-1.5 bg-transparent border border-slate-700/50 text-slate-200 hover:border-white hover:text-white hover:bg-white/5 transition-all duration-200 ml-1"
+                        title="Analyse with Gemini"
+                      >
+                        <GeminiIcon className="w-4 h-4 text-slate-300" />
+                        <span className="hidden sm:inline">Analyse with Gemini</span>
+                      </button>
+
+                      <button
+                        onClick={async () => {
+                          try {
+                            const months: number | 'all' = timelineSelected === 'all' ? 'all' : Number(timelineSelected);
+                            await exportPackageAndCopyText(fullData, dailyData, exerciseStats, months, new Date());
+                            setReCopyCopied(true);
+                            if (reCopyTimerRef.current) window.clearTimeout(reCopyTimerRef.current);
+                            reCopyTimerRef.current = window.setTimeout(() => setReCopyCopied(false), 2000);
+                          } catch (e) {
+                            console.error('recopy failed', e);
+                          }
+                        }}
+                        className="inline-flex items-center gap-2 justify-center whitespace-nowrap rounded-md text-xs font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-9 px-3 py-1.5 bg-transparent border border-slate-700/50 text-slate-200 hover:border-white hover:text-white hover:bg-white/5 transition-all duration-200 ml-1"
+                        title="Copy export to clipboard"
+                      >
+                        {reCopyCopied ? <Check className="w-4 h-4 text-slate-300" /> : <Copy className="w-4 h-4 text-slate-300" />}
+                        <span className="hidden sm:inline">Copy</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            }
           />
         </div>
 
