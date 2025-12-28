@@ -1,6 +1,5 @@
 import React from 'react';
-import StarOnGithubButton from './StarOnGithubButton';
-import { Coffee, HeartHandshake, Mail, UserRound } from 'lucide-react';
+import { Github, Coffee, HeartHandshake, Mail, UserRound } from 'lucide-react';
 import { UNIFORM_FOOTER_BUTTON_CLASS, UNIFORM_HEADER_BUTTON_CLASS } from '../utils/ui/uiConstants';
 
 type SupportLinksVariant = 'primary' | 'secondary' | 'all';
@@ -32,31 +31,73 @@ export const SupportLinks: React.FC<{
     <>
       {showPrimary && (
         <div className={primaryContainerClass}>
-          <StarOnGithubButton
-            showCount={layout !== 'header'}
-            variant={layout === 'header' ? 'outline' : 'solid'}
-            className={layout === 'header' ? '' : 'flex-1 sm:flex-none min-w-[140px] sm:min-w-0'}
-          />
+          <a
+            href="https://github.com/aree6/LiftShift"
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => {
+              if (e.button === 1 || e.metaKey || e.ctrlKey) {
+                return;
+              }
+              e.preventDefault();
+              window.open('https://github.com/aree6/LiftShift', '_blank', 'noopener,noreferrer');
+            }}
+            onMouseDown={(e) => {
+              if (e.button === 1) {
+                return;
+              }
+            }}
+            className={`${uniformButtonClass} gap-2 ${layout === 'header' ? '' : 'flex-1 sm:flex-none min-w-[140px] sm:min-w-0'}`}
+          >
+            <Github className="w-4 h-4" />
+            <span>{layout === 'header' ? 'Star' : 'Star on GitHub'}</span>
+          </a>
 
-          <button
-            type="button"
-            onClick={() => window.open('https://www.buymeacoffee.com/aree6', '_blank', 'noopener,noreferrer')}
+          <a
+            href="https://www.buymeacoffee.com/aree6"
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => {
+              if (e.button === 1 || e.metaKey || e.ctrlKey) {
+                return;
+              }
+              e.preventDefault();
+              window.open('https://www.buymeacoffee.com/aree6', '_blank', 'noopener,noreferrer');
+            }}
+            onMouseDown={(e) => {
+              if (e.button === 1) {
+                return;
+              }
+            }}
             className={`${uniformButtonClass} gap-2`}
           >
             <Coffee className="w-4 h-4" />
             <span>Buy Me a Coffee</span>
-          </button>
+          </a>
 
           {primaryMiddleSlot}
 
-          <button
-            type="button"
-            onClick={() => window.open('https://ko-fi.com/aree6', '_blank', 'noopener,noreferrer')}
+          <a
+            href="https://ko-fi.com/aree6"
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => {
+              if (e.button === 1 || e.metaKey || e.ctrlKey) {
+                return;
+              }
+              e.preventDefault();
+              window.open('https://ko-fi.com/aree6', '_blank', 'noopener,noreferrer');
+            }}
+            onMouseDown={(e) => {
+              if (e.button === 1) {
+                return;
+              }
+            }}
             className={`${uniformButtonClass} gap-2`}
           >
             <HeartHandshake className="w-4 h-4" />
             <span>Ko-fi</span>
-          </button>
+          </a>
 
           {primaryRightSlot ? (
             <div className="ml-10 pr-2 shrink-0">
@@ -68,23 +109,46 @@ export const SupportLinks: React.FC<{
 
       {showSecondary && (
         <div className={secondaryContainerClass}>
-          <button
-            type="button"
-            onClick={() => window.open('mailto:mohammadar336@gmail.com')}
+          <a
+            href="mailto:mohammadar336@gmail.com"
+            onClick={(e) => {
+              if (e.button === 1 || e.metaKey || e.ctrlKey) {
+                return;
+              }
+              // For email links, let default behavior handle all clicks
+            }}
+            onMouseDown={(e) => {
+              if (e.button === 1) {
+                return;
+              }
+            }}
             className={`${uniformButtonClass} gap-2`}
           >
             <Mail className="w-4 h-4 text-white" />
             <span className="text-white">Email</span>
-          </button>
+          </a>
 
-          <button
-            type="button"
-            onClick={() => window.open('https://github.com/aree6', '_blank', 'noopener,noreferrer')}
+          <a
+            href="https://github.com/aree6"
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => {
+              if (e.button === 1 || e.metaKey || e.ctrlKey) {
+                return;
+              }
+              e.preventDefault();
+              window.open('https://github.com/aree6', '_blank', 'noopener,noreferrer');
+            }}
+            onMouseDown={(e) => {
+              if (e.button === 1) {
+                return;
+              }
+            }}
             className={`${uniformButtonClass} gap-2`}
           >
             <UserRound className="w-4 h-4 text-white" />
             <span className="text-white">GitHub Profile</span>
-          </button>
+          </a>
         </div>
       )}
     </>
