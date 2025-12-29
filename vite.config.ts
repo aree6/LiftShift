@@ -9,6 +9,8 @@ export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, '.', '');
     const backendUrl = env.VITE_BACKEND_URL || 'http://localhost:5000';
     return {
+      root: path.resolve(__dirname, 'frontend'),
+      envDir: __dirname,
       server: {
         port: 3000,
         host: '0.0.0.0',
@@ -30,10 +32,13 @@ export default defineConfig(({ mode }) => {
       plugins: [react()],
       resolve: {
         alias: {
-          '@': path.resolve(__dirname, '.'),
+          '@': path.resolve(__dirname, 'frontend'),
         }
       },
       build: {
+        // Keep Netlify publish directory stable (repo-root dist/)
+        outDir: path.resolve(__dirname, 'dist'),
+        emptyOutDir: true,
         // Production optimizations
         minify: 'terser',
         target: 'esnext',

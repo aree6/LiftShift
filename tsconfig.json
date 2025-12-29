@@ -21,13 +21,14 @@
     "jsx": "react-jsx",
     "paths": {
       "@/*": [
-        "./*"
+        "./frontend/*"
       ]
     },
     "allowImportingTsExtensions": true,
     "noEmit": true
   },
   "exclude": [
+    "backend",
     "node_modules",
     "dist",
     "dist-ssr"

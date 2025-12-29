@@ -15,7 +15,7 @@ The backend is required for Hevy login because:
 
 You will deploy two things:
 
-- Frontend repo root (this folder)
+- Frontend (build from repo root; sources live under `frontend/`)
 - Backend folder `backend/` (a separate service)
 
 Note on environment files:

@@ -87,23 +87,25 @@ npm run preview
 ### Project Structure
 
 ```
-src/
+frontend/
+├── index.html           # Vite HTML entry
+├── index.tsx            # React entry
 ├── App.tsx              # Main app component
 ├── components/          # React components
 │   ├── Dashboard.tsx    # Dashboard view
 │   ├── ExerciseView.tsx # Exercise analytics
 │   ├── HistoryView.tsx  # Workout history
 │   └── CSVImportModal.tsx
-├── utils/              # Utility functions
-│   ├── analytics.ts    # Core analytics logic
-│   ├── csvParser.ts    # CSV parsing
-│   └── localStorage.ts # Local storage management
-└── types.ts            # TypeScript types
+├── utils/               # Utility functions
+│   ├── analysis/        # Core analytics logic
+│   ├── csv/             # CSV parsing
+│   └── storage/         # Local storage management
+└── types.ts             # TypeScript types
 ```
 
 ### Making Changes
 
-1. Edit files in `src/`
+1. Edit files in `frontend/`
 2. Changes hot-reload automatically
 3. Check browser for results
 4. Test production build: `npm run build && npm run preview`

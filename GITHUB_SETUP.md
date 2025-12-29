@@ -112,7 +112,7 @@ Popular badges to add to README:
 If you want to publish as an npm package:
 
 1. Update package.json with `repository` and `homepage` (already done)
-2. Ensure `.npmignore` exists (exclude src/, tests, etc.)
+2. Ensure `.npmignore` exists (exclude frontend/, tests, etc.)
 3. Run `npm publish`
 
 Note: Currently this is an app, not a package, so this is optional.

@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="public/UI/logo.svg" alt="LiftShift Logo" width="200" height="200" />
+  <img src="frontend/public/UI/logo.svg" alt="LiftShift Logo" width="200" height="200" />
 </div>
 
 
@@ -14,47 +14,47 @@ LiftShift turns workout exports into structured analytics and insights.
 ## UI Screenshots
 
 <div align="center">
-  <img src="./public/UI/1.webp" alt="UI Screenshot 1" />
+  <img src="./frontend/public/UI/1.webp" alt="UI Screenshot 1" />
 </div>
 
 <div align="center">
-  <img src="./public/UI/2.webp" alt="UI Screenshot 2" />
+  <img src="./frontend/public/UI/2.webp" alt="UI Screenshot 2" />
 </div>
 
 <div align="center">
-  <img src="./public/UI/3.webp" alt="UI Screenshot 3" />
+  <img src="./frontend/public/UI/3.webp" alt="UI Screenshot 3" />
 </div>
 
 <div align="center">
-  <img src="./public/UI/4.webp" alt="UI Screenshot 4" />
+  <img src="./frontend/public/UI/4.webp" alt="UI Screenshot 4" />
 </div>
 
 <div align="center">
-  <img src="./public/UI/5.webp" alt="UI Screenshot 5" />
+  <img src="./frontend/public/UI/5.webp" alt="UI Screenshot 5" />
 </div>
 
 <div align="center">
-  <img src="./public/UI/6.webp" alt="UI Screenshot 6" />
+  <img src="./frontend/public/UI/6.webp" alt="UI Screenshot 6" />
 </div>
 
 <div align="center">
-  <img src="./public/UI/7.webp" alt="UI Screenshot 7" />
+  <img src="./frontend/public/UI/7.webp" alt="UI Screenshot 7" />
 </div>
 
 <div align="center">
-  <img src="./public/UI/8.webp" alt="UI Screenshot 8" />
+  <img src="./frontend/public/UI/8.webp" alt="UI Screenshot 8" />
 </div>
 
 <div align="center">
-  <img src="./public/UI/9.webp" alt="UI Screenshot 9" />
+  <img src="./frontend/public/UI/9.webp" alt="UI Screenshot 9" />
 </div>
 
 <div align="center">
-  <img src="./public/UI/10.webp" alt="UI Screenshot 10" />
+  <img src="./frontend/public/UI/10.webp" alt="UI Screenshot 10" />
 </div>
 
 <div align="center">
-  <img src="./public/UI/11.webp" alt="UI Screenshot 11" />
+  <img src="./frontend/public/UI/11.webp" alt="UI Screenshot 11" />
 </div>
 
 ## Official Deployment
@@ -100,10 +100,10 @@ By submitting a contribution (code, documentation, or any other material) to thi
 ## Quick Start
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/aree6/LiftShift/main/public/Step1.png" alt="Export data from Hevy app" width="200" />
-  <img src="https://raw.githubusercontent.com/aree6/LiftShift/main/public/Step2.png" alt="Upload CSV to LiftShift" width="200" />
-  <img src="https://raw.githubusercontent.com/aree6/LiftShift/main/public/Step3.png" alt="Explore analytics dashboard" width="200" />
-  <img src="https://raw.githubusercontent.com/aree6/LiftShift/main/public/Step4.png" alt="Get real-time feedback and filter data" width="200" />
+  <img src="https://raw.githubusercontent.com/aree6/LiftShift/main/frontend/public/Step1.png" alt="Export data from Hevy app" width="200" />
+  <img src="https://raw.githubusercontent.com/aree6/LiftShift/main/frontend/public/Step2.png" alt="Upload CSV to LiftShift" width="200" />
+  <img src="https://raw.githubusercontent.com/aree6/LiftShift/main/frontend/public/Step3.png" alt="Explore analytics dashboard" width="200" />
+  <img src="https://raw.githubusercontent.com/aree6/LiftShift/main/frontend/public/Step4.png" alt="Get real-time feedback and filter data" width="200" />
 </div>
 
 
@@ -131,7 +131,7 @@ Do the following:
 3. Re-upload it to LiftShift
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/aree6/LiftShift/main/public/step5.png" alt="Set Hevy export language to English" width="260" />
+  <img src="https://raw.githubusercontent.com/aree6/LiftShift/main/frontend/public/step5.png" alt="Set Hevy export language to English" width="260" />
 </div>
 
 ---
