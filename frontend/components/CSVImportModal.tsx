@@ -1,10 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'motion/react';
-import { Upload, Check, X, ArrowLeft, ArrowRight, Trash2, UserRound, Weight } from 'lucide-react';
+import { Upload, Check, X, ArrowLeft, ArrowRight, Trash2, UserRound, Weight, Clock, Globe } from 'lucide-react';
 import MaleFrontBodyMapGroup from './MaleFrontBodyMapGroup';
 import FemaleFrontBodyMapGroup from './FemaleFrontBodyMapGroup';
 import type { BodyMapGender } from './BodyMap';
-import type { WeightUnit } from '../utils/storage/localStorage';
+import type { WeightUnit, Language } from '../utils/storage/localStorage';
 import { CSV_LOADING_ANIMATION_SRC } from '../constants';
 import { UNIFORM_HEADER_BUTTON_CLASS, UNIFORM_HEADER_ICON_BUTTON_CLASS } from '../utils/ui/uiConstants';
 
@@ -24,12 +24,16 @@ interface CSVImportModalProps {
   isLoading?: boolean;
   initialGender?: BodyMapGender;
   initialUnit?: WeightUnit;
+  initialTimezone?: string;
+  initialLanguage?: Language;
   errorMessage?: string | null;
   onBack?: () => void;
   onClose?: () => void;
   onClearCache?: () => void;
   onGenderChange?: (gender: BodyMapGender) => void;
   onUnitChange?: (unit: WeightUnit) => void;
+  onTimezoneChange?: (timezone: string) => void;
+  onLanguageChange?: (language: Language) => void;
 }
 
 export const CSVImportModal: React.FC<CSVImportModalProps> = ({
@@ -43,16 +47,22 @@ export const CSVImportModal: React.FC<CSVImportModalProps> = ({
   isLoading = false,
   initialGender,
   initialUnit,
+  initialTimezone,
+  initialLanguage,
   errorMessage,
   onBack,
   onClose,
   onClearCache,
   onGenderChange,
   onUnitChange,
+  onTimezoneChange,
+  onLanguageChange,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedGender, setSelectedGender] = useState<BodyMapGender | null>(initialGender ?? null);
   const [selectedUnit, setSelectedUnit] = useState<WeightUnit | null>(initialUnit ?? null);
+  const [selectedTimezone, setSelectedTimezone] = useState<string>(initialTimezone ?? 'Europe/London');
+  const [selectedLanguage, setSelectedLanguage] = useState<Language>(initialLanguage ?? 'en-GB');
   const [showExportHelp, setShowExportHelp] = useState(false);
 
   const showBodyTypeAndUnitSelectors = variant === 'preferences' || !hideBodyTypeAndUnit;
@@ -338,6 +348,123 @@ export const CSVImportModal: React.FC<CSVImportModalProps> = ({
                     Pounds
                   </span>
                 </button>
+                </div>
+              </div>
+
+              {/* Language Selection */}
+              <div className="w-full mb-6">
+                <p className="text-sm font-semibold text-slate-300 mb-3 text-center inline-flex items-center justify-center gap-2 w-full">
+                  <Globe className="w-4 h-4 text-slate-300" />
+                  <span>Choose your language</span>
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                {/* UK English Option */}
+                <button
+                  onClick={() => {
+                    setSelectedLanguage('en-GB');
+                    onLanguageChange?.('en-GB');
+                  }}
+                  className={`relative p-4 rounded-xl border-2 transition-all duration-200 flex flex-col items-center ${
+                    selectedLanguage === 'en-GB'
+                      ? 'border-blue-500 bg-blue-500/10 shadow-lg shadow-blue-500/20'
+                      : 'border-slate-700/50 hover:border-slate-500/70 hover:bg-black/60'
+                  }`}
+                >
+                  {selectedLanguage === 'en-GB' && (
+                    <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center">
+                      <Check className="w-3 h-3 text-white" />
+                    </div>
+                  )}
+                  <span className={`text-2xl font-bold ${
+                    selectedLanguage === 'en-GB' ? 'text-blue-400' : 'text-slate-400'
+                  }`}>
+                    🇬🇧
+                  </span>
+                  <span className={`mt-1 text-xs ${
+                    selectedLanguage === 'en-GB' ? 'text-blue-400/70' : 'text-slate-500'
+                  }`}>
+                    English (UK)
+                  </span>
+                </button>
+
+                {/* US English Option */}
+                <button
+                  onClick={() => {
+                    setSelectedLanguage('en-US');
+                    onLanguageChange?.('en-US');
+                  }}
+                  className={`relative p-4 rounded-xl border-2 transition-all duration-200 flex flex-col items-center ${
+                    selectedLanguage === 'en-US'
+                      ? 'border-purple-500 bg-purple-500/10 shadow-lg shadow-purple-500/20'
+                      : 'border-slate-700/50 hover:border-slate-500/70 hover:bg-black/60'
+                  }`}
+                >
+                  {selectedLanguage === 'en-US' && (
+                    <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-purple-500 flex items-center justify-center">
+                      <Check className="w-3 h-3 text-white" />
+                    </div>
+                  )}
+                  <span className={`text-2xl font-bold ${
+                    selectedLanguage === 'en-US' ? 'text-purple-400' : 'text-slate-400'
+                  }`}>
+                    🇺🇸
+                  </span>
+                  <span className={`mt-1 text-xs ${
+                    selectedLanguage === 'en-US' ? 'text-purple-400/70' : 'text-slate-500'
+                  }`}>
+                    English (US)
+                  </span>
+                </button>
+                </div>
+              </div>
+
+              {/* Timezone Selection */}
+              <div className="w-full mb-6">
+                <p className="text-sm font-semibold text-slate-300 mb-3 text-center inline-flex items-center justify-center gap-2 w-full">
+                  <Clock className="w-4 h-4 text-slate-300" />
+                  <span>Choose your timezone</span>
+                </p>
+                <div className="grid grid-cols-1 gap-3">
+                  <select
+                    value={selectedTimezone}
+                    onChange={(e) => {
+                      setSelectedTimezone(e.target.value);
+                      onTimezoneChange?.(e.target.value);
+                    }}
+                    className="w-full p-3 rounded-xl border-2 border-slate-700/50 bg-black/60 text-slate-200 hover:border-slate-500/70 focus:border-blue-500 focus:bg-blue-500/10 focus:outline-none transition-all duration-200"
+                  >
+                    <optgroup label="United Kingdom">
+                      <option value="Europe/London">London (GMT/BST)</option>
+                    </optgroup>
+                    <optgroup label="United States">
+                      <option value="America/New_York">Eastern Time (ET)</option>
+                      <option value="America/Chicago">Central Time (CT)</option>
+                      <option value="America/Denver">Mountain Time (MT)</option>
+                      <option value="America/Los_Angeles">Pacific Time (PT)</option>
+                    </optgroup>
+                    <optgroup label="Europe">
+                      <option value="Europe/Paris">Paris (CET/CEST)</option>
+                      <option value="Europe/Berlin">Berlin (CET/CEST)</option>
+                      <option value="Europe/Madrid">Madrid (CET/CEST)</option>
+                      <option value="Europe/Rome">Rome (CET/CEST)</option>
+                      <option value="Europe/Dublin">Dublin (GMT/IST)</option>
+                    </optgroup>
+                    <optgroup label="Asia">
+                      <option value="Asia/Dubai">Dubai (GST)</option>
+                      <option value="Asia/Kolkata">India (IST)</option>
+                      <option value="Asia/Singapore">Singapore (SGT)</option>
+                      <option value="Asia/Tokyo">Tokyo (JST)</option>
+                      <option value="Asia/Hong_Kong">Hong Kong (HKT)</option>
+                    </optgroup>
+                    <optgroup label="Australia">
+                      <option value="Australia/Sydney">Sydney (AEDT/AEST)</option>
+                      <option value="Australia/Melbourne">Melbourne (AEDT/AEST)</option>
+                      <option value="Australia/Perth">Perth (AWST)</option>
+                    </optgroup>
+                    <optgroup label="Other">
+                      <option value="UTC">UTC</option>
+                    </optgroup>
+                  </select>
                 </div>
               </div>
             </>

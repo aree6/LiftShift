@@ -215,3 +215,85 @@ export const clearThemeMode = (): void => {
     console.error('Failed to clear theme mode from local storage:', error);
   }
 };
+
+// Timezone Preference Storage
+const TIMEZONE_KEY = 'hevy_analytics_timezone';
+
+/**
+ * Get the browser's detected timezone
+ */
+const getDetectedTimezone = (): string => {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone;
+  } catch {
+    return 'UTC';
+  }
+};
+
+/**
+ * Save timezone preference to local storage
+ */
+export const saveTimezone = (timezone: string): void => {
+  try {
+    localStorage.setItem(TIMEZONE_KEY, timezone);
+  } catch (error) {
+    console.error('Failed to save timezone to local storage:', error);
+  }
+};
+
+/**
+ * Retrieve timezone preference from local storage
+ */
+export const getTimezone = (): string => {
+  try {
+    const timezone = localStorage.getItem(TIMEZONE_KEY);
+    return timezone ?? getDetectedTimezone();
+  } catch (error) {
+    console.error('Failed to retrieve timezone from local storage:', error);
+    return getDetectedTimezone();
+  }
+};
+
+export const clearTimezone = (): void => {
+  try {
+    localStorage.removeItem(TIMEZONE_KEY);
+  } catch (error) {
+    console.error('Failed to clear timezone from local storage:', error);
+  }
+};
+
+// Language/Locale Preference Storage
+export type Language = 'en-GB' | 'en-US';
+const LANGUAGE_KEY = 'hevy_analytics_language';
+
+/**
+ * Save language preference to local storage
+ */
+export const saveLanguage = (language: Language): void => {
+  try {
+    localStorage.setItem(LANGUAGE_KEY, language);
+  } catch (error) {
+    console.error('Failed to save language to local storage:', error);
+  }
+};
+
+/**
+ * Retrieve language preference from local storage
+ */
+export const getLanguage = (): Language => {
+  try {
+    const language = localStorage.getItem(LANGUAGE_KEY);
+    return (language === 'en-GB' || language === 'en-US') ? language : 'en-GB';
+  } catch (error) {
+    console.error('Failed to retrieve language from local storage:', error);
+    return 'en-GB';
+  }
+};
+
+export const clearLanguage = (): void => {
+  try {
+    localStorage.removeItem(LANGUAGE_KEY);
+  } catch (error) {
+    console.error('Failed to clear language from local storage:', error);
+  }
+};
