@@ -60,6 +60,7 @@ import {
   saveSetupComplete,
   clearSetupComplete,
 } from './utils/storage/dataSourceStorage';
+import { clearHevyCredentials, saveHevyPassword, saveHevyUsernameOrEmail } from './utils/storage/hevyCredentialsStorage';
 import { hevyBackendGetAccount, hevyBackendGetSets, hevyBackendLogin } from './utils/api/hevyBackend';
 import { lyfatBackendGetSets } from './utils/api/lyfataBackend';
 import { parseHevyDateString } from './utils/date/parseHevyDateString';
@@ -194,6 +195,7 @@ const App: React.FC = () => {
   const clearCacheAndRestart = useCallback(() => {
     clearCSVData();
     clearHevyAuthToken();
+    clearHevyCredentials();
     clearLyfataApiKey();
     clearDataSourceChoice();
     clearLastCsvPlatform();
@@ -744,7 +746,13 @@ const App: React.FC = () => {
       .then((r) => {
         if (!r.auth_token) throw new Error('Missing auth token');
         saveHevyAuthToken(r.auth_token);
-        return hevyBackendGetAccount(r.auth_token).then(({ username }) => ({ token: r.auth_token, username }));
+        const trimmed = emailOrUsername.trim();
+        saveHevyUsernameOrEmail(trimmed);
+        return Promise.all([
+          saveHevyPassword(password).catch(() => {
+          }),
+          hevyBackendGetAccount(r.auth_token),
+        ]).then(([, { username }]) => ({ token: r.auth_token, username }));
       })
       .then(({ token, username }) => {
         setLoadingStep(1);

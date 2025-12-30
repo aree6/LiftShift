@@ -1,7 +1,12 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import { ArrowLeft, ArrowRight, HelpCircle, LogIn, RefreshCw, Trash2, Upload } from 'lucide-react';
 import { UNIFORM_HEADER_BUTTON_CLASS, UNIFORM_HEADER_ICON_BUTTON_CLASS } from '../utils/ui/uiConstants';
+import {
+  getHevyPassword,
+  getHevyUsernameOrEmail,
+  saveHevyUsernameOrEmail,
+} from '../utils/storage/hevyCredentialsStorage';
 
 type Intent = 'initial' | 'update';
 
@@ -32,9 +37,25 @@ export const HevyLoginModal: React.FC<HevyLoginModalProps> = ({
   onBack,
   onClose,
 }) => {
-  const [emailOrUsername, setEmailOrUsername] = useState('');
+  const [emailOrUsername, setEmailOrUsername] = useState(() => getHevyUsernameOrEmail() || '');
   const [password, setPassword] = useState('');
   const [showLoginHelp, setShowLoginHelp] = useState(false);
+  const passwordTouchedRef = useRef(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    getHevyPassword()
+      .then((p) => {
+        if (cancelled) return;
+        if (passwordTouchedRef.current) return;
+        if (p) setPassword(p);
+      })
+      .catch(() => {
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-sm overflow-y-auto overscroll-contain">
@@ -85,7 +106,9 @@ export const HevyLoginModal: React.FC<HevyLoginModalProps> = ({
               className="mt-5 space-y-3"
               onSubmit={(e) => {
                 e.preventDefault();
-                onLogin(emailOrUsername.trim(), password);
+                const trimmed = emailOrUsername.trim();
+                saveHevyUsernameOrEmail(trimmed);
+                onLogin(trimmed, password);
               }}
             >
               {hasSavedSession && onSyncSaved ? (
@@ -103,6 +126,7 @@ export const HevyLoginModal: React.FC<HevyLoginModalProps> = ({
               <div>
                 <label className="block text-xs font-semibold text-slate-200">Hevy username or email</label>
                 <input
+                  name="username"
                   value={emailOrUsername}
                   onChange={(e) => setEmailOrUsername(e.target.value)}
                   disabled={isLoading}
@@ -116,9 +140,13 @@ export const HevyLoginModal: React.FC<HevyLoginModalProps> = ({
               <div>
                 <label className="block text-xs font-semibold text-slate-200">Password</label>
                 <input
+                  name="password"
                   type="password"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => {
+                    passwordTouchedRef.current = true;
+                    setPassword(e.target.value);
+                  }}
                   disabled={isLoading}
                   className="mt-1 w-full h-10 rounded-md bg-black/50 border border-slate-700/60 px-3 text-sm text-slate-100 outline-none focus:border-emerald-500/60"
                   placeholder="Password"
@@ -192,9 +220,7 @@ export const HevyLoginModal: React.FC<HevyLoginModalProps> = ({
               </div>
             </form>
 
-            <div className="mt-4 text-[11px] text-slate-400">
-              You’re logging in via Hevy. Hevy receives your credentials — LiftShift does not store them.
-            </div>
+          
 
             {showLoginHelp ? (
               <div className="mt-4 space-y-3">
