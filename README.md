@@ -189,4 +189,3 @@ If you find this project helpful, you can support it here:
 
 - The only official deployment is https://liftshift.app.
 - Any other domain is unofficial. Do not enter credentials into an unofficial deployment.
-- LiftShift stores sync credentials locally in your browser (tokens, API keys, and login inputs). Passwords are encrypted at rest when the browser supports WebCrypto + IndexedDB.

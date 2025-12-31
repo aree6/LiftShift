@@ -1,0 +1,13 @@
+node_modules/
+backend/node_modules/
+dist/
+backend/dist/
+.git/
+*.md
+LICENSE
+.env
+.env.*
+!.env.example
+*.zip
+*.log
+.DS_Store

@@ -137,3 +137,44 @@ export const hevyBackendGetSets = async <TSet>(authToken: string, username: stri
   if (!res.ok) throw new Error(await parseError(res));
   return (await res.json()) as BackendSetsResponse<TSet>;
 };
+
+// ============================================================================
+// Official Hevy API (API Key authentication)
+// ============================================================================
+
+export const hevyBackendValidateApiKey = async (apiKey: string): Promise<{ valid: boolean }> => {
+  const res = await fetch(buildBackendUrl('/api/hevy/apikey/validate'), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ apiKey }),
+  });
+
+  if (!res.ok) throw new Error(await parseError(res));
+  return (await res.json()) as { valid: boolean };
+};
+
+export const hevyBackendGetWorkoutCount = async (apiKey: string): Promise<{ workout_count: number }> => {
+  const res = await fetch(buildBackendUrl('/api/hevy/apikey/count'), {
+    method: 'GET',
+    headers: {
+      'content-type': 'application/json',
+      'api-key': apiKey,
+    },
+  });
+
+  if (!res.ok) throw new Error(await parseError(res));
+  return (await res.json()) as { workout_count: number };
+};
+
+export const hevyBackendGetSetsWithApiKey = async <TSet>(apiKey: string): Promise<BackendSetsResponse<TSet>> => {
+  const res = await fetch(buildBackendUrl('/api/hevy/apikey/sets'), {
+    method: 'GET',
+    headers: {
+      'content-type': 'application/json',
+      'api-key': apiKey,
+    },
+  });
+
+  if (!res.ok) throw new Error(await parseError(res));
+  return (await res.json()) as BackendSetsResponse<TSet>;
+};

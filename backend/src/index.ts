@@ -3,8 +3,10 @@ import express from 'express';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 import { hevyGetAccount, hevyGetWorkoutsPaged, hevyLogin, hevyValidateAuthToken } from './hevyApi';
+import { hevyOfficialValidateApiKey, hevyOfficialGetAllWorkouts, hevyOfficialGetWorkoutCount } from './hevyOfficialApi';
 import { lyfatGetAllWorkouts, lyfatValidateApiKey } from './lyfta';
 import { mapHevyWorkoutsToWorkoutSets } from './mapToWorkoutSets';
+import { mapOfficialWorkoutsToWorkoutSets } from './mapOfficialWorkoutsToWorkoutSets';
 import { mapLyfataWorkoutsToWorkoutSets } from './mapLyfataWorkoutsToWorkoutSets';
 
 const PORT = Number(process.env.PORT ?? 5000);
@@ -53,7 +55,7 @@ app.use(
       return cb(new Error('CORS blocked'), false);
     },
     methods: ['GET', 'POST', 'OPTIONS'],
-    allowedHeaders: ['content-type', 'auth-token'],
+    allowedHeaders: ['content-type', 'auth-token', 'api-key'],
     maxAge: 86400,
   })
 );
@@ -173,6 +175,65 @@ app.get('/api/hevy/sets', async (req, res) => {
 
     const sets = mapHevyWorkoutsToWorkoutSets(allWorkouts);
     res.json({ sets, meta: { workouts: allWorkouts.length } });
+  } catch (err) {
+    const status = (err as any).statusCode ?? 500;
+    res.status(status).json({ error: (err as Error).message || 'Failed to fetch sets' });
+  }
+});
+
+// ============================================================================
+// Official Hevy API endpoints (uses user's personal API key)
+// ============================================================================
+
+const requireApiKeyHeader = (req: express.Request): string => {
+  const apiKey = req.header('api-key');
+  if (!apiKey) {
+    const err = new Error('Missing api-key header');
+    (err as any).statusCode = 401;
+    throw err;
+  }
+  return apiKey;
+};
+
+app.post('/api/hevy/apikey/validate', loginLimiter, async (req, res) => {
+  const apiKey = String(req.body?.apiKey ?? '').trim();
+
+  if (!apiKey) {
+    return res.status(400).json({ error: 'Missing apiKey' });
+  }
+
+  try {
+    const valid = await hevyOfficialValidateApiKey(apiKey);
+    res.json({ valid });
+  } catch (err) {
+    const status = (err as any).statusCode ?? 500;
+    res.status(status).json({ error: (err as Error).message || 'Validation failed' });
+  }
+});
+
+app.get('/api/hevy/apikey/count', async (req, res) => {
+  try {
+    const apiKey = requireApiKeyHeader(req);
+    const count = await hevyOfficialGetWorkoutCount(apiKey);
+    res.json({ workout_count: count });
+  } catch (err) {
+    const status = (err as any).statusCode ?? 500;
+    res.status(status).json({ error: (err as Error).message || 'Failed to fetch workout count' });
+  }
+});
+
+app.get('/api/hevy/apikey/sets', async (req, res) => {
+  const maxPages = req.query.maxPages != null ? Number(req.query.maxPages) : undefined;
+
+  if (maxPages != null && (!Number.isFinite(maxPages) || maxPages <= 0)) {
+    return res.status(400).json({ error: 'Invalid maxPages' });
+  }
+
+  try {
+    const apiKey = requireApiKeyHeader(req);
+    const workouts = await hevyOfficialGetAllWorkouts(apiKey, maxPages);
+    const sets = mapOfficialWorkoutsToWorkoutSets(workouts);
+    res.json({ sets, meta: { workouts: workouts.length } });
   } catch (err) {
     const status = (err as any).statusCode ?? 500;
     res.status(status).json({ error: (err as Error).message || 'Failed to fetch sets' });

@@ -1,0 +1,10 @@
+services:
+  liftshift:
+    image: ghcr.io/bridgey30/liftshiftapi:latest
+    ports:
+      - "8080:80"
+    environment:
+      - HEVY_X_API_KEY=${HEVY_X_API_KEY:-klean_kanteen_insulated}
+      - HEVY_BASE_URL=${HEVY_BASE_URL:-https://api.hevyapp.com}
+      - CORS_ORIGINS=${CORS_ORIGINS:-}
+    restart: unless-stopped

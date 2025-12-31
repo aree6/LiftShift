@@ -192,20 +192,12 @@ If you ever want to restart onboarding:
 - Open DevTools
 - Application → Local Storage
 - Clear keys starting with `hevy_analytics_`
-- Also clear:
-  - `hevy_username_or_email`
-  - `hevy_analytics_secret:hevy_password`
-  - `hevy_auth_token`
-  - `lyfta_api_key`
-
-If your browser is missing WebCrypto/IndexedDB support (or the page isn't a secure context), the app may fall back to storing passwords in Session Storage.
 
 
 ## 5) Notes
 
 - Hevy login is proxied through your backend.
 - The app stores the Hevy token in your browser (localStorage).
-- If you choose to use Hevy/Lyfta sync, the app may also store your login inputs locally to prefill onboarding (for example: username/email and API keys). Passwords are stored locally and are encrypted when the browser supports WebCrypto + IndexedDB.
 - Your workouts are processed client-side into `WorkoutSet[]`.
 
 
