@@ -41,6 +41,8 @@ import { CsvLoadingAnimation } from './components/CsvLoadingAnimation';
 import { DataSourceModal } from './components/DataSourceModal';
 import { LandingPage } from './components/LandingPage';
 import { HevyLoginModal } from './components/HevyLoginModal';
+import { HevyApiKeyModal } from './components/HevyApiKeyModal';
+import { HevyMethodModal } from './components/HevyMethodModal';
 import { LyfataLoginModal } from './components/LyfataLoginModal';
 import type { DataSourceChoice } from './utils/dataSources/types';
 import {
@@ -50,6 +52,9 @@ import {
   getHevyAuthToken,
   saveHevyAuthToken,
   clearHevyAuthToken,
+  getHevyApiKey,
+  saveHevyApiKey,
+  clearHevyApiKey,
   getLyfataApiKey,
   saveLyfataApiKey,
   clearLyfataApiKey,
@@ -60,8 +65,7 @@ import {
   saveSetupComplete,
   clearSetupComplete,
 } from './utils/storage/dataSourceStorage';
-import { clearHevyCredentials, saveHevyPassword, saveHevyUsernameOrEmail } from './utils/storage/hevyCredentialsStorage';
-import { hevyBackendGetAccount, hevyBackendGetSets, hevyBackendLogin } from './utils/api/hevyBackend';
+import { hevyBackendGetAccount, hevyBackendGetSets, hevyBackendLogin, hevyBackendValidateApiKey, hevyBackendGetSetsWithApiKey } from './utils/api/hevyBackend';
 import { lyfatBackendGetSets } from './utils/api/lyfataBackend';
 import { parseHevyDateString } from './utils/date/parseHevyDateString';
 import { useTheme } from './components/ThemeProvider';
@@ -75,7 +79,7 @@ enum Tab {
 }
 
 type OnboardingIntent = 'initial' | 'update';
-type OnboardingStep = 'platform' | 'strong_csv' | 'lyfta_csv' | 'other_csv' | 'lyfta_prefs' | 'lyfta_login' | 'hevy_prefs' | 'hevy_login' | 'hevy_csv';
+type OnboardingStep = 'platform' | 'strong_csv' | 'lyfta_csv' | 'other_csv' | 'lyfta_prefs' | 'lyfta_login' | 'hevy_prefs' | 'hevy_method' | 'hevy_login' | 'hevy_apikey' | 'hevy_csv';
 
 type OnboardingFlow = {
   intent: OnboardingIntent;
@@ -195,7 +199,7 @@ const App: React.FC = () => {
   const clearCacheAndRestart = useCallback(() => {
     clearCSVData();
     clearHevyAuthToken();
-    clearHevyCredentials();
+    clearHevyApiKey();
     clearLyfataApiKey();
     clearDataSourceChoice();
     clearLastCsvPlatform();
@@ -419,6 +423,41 @@ const App: React.FC = () => {
           clearLyfataApiKey();
           saveSetupComplete(false);
           setLyfatLoginError(getHevyErrorMessage(err));
+          setOnboarding({ intent: 'initial', step: 'platform' });
+        })
+        .finally(() => {
+          finishProgress(startedAt);
+        });
+      return;
+    }
+
+    // Check for Hevy API key first (official API)
+    const hevyApiKey = getHevyApiKey();
+    if (hevyApiKey) {
+      setLoadingKind('hevy');
+      setIsAnalyzing(true);
+      setLoadingStep(0);
+      const startedAt = startProgress();
+      Promise.resolve()
+        .then(() => {
+          setLoadingStep(1);
+          return hevyBackendGetSetsWithApiKey<WorkoutSet>(hevyApiKey);
+        })
+        .then((resp) => {
+          setLoadingStep(2);
+          const hydrated = (resp.sets ?? []).map((s) => ({
+            ...s,
+            parsedDate: parseHevyDateString(String(s.start_time ?? '')),
+          }));
+          const enriched = identifyPersonalRecords(hydrated);
+          setParsedData(enriched);
+          setHevyLoginError(null);
+          setCsvImportError(null);
+        })
+        .catch((err) => {
+          clearHevyApiKey();
+          saveSetupComplete(false);
+          setHevyLoginError(getHevyErrorMessage(err));
           setOnboarding({ intent: 'initial', step: 'platform' });
         })
         .finally(() => {
@@ -746,17 +785,78 @@ const App: React.FC = () => {
       .then((r) => {
         if (!r.auth_token) throw new Error('Missing auth token');
         saveHevyAuthToken(r.auth_token);
-        const trimmed = emailOrUsername.trim();
-        saveHevyUsernameOrEmail(trimmed);
-        return Promise.all([
-          saveHevyPassword(password).catch(() => {
-          }),
-          hevyBackendGetAccount(r.auth_token),
-        ]).then(([, { username }]) => ({ token: r.auth_token, username }));
+        return hevyBackendGetAccount(r.auth_token).then(({ username }) => ({ token: r.auth_token, username }));
       })
       .then(({ token, username }) => {
         setLoadingStep(1);
         return hevyBackendGetSets<WorkoutSet>(token, username);
+      })
+      .then((resp) => {
+        setLoadingStep(2);
+        const hydrated = (resp.sets ?? []).map((s) => ({
+          ...s,
+          parsedDate: parseHevyDateString(String(s.start_time ?? '')),
+        }));
+        const enriched = identifyPersonalRecords(hydrated);
+        setParsedData(enriched);
+        setDataSource('hevy');
+        saveSetupComplete(true);
+        setOnboarding(null);
+      })
+      .catch((err) => {
+        setHevyLoginError(getHevyErrorMessage(err));
+      })
+      .finally(() => {
+        finishProgress(startedAt);
+      });
+  };
+
+  // Hevy API Key handlers
+  const handleHevyApiKeySyncSaved = () => {
+    const apiKey = getHevyApiKey();
+    if (!apiKey) return;
+
+    setHevyLoginError(null);
+    setLoadingKind('hevy');
+    setIsAnalyzing(true);
+    setLoadingStep(0);
+    const startedAt = startProgress();
+
+    hevyBackendGetSetsWithApiKey<WorkoutSet>(apiKey)
+      .then((resp) => {
+        setLoadingStep(2);
+        const hydrated = (resp.sets ?? []).map((s) => ({
+          ...s,
+          parsedDate: parseHevyDateString(String(s.start_time ?? '')),
+        }));
+        const enriched = identifyPersonalRecords(hydrated);
+        setParsedData(enriched);
+        setDataSource('hevy');
+        saveSetupComplete(true);
+        setOnboarding(null);
+      })
+      .catch((err) => {
+        clearHevyApiKey();
+        setHevyLoginError(getHevyErrorMessage(err));
+      })
+      .finally(() => {
+        finishProgress(startedAt);
+      });
+  };
+
+  const handleHevyApiKeyLogin = (apiKey: string) => {
+    setHevyLoginError(null);
+    setLoadingKind('hevy');
+    setIsAnalyzing(true);
+    setLoadingStep(0);
+    const startedAt = startProgress();
+
+    hevyBackendValidateApiKey(apiKey)
+      .then(({ valid }) => {
+        if (!valid) throw new Error('Invalid API key. Please check your Hevy Pro API key and try again.');
+        saveHevyApiKey(apiKey);
+        setLoadingStep(1);
+        return hevyBackendGetSetsWithApiKey<WorkoutSet>(apiKey);
       })
       .then((resp) => {
         setLoadingStep(2);
@@ -1239,7 +1339,7 @@ const App: React.FC = () => {
             setBodyMapGender(gender);
             setWeightUnit(unit);
             savePreferencesConfirmed(true);
-            setOnboarding({ intent: onboarding.intent, step: 'hevy_login', platform: 'hevy' });
+            setOnboarding({ intent: onboarding.intent, step: 'hevy_method', platform: 'hevy' });
           }}
           onBack={
             onboarding.intent === 'initial'
@@ -1284,6 +1384,42 @@ const App: React.FC = () => {
         />
       ) : null}
 
+      {onboarding?.step === 'hevy_method' ? (
+        <HevyMethodModal
+          intent={onboarding.intent}
+          hasSavedSession={Boolean(getHevyAuthToken() || getHevyApiKey()) && getPreferencesConfirmed()}
+          onSelect={(method) => {
+            if (method === 'saved') {
+              // Use API key if available, otherwise use auth token
+              if (getHevyApiKey()) {
+                handleHevyApiKeySyncSaved();
+              } else {
+                handleHevySyncSaved();
+              }
+              return;
+            }
+            if (method === 'login') {
+              setOnboarding({ intent: onboarding.intent, step: 'hevy_login', platform: 'hevy' });
+              return;
+            }
+            if (method === 'apikey') {
+              setOnboarding({ intent: onboarding.intent, step: 'hevy_apikey', platform: 'hevy' });
+              return;
+            }
+            if (method === 'csv') {
+              setOnboarding({ intent: onboarding.intent, step: 'hevy_csv', platform: 'hevy', backStep: 'hevy_method' });
+            }
+          }}
+          onBack={() => setOnboarding({ intent: onboarding.intent, step: 'hevy_prefs', platform: 'hevy' })}
+          onClearCache={clearCacheAndRestart}
+          onClose={
+            onboarding.intent === 'update'
+              ? () => setOnboarding(null)
+              : undefined
+          }
+        />
+      ) : null}
+
       {onboarding?.step === 'hevy_login' ? (
         <HevyLoginModal
           intent={onboarding.intent}
@@ -1297,7 +1433,31 @@ const App: React.FC = () => {
           onImportCsv={() => setOnboarding({ intent: onboarding.intent, step: 'hevy_csv', platform: 'hevy', backStep: 'hevy_login' })}
           onBack={
             onboarding.intent === 'initial'
-              ? () => setOnboarding({ intent: onboarding.intent, step: 'hevy_prefs', platform: 'hevy' })
+              ? () => setOnboarding({ intent: onboarding.intent, step: 'hevy_method', platform: 'hevy' })
+              : () => setOnboarding({ intent: 'initial', step: 'platform' })
+          }
+          onClose={
+            onboarding.intent === 'update'
+              ? () => setOnboarding(null)
+              : undefined
+          }
+        />
+      ) : null}
+
+      {onboarding?.step === 'hevy_apikey' ? (
+        <HevyApiKeyModal
+          intent={onboarding.intent}
+          errorMessage={hevyLoginError}
+          isLoading={isAnalyzing}
+          onSubmit={handleHevyApiKeyLogin}
+          submitLabel={onboarding.intent === 'initial' ? 'Continue' : 'Connect with API Key'}
+          hasSavedApiKey={Boolean(getHevyApiKey()) && getPreferencesConfirmed()}
+          onSyncSaved={handleHevyApiKeySyncSaved}
+          onClearCache={clearCacheAndRestart}
+          onImportCsv={() => setOnboarding({ intent: onboarding.intent, step: 'hevy_csv', platform: 'hevy', backStep: 'hevy_apikey' })}
+          onBack={
+            onboarding.intent === 'initial'
+              ? () => setOnboarding({ intent: onboarding.intent, step: 'hevy_method', platform: 'hevy' })
               : () => setOnboarding({ intent: 'initial', step: 'platform' })
           }
           onClose={

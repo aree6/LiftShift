@@ -1,17 +1,16 @@
 import React, { useState } from 'react';
-import { motion } from 'motion/react';
-import { ArrowLeft, ArrowRight, HelpCircle, LogIn, RefreshCw, Trash2, Upload } from 'lucide-react';
+import { ArrowLeft, ArrowRight, HelpCircle, Key, RefreshCw, Trash2, Upload } from 'lucide-react';
 import { UNIFORM_HEADER_BUTTON_CLASS, UNIFORM_HEADER_ICON_BUTTON_CLASS } from '../utils/ui/uiConstants';
 
 type Intent = 'initial' | 'update';
 
-interface HevyLoginModalProps {
+interface HevyApiKeyModalProps {
   intent: Intent;
   errorMessage?: string | null;
   isLoading?: boolean;
-  onLogin: (emailOrUsername: string, password: string) => void;
-  loginLabel?: string;
-  hasSavedSession?: boolean;
+  onSubmit: (apiKey: string) => void;
+  submitLabel?: string;
+  hasSavedApiKey?: boolean;
   onSyncSaved?: () => void;
   onClearCache?: () => void;
   onImportCsv?: () => void;
@@ -19,22 +18,21 @@ interface HevyLoginModalProps {
   onClose?: () => void;
 }
 
-export const HevyLoginModal: React.FC<HevyLoginModalProps> = ({
+export const HevyApiKeyModal: React.FC<HevyApiKeyModalProps> = ({
   intent,
   errorMessage,
   isLoading = false,
-  onLogin,
-  loginLabel = 'Login with Hevy',
-  hasSavedSession = false,
+  onSubmit,
+  submitLabel = 'Connect with API Key',
+  hasSavedApiKey = false,
   onSyncSaved,
   onClearCache,
   onImportCsv,
   onBack,
   onClose,
 }) => {
-  const [emailOrUsername, setEmailOrUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [showLoginHelp, setShowLoginHelp] = useState(false);
+  const [apiKey, setApiKey] = useState('');
+  const [showHelp, setShowHelp] = useState(false);
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-sm overflow-y-auto overscroll-contain">
@@ -42,8 +40,8 @@ export const HevyLoginModal: React.FC<HevyLoginModalProps> = ({
         <div className="max-w-xl mx-auto">
           <div className="relative bg-black/60 border border-slate-700/50 rounded-2xl p-5 sm:p-6 slide-in-from-top-2 overflow-hidden backdrop-blur-md">
             <div className="absolute inset-0 pointer-events-none">
-              <div className="absolute -top-24 -right-28 w-72 h-72 rounded-full blur-3xl bg-emerald-500/10" />
-              <div className="absolute -bottom-28 -left-28 w-72 h-72 rounded-full blur-3xl bg-blue-500/10" />
+              <div className="absolute -top-24 -right-28 w-72 h-72 rounded-full blur-3xl bg-amber-500/10" />
+              <div className="absolute -bottom-28 -left-28 w-72 h-72 rounded-full blur-3xl bg-orange-500/10" />
               <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-black/20" />
             </div>
 
@@ -62,10 +60,10 @@ export const HevyLoginModal: React.FC<HevyLoginModalProps> = ({
 
               <div className="text-center">
                 <h2 className="text-2xl font-bold text-white inline-flex items-center justify-center gap-2">
-                  <LogIn className="w-5 h-5 text-slate-200" />
-                  <span>Login with Hevy</span>
+                  <Key className="w-5 h-5 text-amber-400" />
+                  <span>Use API Key</span>
                 </h2>
-                <p className="mt-1 text-sm text-slate-300">Login with Hevy directly to auto-sync your workouts.</p>
+                <p className="mt-1 text-sm text-slate-300">Connect using your Hevy Pro API key.</p>
               </div>
 
               <div className="w-[72px] flex justify-end">
@@ -85,10 +83,10 @@ export const HevyLoginModal: React.FC<HevyLoginModalProps> = ({
               className="mt-5 space-y-3"
               onSubmit={(e) => {
                 e.preventDefault();
-                onLogin(emailOrUsername.trim(), password);
+                onSubmit(apiKey.trim());
               }}
             >
-              {hasSavedSession && onSyncSaved ? (
+              {hasSavedApiKey && onSyncSaved ? (
                 <button
                   type="button"
                   onClick={onSyncSaved}
@@ -101,28 +99,15 @@ export const HevyLoginModal: React.FC<HevyLoginModalProps> = ({
               ) : null}
 
               <div>
-                <label className="block text-xs font-semibold text-slate-200">Hevy username or email</label>
-                <input
-                  value={emailOrUsername}
-                  onChange={(e) => setEmailOrUsername(e.target.value)}
-                  disabled={isLoading}
-                  className="mt-1 w-full h-10 rounded-md bg-black/50 border border-slate-700/60 px-3 text-sm text-slate-100 outline-none focus:border-emerald-500/60"
-                  placeholder="Use your Hevy username or email"
-                  autoComplete="username"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-200">Password</label>
+                <label className="block text-xs font-semibold text-slate-200">Hevy API Key</label>
                 <input
                   type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
                   disabled={isLoading}
-                  className="mt-1 w-full h-10 rounded-md bg-black/50 border border-slate-700/60 px-3 text-sm text-slate-100 outline-none focus:border-emerald-500/60"
-                  placeholder="Password"
-                  autoComplete="current-password"
+                  className="mt-1 w-full h-10 rounded-md bg-black/50 border border-slate-700/60 px-3 text-sm text-slate-100 outline-none focus:border-amber-500/60 font-mono"
+                  placeholder="Paste your API key here"
+                  autoComplete="off"
                   required
                 />
               </div>
@@ -138,7 +123,7 @@ export const HevyLoginModal: React.FC<HevyLoginModalProps> = ({
                 disabled={isLoading}
                 className={`${UNIFORM_HEADER_BUTTON_CLASS} w-full h-10 text-sm font-semibold disabled:opacity-60 gap-2 justify-center`}
               >
-                <span className="truncate">{isLoading ? 'Logging in…' : loginLabel}</span>
+                <span className="truncate">{isLoading ? 'Validating…' : submitLabel}</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
 
@@ -164,11 +149,11 @@ export const HevyLoginModal: React.FC<HevyLoginModalProps> = ({
 
                   <button
                     type="button"
-                    onClick={() => setShowLoginHelp((v) => !v)}
+                    onClick={() => setShowHelp((v) => !v)}
                     className={`${UNIFORM_HEADER_BUTTON_CLASS} h-10 px-2 w-full text-[11px] font-semibold gap-1.5 justify-center`}
                   >
                     <HelpCircle className="w-4 h-4" />
-                    <span className="whitespace-nowrap">How to login</span>
+                    <span className="whitespace-nowrap">Get API Key</span>
                   </button>
 
                   {onImportCsv ? (
@@ -193,47 +178,30 @@ export const HevyLoginModal: React.FC<HevyLoginModalProps> = ({
             </form>
 
             <div className="mt-4 text-[11px] text-slate-400">
-              You’re logging in via Hevy. Hevy receives your credentials — LiftShift does not store them.
+              Your API key is stored locally in your browser. It's sent only to the official Hevy API.
             </div>
 
-            {showLoginHelp ? (
+            {showHelp ? (
               <div className="mt-4 space-y-3">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  <img
-                    src="/step1Login.png"
-                    className="w-full h-auto rounded-lg border border-slate-700/60"
-                    alt="Hevy login step 1"
-                    loading="lazy"
-                    decoding="async"
-                  />
-                  <img
-                    src="/step2Login.png"
-                    className="w-full h-auto rounded-lg border border-slate-700/60"
-                    alt="Hevy login step 2"
-                    loading="lazy"
-                    decoding="async"
-                  />
-                  <img
-                    src="/step3Login.png"
-                    className="w-full h-auto rounded-lg border border-slate-700/60"
-                    alt="Hevy login step 3"
-                    loading="lazy"
-                    decoding="async"
-                  />
+                <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-4">
+                  <h3 className="text-sm font-semibold text-amber-300 mb-2">How to get your API Key</h3>
+                  <ol className="text-xs text-slate-300 space-y-2 list-decimal list-inside">
+                    <li>You need a <strong className="text-amber-300">Hevy Pro</strong> subscription</li>
+                    <li>Open the Hevy app or go to <a href="https://hevy.com" target="_blank" rel="noopener noreferrer" className="text-amber-400 underline">hevy.com</a></li>
+                    <li>Navigate to <strong>Settings → Developer / API</strong></li>
+                    <li>Generate or copy your API key</li>
+                    <li>Paste it in the field above</li>
+                  </ol>
                 </div>
 
-                <div className="flex justify-center">
-                  <img
-                    src="/step5.png"
-                    className="w-full max-w-xs h-auto rounded-lg border border-slate-700/60"
-                    alt="Set Hevy language to English"
-                    loading="lazy"
-                    decoding="async"
-                  />
-                </div>
-
-                <div className="text-xs text-slate-400 text-center">
-                  Support is English-only right now. If you use quick login, use the same email/username here. If you don’t have a password, set one in your Hevy account first.
+                <div className="rounded-lg border border-slate-700/50 bg-slate-800/30 p-3">
+                  <h4 className="text-xs font-semibold text-slate-200 mb-1">Why use an API Key?</h4>
+                  <ul className="text-xs text-slate-400 space-y-1">
+                    <li>• More reliable than login-based sync</li>
+                    <li>• Uses the official Hevy API</li>
+                    <li>• Your password is never shared</li>
+                    <li>• Enables future webhook support</li>
+                  </ul>
                 </div>
               </div>
             ) : null}

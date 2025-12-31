@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { ArrowLeft, ArrowRight, HelpCircle, Key, RefreshCw, Trash2, Upload } from 'lucide-react';
 import { UNIFORM_HEADER_BUTTON_CLASS, UNIFORM_HEADER_ICON_BUTTON_CLASS } from '../utils/ui/uiConstants';
-import { getLyfataApiKey } from '../utils/storage/dataSourceStorage';
 
 type Intent = 'initial' | 'update';
 
@@ -33,7 +32,13 @@ export const LyfataLoginModal: React.FC<LyfataLoginModalProps> = ({
   onBack,
   onClose,
 }) => {
-  const [apiKey, setApiKey] = useState(() => getLyfataApiKey() || '');
+  // Try to load API key from localStorage on mount
+  const [apiKey, setApiKey] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('lyfta_api_key') || '';
+    }
+    return '';
+  });
   const [showLoginHelp, setShowLoginHelp] = useState(false);
 
   return (
@@ -86,6 +91,10 @@ export const LyfataLoginModal: React.FC<LyfataLoginModalProps> = ({
               onSubmit={(e) => {
                 e.preventDefault();
                 const trimmedKey = apiKey.trim();
+                // Save API key to localStorage
+                if (typeof window !== 'undefined') {
+                  localStorage.setItem('lyfta_api_key', trimmedKey);
+                }
                 onLogin(trimmedKey);
               }}
             >
@@ -179,7 +188,9 @@ export const LyfataLoginModal: React.FC<LyfataLoginModalProps> = ({
               </div>
             </form>
 
-          
+            <div className="mt-4 text-[11px] text-slate-400">
+              Your API key is sent only to the backend for syncing. It is stored locally and never shared.
+            </div>
 
             {showLoginHelp ? (
               <motion.div

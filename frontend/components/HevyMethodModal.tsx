@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { ArrowLeft, Upload } from 'lucide-react';
+import { ArrowLeft, Key, Upload } from 'lucide-react';
 
-type HevyMethod = 'login' | 'csv' | 'saved';
+type HevyMethod = 'login' | 'csv' | 'saved' | 'apikey';
 
 type Intent = 'initial' | 'update';
 
@@ -95,7 +95,7 @@ export const HevyMethodModal: React.FC<HevyMethodModalProps> = ({
               ) : null
             )}
 
-            <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
               <button
                 type="button"
                 onClick={() => onSelect('login')}
@@ -106,10 +106,29 @@ export const HevyMethodModal: React.FC<HevyMethodModalProps> = ({
                     <div className="relative w-9 h-9 rounded-lg bg-black/20 border border-slate-700/50 flex items-center justify-center flex-shrink-0">
                       <img src="/hevy.png" alt="Hevy" className="w-6 h-6 object-contain" loading="lazy" decoding="async" />
                     </div>
-                    <div className="text-white font-semibold text-lg truncate">Login with Hevy</div>
+                    <div className="text-white font-semibold text-lg truncate">Login</div>
                   </div>
                 </div>
-                <div className="mt-1 text-xs text-slate-200/90">Auto-sync your latest workouts (recommended).</div>
+                <div className="mt-1 text-xs text-slate-200/90">Auto-sync with username & password.</div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => onSelect('apikey')}
+                className="group rounded-xl border border-amber-500/30 bg-amber-500/5 hover:bg-amber-500/10 px-4 py-4 text-left transition-colors"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="relative w-9 h-9 rounded-lg bg-black/20 border border-amber-500/30 flex items-center justify-center flex-shrink-0">
+                      <Key className="w-5 h-5 text-amber-400" />
+                      <span className="absolute -top-1 -right-1 rounded-full border border-amber-500/30 bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-semibold text-amber-300">
+                        PRO
+                      </span>
+                    </div>
+                    <div className="text-white font-semibold text-lg">API Key</div>
+                  </div>
+                </div>
+                <div className="mt-1 text-xs text-slate-200/90">Use official Hevy API (recommended).</div>
               </button>
 
               <button
@@ -121,16 +140,13 @@ export const HevyMethodModal: React.FC<HevyMethodModalProps> = ({
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="relative w-9 h-9 rounded-lg bg-black/20 border border-slate-700/50 flex items-center justify-center flex-shrink-0">
                       <Upload className="w-5 h-5 text-slate-200" />
-                      <span className="absolute -top-1 -right-1 rounded-full border border-rose-500/30 bg-rose-500/15 px-1.5 py-0.5 text-[9px] font-semibold text-rose-300">
-                        EXP
-                      </span>
                     </div>
                     <div className="text-white font-semibold text-lg">
-                      Import <span className="text-slate-300 text-base">.CSV</span>
+                      <span className="text-slate-300 text-base">.CSV</span>
                     </div>
                   </div>
                 </div>
-                <div className="mt-1 text-xs text-slate-200/90">Manual sync. Export and upload when needed.</div>
+                <div className="mt-1 text-xs text-slate-200/90">Manual sync. Export & upload.</div>
               </button>
             </div>
 
