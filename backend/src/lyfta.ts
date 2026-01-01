@@ -51,6 +51,23 @@ export interface LyfatGetWorkoutsResponse {
   }>;
 }
 
+export interface LyfatGetWorkoutSummaryResponse {
+  status: boolean;
+  count: number;
+  total_records: number;
+  total_pages: number;
+  current_page: number;
+  limit: number;
+  workouts: Array<{
+    id: string;
+    title: string;
+    description: string | null;
+    workout_duration: string; // e.g. "01:06:25"
+    total_volume: string;
+    workout_perform_date: string;
+  }>;
+}
+
 export const lyfatGetWorkouts = async (
   apiKey: string,
   opts: { limit?: number; page?: number } = {}
@@ -110,4 +127,48 @@ export const lyfatGetAllWorkouts = async (apiKey: string): Promise<LyfatGetWorko
   }
 
   return allWorkouts;
+};
+
+export const lyfatGetWorkoutSummaries = async (
+  apiKey: string,
+  opts: { limit?: number; page?: number } = {}
+): Promise<LyfatGetWorkoutSummaryResponse> => {
+  const { limit = 1000, page = 1 } = opts;
+  const params = new URLSearchParams({
+    limit: String(Math.min(limit, 1000)), // Cap at 1000 for summary endpoint
+    page: String(page),
+  });
+
+  const res = await fetch(`${LYFTA_BASE_URL}/api/v1/workouts/summary?${params.toString()}`, {
+    method: 'GET',
+    headers: buildHeaders(apiKey),
+  });
+
+  if (!res.ok) {
+    const msg = await parseErrorBody(res);
+    const err = new Error(msg);
+    (err as any).statusCode = res.status;
+    throw err;
+  }
+
+  return (await res.json()) as LyfatGetWorkoutSummaryResponse;
+};
+
+export const lyfatGetAllWorkoutSummaries = async (apiKey: string): Promise<LyfatGetWorkoutSummaryResponse['workouts']> => {
+  const allSummaries: LyfatGetWorkoutSummaryResponse['workouts'] = [];
+  let page = 1;
+  let hasMore = true;
+
+  while (hasMore) {
+    const response = await lyfatGetWorkoutSummaries(apiKey, { limit: 1000, page });
+    allSummaries.push(...response.workouts);
+
+    if (page >= response.total_pages) {
+      hasMore = false;
+    } else {
+      page++;
+    }
+  }
+
+  return allSummaries;
 };

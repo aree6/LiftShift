@@ -3,8 +3,10 @@ import express from 'express';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 import { hevyGetAccount, hevyGetWorkoutsPaged, hevyLogin, hevyValidateAuthToken } from './hevyApi';
-import { lyfatGetAllWorkouts, lyfatValidateApiKey } from './lyfta';
+import { hevyProGetAllWorkouts, hevyProValidateApiKey } from './hevyProApi';
+import { lyfatGetAllWorkouts, lyfatGetAllWorkoutSummaries, lyfatValidateApiKey } from './lyfta';
 import { mapHevyWorkoutsToWorkoutSets } from './mapToWorkoutSets';
+import { mapHevyProWorkoutsToWorkoutSets } from './mapHevyProWorkoutsToWorkoutSets';
 import { mapLyfataWorkoutsToWorkoutSets } from './mapLyfataWorkoutsToWorkoutSets';
 
 const PORT = Number(process.env.PORT ?? 5000);
@@ -99,6 +101,34 @@ app.post('/api/hevy/login', loginLimiter, async (req, res) => {
       });
     }
     res.status(status).json({ error: message });
+  }
+});
+
+// Hevy Pro API key endpoints
+app.post('/api/hevy/api-key/validate', loginLimiter, async (req, res) => {
+  const apiKey = String(req.body?.apiKey ?? '').trim();
+  if (!apiKey) return res.status(400).json({ error: 'Missing apiKey' });
+
+  try {
+    const valid = await hevyProValidateApiKey(apiKey);
+    res.json({ valid });
+  } catch (err) {
+    const status = (err as any).statusCode ?? 500;
+    res.status(status).json({ error: (err as Error).message || 'Validate failed' });
+  }
+});
+
+app.post('/api/hevy/api-key/sets', async (req, res) => {
+  const apiKey = String(req.body?.apiKey ?? '').trim();
+  if (!apiKey) return res.status(400).json({ error: 'Missing apiKey' });
+
+  try {
+    const workouts = await hevyProGetAllWorkouts(apiKey);
+    const sets = mapHevyProWorkoutsToWorkoutSets(workouts);
+    res.json({ sets, meta: { workouts: workouts.length } });
+  } catch (err) {
+    const status = (err as any).statusCode ?? 500;
+    res.status(status).json({ error: (err as Error).message || 'Failed to fetch sets' });
   }
 });
 
@@ -202,8 +232,13 @@ app.post('/api/lyfta/sets', async (req, res) => {
   if (!apiKey) return res.status(400).json({ error: 'Missing apiKey' });
 
   try {
-    const workouts = await lyfatGetAllWorkouts(apiKey);
-    const sets = mapLyfataWorkoutsToWorkoutSets(workouts);
+    // Fetch both workout details and summaries in parallel
+    const [workouts, summaries] = await Promise.all([
+      lyfatGetAllWorkouts(apiKey),
+      lyfatGetAllWorkoutSummaries(apiKey)
+    ]);
+    
+    const sets = mapLyfataWorkoutsToWorkoutSets(workouts, summaries);
     res.json({ sets, meta: { workouts: workouts.length } });
   } catch (err) {
     const status = (err as any).statusCode ?? 500;

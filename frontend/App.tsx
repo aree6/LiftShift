@@ -50,6 +50,9 @@ import {
   getHevyAuthToken,
   saveHevyAuthToken,
   clearHevyAuthToken,
+  getHevyProApiKey,
+  saveHevyProApiKey,
+  clearHevyProApiKey,
   getLyfataApiKey,
   saveLyfataApiKey,
   clearLyfataApiKey,
@@ -61,7 +64,7 @@ import {
   clearSetupComplete,
 } from './utils/storage/dataSourceStorage';
 import { clearHevyCredentials, saveHevyPassword, saveHevyUsernameOrEmail } from './utils/storage/hevyCredentialsStorage';
-import { hevyBackendGetAccount, hevyBackendGetSets, hevyBackendLogin } from './utils/api/hevyBackend';
+import { hevyBackendGetAccount, hevyBackendGetSets, hevyBackendGetSetsWithProApiKey, hevyBackendLogin, hevyBackendValidateProApiKey } from './utils/api/hevyBackend';
 import { lyfatBackendGetSets } from './utils/api/lyfataBackend';
 import { parseHevyDateString } from './utils/date/parseHevyDateString';
 import { useTheme } from './components/ThemeProvider';
@@ -195,6 +198,7 @@ const App: React.FC = () => {
   const clearCacheAndRestart = useCallback(() => {
     clearCSVData();
     clearHevyAuthToken();
+    clearHevyProApiKey();
     clearHevyCredentials();
     clearLyfataApiKey();
     clearDataSourceChoice();
@@ -419,6 +423,41 @@ const App: React.FC = () => {
           clearLyfataApiKey();
           saveSetupComplete(false);
           setLyfatLoginError(getHevyErrorMessage(err));
+          setOnboarding({ intent: 'initial', step: 'platform' });
+        })
+        .finally(() => {
+          finishProgress(startedAt);
+        });
+      return;
+    }
+
+    // Check for Hevy Pro API key
+    const hevyProApiKey = getHevyProApiKey();
+    if (storedChoice === 'hevy' && hevyProApiKey) {
+      setLoadingKind('hevy');
+      setIsAnalyzing(true);
+      setLoadingStep(0);
+      const startedAt = startProgress();
+      Promise.resolve()
+        .then(() => {
+          setLoadingStep(1);
+          return hevyBackendGetSetsWithProApiKey<WorkoutSet>(hevyProApiKey);
+        })
+        .then((resp) => {
+          setLoadingStep(2);
+          const hydrated = (resp.sets ?? []).map((s) => ({
+            ...s,
+            parsedDate: parseHevyDateString(String(s.start_time ?? '')),
+          }));
+          const enriched = identifyPersonalRecords(hydrated);
+          setParsedData(enriched);
+          setHevyLoginError(null);
+          setCsvImportError(null);
+        })
+        .catch((err) => {
+          clearHevyProApiKey();
+          saveSetupComplete(false);
+          setHevyLoginError(getHevyErrorMessage(err));
           setOnboarding({ intent: 'initial', step: 'platform' });
         })
         .finally(() => {
@@ -700,6 +739,41 @@ const App: React.FC = () => {
   };
 
   const handleHevySyncSaved = () => {
+    const savedProKey = getHevyProApiKey();
+    if (savedProKey) {
+      setHevyLoginError(null);
+      setLoadingKind('hevy');
+      setIsAnalyzing(true);
+      setLoadingStep(0);
+      const startedAt = startProgress();
+
+      Promise.resolve()
+        .then(() => {
+          setLoadingStep(1);
+          return hevyBackendGetSetsWithProApiKey<WorkoutSet>(savedProKey);
+        })
+        .then((resp) => {
+          setLoadingStep(2);
+          const hydrated = (resp.sets ?? []).map((s) => ({
+            ...s,
+            parsedDate: parseHevyDateString(String(s.start_time ?? '')),
+          }));
+          const enriched = identifyPersonalRecords(hydrated);
+          setParsedData(enriched);
+          setDataSource('hevy');
+          saveSetupComplete(true);
+          setOnboarding(null);
+        })
+        .catch((err) => {
+          clearHevyProApiKey();
+          setHevyLoginError(getHevyErrorMessage(err));
+        })
+        .finally(() => {
+          finishProgress(startedAt);
+        });
+      return;
+    }
+
     const token = getHevyAuthToken();
     if (!token) return;
 
@@ -728,6 +802,48 @@ const App: React.FC = () => {
       })
       .catch((err) => {
         clearHevyAuthToken();
+        setHevyLoginError(getHevyErrorMessage(err));
+      })
+      .finally(() => {
+        finishProgress(startedAt);
+      });
+  };
+
+  const handleHevyApiKeyLogin = (apiKey: string) => {
+    const trimmed = apiKey.trim();
+    if (!trimmed) {
+      setHevyLoginError('Missing API key.');
+      return;
+    }
+
+    setHevyLoginError(null);
+    setLoadingKind('hevy');
+    setIsAnalyzing(true);
+    setLoadingStep(0);
+    const startedAt = startProgress();
+
+    Promise.resolve()
+      .then(() => hevyBackendValidateProApiKey(trimmed))
+      .then((valid) => {
+        if (!valid) throw new Error('Invalid API key. Please check your Hevy Pro API key and try again.');
+        saveHevyProApiKey(trimmed);
+        setLoadingStep(1);
+        return hevyBackendGetSetsWithProApiKey<WorkoutSet>(trimmed);
+      })
+      .then((resp) => {
+        setLoadingStep(2);
+        const hydrated = (resp.sets ?? []).map((s) => ({
+          ...s,
+          parsedDate: parseHevyDateString(String(s.start_time ?? '')),
+        }));
+        const enriched = identifyPersonalRecords(hydrated);
+        setParsedData(enriched);
+        setDataSource('hevy');
+        saveSetupComplete(true);
+        setOnboarding(null);
+      })
+      .catch((err) => {
+        clearHevyProApiKey();
         setHevyLoginError(getHevyErrorMessage(err));
       })
       .finally(() => {
@@ -887,18 +1003,18 @@ const App: React.FC = () => {
         <>
           {/* Top Header Navigation */}
           <header className="bg-black/70 border-b border-slate-700/50 flex-shrink-0">
-            <div className="px-2 sm:px-3 py-3 flex flex-col gap-3">
+            <div className="px-2 sm:px-3 py-1.5 flex flex-col gap-2">
               {/* Top Row: Logo and Nav Buttons */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-                  <img src="/UI/logo.svg" alt="LiftShift Logo" className="w-7 h-7 sm:w-8 sm:h-8" decoding="async" />
+                  <img src="/UI/logo.svg" alt="LiftShift Logo" className="w-6 h-6 sm:w-7 sm:h-7" decoding="async" />
                   <div className="flex items-center gap-3 min-w-0">
                     <span
-                      className="font-bold text-lg sm:text-xl tracking-tight inline-flex items-start whitespace-nowrap"
+                      className="font-bold text-base sm:text-lg tracking-tight inline-flex items-start whitespace-nowrap"
                       style={{ color: 'var(--app-fg)' }}
                     >
                       <span>LiftShift</span>
-                      <sup className="ml-1 inline-block rounded-full border border-amber-500/30 bg-amber-500/15 px-1.5 py-0.5 text-[9px] sm:text-[10px] font-semibold leading-none tracking-wide text-amber-400 align-super -translate-y-0.5 -translate-x-2">
+                      <sup className="ml-1 inline-block rounded-full border border-amber-500/30 bg-amber-500/15 px-1 py-0.5 text-[8px] sm:text-[9px] font-semibold leading-none tracking-wide text-amber-400 align-super -translate-y-0.5 -translate-x-2">
                         BETA
                       </sup>
                     </span>
@@ -917,7 +1033,7 @@ const App: React.FC = () => {
                           <button
                             type="button"
                             onClick={handleOpenUpdateFlow}
-                            className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-xs font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-9 px-3 py-1.5 bg-transparent border border-black/70 text-slate-200 hover:border-white hover:text-white hover:bg-white/5 transition-all duration-200 gap-2"
+                            className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-xs font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-8 px-2.5 py-1 bg-transparent border border-black/70 text-slate-200 hover:border-white hover:text-white hover:bg-white/5 transition-all duration-200 gap-2"
                           >
                             <RefreshCw className="w-4 h-4" />
                             <span>Update Data</span>
@@ -946,16 +1062,16 @@ const App: React.FC = () => {
               </div>
 
               {/* Second Row: Navigation */}
-              <nav className="grid grid-cols-6 gap-1 pt-1 sm:grid sm:grid-cols-5 sm:gap-2">
+              <nav className="grid grid-cols-6 gap-1 pt-0.5 sm:grid sm:grid-cols-5 sm:gap-2">
                 <button 
                   onClick={() => {
                     setHighlightedExercise(null);
                     setInitialMuscleForAnalysis(null);
                     navigateToTab(Tab.DASHBOARD, 'top');
                   }}
-                  className={`w-full flex items-center justify-center gap-2 px-2 sm:px-3 py-2 rounded-lg whitespace-nowrap ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border transition-all duration-200 ${activeTab === Tab.DASHBOARD ? 'bg-white/10 border-slate-600/70 text-white ring-2 ring-white/25 shadow-sm' : 'bg-transparent border-black/70 text-slate-400 hover:border-white hover:text-white hover:bg-white/5'}`}
+                  className={`w-full flex items-center justify-center gap-2 px-2 sm:px-3 py-1.5 rounded-lg whitespace-nowrap ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border transition-all duration-200 ${activeTab === Tab.DASHBOARD ? 'bg-white/10 border-slate-600/70 text-white ring-2 ring-white/25 shadow-sm' : 'bg-transparent border-black/70 text-slate-400 hover:border-white hover:text-white hover:bg-white/5'}`}
                 >
-                  <LayoutDashboard className="w-5 h-5" />
+                  <LayoutDashboard className="w-4 h-4" />
                   <span className="hidden sm:inline font-medium">Dashboard</span>
                 </button>
                 <button 
@@ -964,10 +1080,10 @@ const App: React.FC = () => {
                     setInitialMuscleForAnalysis(null);
                     navigateToTab(Tab.MUSCLE_ANALYSIS, 'top');
                   }}
-                  className={`w-full flex items-center justify-center gap-2 px-2 sm:px-3 py-2 rounded-lg whitespace-nowrap ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border transition-all duration-200 ${activeTab === Tab.MUSCLE_ANALYSIS ? 'bg-white/10 border-slate-600/70 text-white ring-2 ring-white/25 shadow-sm' : 'bg-transparent border-black/70 text-slate-400 hover:border-white hover:text-white hover:bg-white/5'}`}
+                  className={`w-full flex items-center justify-center gap-2 px-2 sm:px-3 py-1.5 rounded-lg whitespace-nowrap ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border transition-all duration-200 ${activeTab === Tab.MUSCLE_ANALYSIS ? 'bg-white/10 border-slate-600/70 text-white ring-2 ring-white/25 shadow-sm' : 'bg-transparent border-black/70 text-slate-400 hover:border-white hover:text-white hover:bg-white/5'}`}
                 >
                   <svg
-                    className="w-5 h-5"
+                    className="w-4 h-4"
                     viewBox="0 0 195.989 195.989"
                     fill="currentColor"
                     stroke="currentColor"
@@ -986,40 +1102,25 @@ const App: React.FC = () => {
                     setInitialMuscleForAnalysis(null);
                     navigateToTab(Tab.EXERCISES, 'top');
                   }}
-                  className={`w-full flex items-center justify-center gap-2 px-2 sm:px-3 py-2 rounded-lg whitespace-nowrap ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border transition-all duration-200 ${activeTab === Tab.EXERCISES ? 'bg-white/10 border-slate-600/70 text-white ring-2 ring-white/25 shadow-sm' : 'bg-transparent border-black/70 text-slate-400 hover:border-white hover:text-white hover:bg-white/5'}`}
+                  className={`w-full flex items-center justify-center gap-2 px-2 sm:px-3 py-1.5 rounded-lg whitespace-nowrap ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border transition-all duration-200 ${activeTab === Tab.EXERCISES ? 'bg-white/10 border-slate-600/70 text-white ring-2 ring-white/25 shadow-sm' : 'bg-transparent border-black/70 text-slate-400 hover:border-white hover:text-white hover:bg-white/5'}`}
                 >
                   <svg
-                    className="w-5 h-5"
-                    viewBox="0 0 422.263 422.263"
-                    fill="currentColor"
+                    className="w-4 h-4"
+                    viewBox="0 0 24 24"
+                    fill="none"
                     stroke="currentColor"
-                    strokeWidth="10"
+                    strokeWidth="1.5"
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    paintOrder="stroke fill"
                   >
-                    <path d="M416.263,307.135h-40v-28.316c0-3.314-2.686-6-6-6h-22v-23.688c0-3.313-2.687-6-6-6h-56c-3.313,0-6,2.687-6,6v58.003
-	h-50.348c0.547-0.724,1.073-1.465,1.573-2.229c13.406-20.492,20.492-44.312,20.492-68.884c0-26.382-8.047-51.522-23.253-72.895
-	V96.111c0-47.96-39.019-86.979-86.979-86.979h-31.203c-48.132,0-87.291,39.158-87.291,87.291v66.683
-	c-1.345,1.893-2.654,3.815-3.898,5.786C6.693,188.963,0,212.176,0,236.022c0,24.573,7.086,48.393,20.492,68.884
-	c0.502,0.767,1.031,1.512,1.581,2.239c-3.224,0.102-5.809,2.741-5.809,5.99v24c0,3.313,2.687,6,6,6h40v34.309c0,3.314,2.686,6,6,6
-	h22v23.688c0,3.313,2.687,6,6,6h56c3.313,0,6-2.687,6-6v-63.997h122v63.997c0,3.313,2.687,6,6,6h56c3.313,0,6-2.687,6-6v-23.688h22
-	c3.314,0,6-2.686,6-6v-34.309h40c3.313,0,6-2.687,6-6v-24C422.263,309.822,419.577,307.135,416.263,307.135z M74.761,120.908
-	c-3.041-5.949-4.634-12.52-4.634-19.272c0-23.435,19.125-42.5,42.633-42.5h26.464c11.472,0,22.177,4.388,30.145,12.356
-	c8.053,8.053,12.488,18.712,12.488,30.012c0,6.809-1.604,13.423-4.664,19.394c-16.114-7.205-33.309-10.866-51.204-10.866
-	C108.083,110.031,90.878,113.697,74.761,120.908z M193.595,96.135h23.131v52.511c-8.477-8.791-18.213-16.351-28.819-22.347
-	c3.903-7.641,5.95-16.096,5.95-24.796C193.857,99.699,193.769,97.908,193.595,96.135z M110.544,21.132h31.203
-	c37.267,0,68.26,27.334,74.011,63.003h-24.752c-2.651-7.857-7.096-15.073-13.152-21.129c-10.234-10.234-23.954-15.871-38.63-15.871
-	H112.76c-23.988,0-44.4,15.51-51.727,37H36.272C42.158,48.446,73.214,21.132,110.544,21.132z M35.253,96.422
-	c0-0.096,0.007-0.191,0.007-0.287h23.144c-0.183,1.809-0.278,3.644-0.278,5.5c0,8.647,2.038,17.063,5.925,24.683
-	c-10.649,6.017-20.35,13.522-28.798,22.29V96.422z M28.263,331.135v-12h34v12H28.263z M74.263,371.444v-86.625h16v86.625H74.263z
-	 M102.263,255.132h16v146h-16V255.132z M146.263,401.132h-16v-146h16V401.132z M96.263,243.132c-3.313,0-6,2.687-6,6v23.688h-22
-	c-3.314,0-6,2.686-6,6v28.316H39.809c-3.674-2.102-6.867-5.116-9.276-8.798C18.409,279.803,12,258.255,12,236.022
-	c0-43.473,24.164-82.554,63.068-101.997c15.878-7.958,33.011-11.994,50.921-11.994c17.902,0,35.028,4.032,50.911,11.989
-	c15.965,7.968,30.039,19.782,40.701,34.167c14.64,19.731,22.378,43.188,22.378,67.835c0,22.233-6.409,43.781-18.534,62.315
-	c-2.414,3.691-5.616,6.709-9.273,8.798h-53.91v-58.003c0-3.313-2.687-6-6-6H96.263z M158.263,331.135v-12h122v12H158.263z
-	 M292.263,255.132h16v146h-16V255.132z M336.263,401.132h-16v-146h16V401.132z M364.263,371.444h-16v-86.625h16V371.444z
-	 M410.263,331.135h-34v-12h34V331.135z"/>
+                    <path d="M3.43125 14.704L14.2387 16.055C14.8568 16.1322 15.3208 16.6578 15.3208 17.2805C15.3208 18.0233 14.6694 18.5985 13.9325 18.5063L3.12502 17.1554C2.50697 17.0782 2.04297 16.5526 2.04297 15.9299C2.04297 15.187 2.69401 14.6119 3.43125 14.704Z" />
+                    <path d="M3.70312 17.2275V21.9992" />
+                    <path d="M13.6602 18.4727V21.9995" />
+                    <path d="M2.15625 12.7135C2.15625 11.5676 3.08519 10.6387 4.23105 10.6387C5.3769 10.6387 6.30584 11.5676 6.30584 12.7135C6.30584 13.8593 5.3769 14.7883 4.23105 14.7883C3.08519 14.7883 2.15625 13.8593 2.15625 12.7135Z" />
+                    <path d="M11.5858 9.25226V13.2867V12.3792L18.1186 13.1958C19.3644 13.3514 20.2995 14.4108 20.2995 15.6662V20.7556C20.2995 21.4431 19.7422 22.0004 19.0547 22.0004C18.3673 22.0004 17.8099 21.4431 17.8099 20.7556V16.5024L7.64535 15.2317C6.81475 15.1278 6.19141 14.422 6.19141 13.5848C6.19141 12.5865 7.0662 11.8141 8.05707 11.938L9.09618 12.0677V9.25195" />
+                    <path d="M6.60547 5.73445C6.60547 3.6721 8.27757 2 10.3399 2C12.4023 2 14.0744 3.6721 14.0744 5.73445C14.0744 7.7968 12.4023 9.46889 10.3399 9.46889C8.27757 9.46889 6.60547 7.7968 6.60547 5.73445Z" />
+                    <path d="M9.09766 5.73407C9.09766 5.04662 9.65502 4.48926 10.3425 4.48926C11.0299 4.48926 11.5873 5.04662 11.5873 5.73407C11.5873 6.42152 11.0299 6.97889 10.3425 6.97889C9.65502 6.97889 9.09766 6.42152 9.09766 5.73407Z" />
+                    <path d="M2 22H22.0001" />
                   </svg>
                   <span className="hidden sm:inline font-medium">Exercises</span>
                 </button>
@@ -1029,10 +1130,10 @@ const App: React.FC = () => {
                     setInitialMuscleForAnalysis(null);
                     navigateToTab(Tab.HISTORY, 'top');
                   }}
-                  className={`w-full flex items-center justify-center gap-2 px-2 sm:px-3 py-2 rounded-lg whitespace-nowrap ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border transition-all duration-200 ${activeTab === Tab.HISTORY ? 'bg-white/10 border-slate-600/70 text-white ring-2 ring-white/25 shadow-sm' : 'bg-transparent border-black/70 text-slate-400 hover:border-white hover:text-white hover:bg-white/5'}`}
+                  className={`w-full flex items-center justify-center gap-2 px-2 sm:px-3 py-1.5 rounded-lg whitespace-nowrap ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border transition-all duration-200 ${activeTab === Tab.HISTORY ? 'bg-white/10 border-slate-600/70 text-white ring-2 ring-white/25 shadow-sm' : 'bg-transparent border-black/70 text-slate-400 hover:border-white hover:text-white hover:bg-white/5'}`}
                 >
                   <svg
-                    className="w-5 h-5"
+                    className="w-4 h-4"
                     viewBox="0 0 503.379 503.379"
                     fill="currentColor"
                     stroke="currentColor"
@@ -1064,10 +1165,10 @@ const App: React.FC = () => {
                     setInitialMuscleForAnalysis(null);
                     navigateToTab(Tab.FLEX, 'top');
                   }}
-                  className={`w-full flex items-center justify-center gap-2 px-2 sm:px-3 py-2 rounded-lg whitespace-nowrap ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border transition-all duration-200 ${activeTab === Tab.FLEX ? 'bg-white/10 border-slate-600/70 text-white ring-2 ring-white/25 shadow-sm' : 'bg-transparent border-black/70 text-slate-400 hover:border-white hover:text-white hover:bg-white/5'}`}
+                  className={`w-full flex items-center justify-center gap-2 px-2 sm:px-3 py-1.5 rounded-lg whitespace-nowrap ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border transition-all duration-200 ${activeTab === Tab.FLEX ? 'bg-white/10 border-slate-600/70 text-white ring-2 ring-white/25 shadow-sm' : 'bg-transparent border-black/70 text-slate-400 hover:border-white hover:text-white hover:bg-white/5'}`}
                 >
                   <svg
-                    className="w-5 h-5"
+                    className="w-4 h-4"
                     viewBox="0 0 512.001 512.001"
                     fill="currentColor"
                     stroke="currentColor"
@@ -1078,12 +1179,12 @@ const App: React.FC = () => {
                   >
                     <path d="M426.667,0H85.334C73.552,0,64,9.552,64,21.334v469.333C64,502.449,73.552,512,85.334,512h341.333 c11.782,0,21.333-9.551,21.333-21.333V21.334C448,9.552,438.449,0,426.667,0z M182.326,469.334l223.007-207.078v69.398 l-157.349,137.68H182.326z M405.334,96.987L106.667,358.32v-50.35L392.378,42.667h12.956V96.987z M329.674,42.667L106.667,249.745 v-69.398l157.349-137.68H329.674z M199.223,42.667l-92.556,80.986V42.667H199.223z M106.667,415.014l298.667-261.333v50.35 L119.623,469.334h-12.956V415.014z M312.778,469.334l92.556-80.986v80.986H312.778z"/>
                   </svg>
-                  <span className="hidden sm:inline font-medium">Flex</span>
+                  <span className="hidden sm:inline font-medium text-xs">Flex</span>
                 </button>
 
                 <button
                   onClick={() => setCalendarOpen((v) => !v)}
-                  className={`sm:hidden w-full h-full relative flex flex-col items-center justify-center px-2 py-2 rounded-lg transition-all duration-200 ${
+                  className={`sm:hidden w-full h-full relative flex flex-col items-center justify-center px-2 py-1.5 rounded-lg transition-all duration-200 ${
                     (selectedDay || selectedWeeks.length > 0 || selectedRange)
                       ? 'bg-white/10 ring-2 ring-white/25 border border-slate-700/50 text-white shadow-sm'
                       : 'bg-black/30 hover:bg-black/60 text-slate-200'
@@ -1091,7 +1192,7 @@ const App: React.FC = () => {
                   title="Calendar"
                   aria-label="Calendar"
                 >
-                  {calendarOpen ? <Pencil className="w-5 h-5" /> : ((selectedDay || selectedWeeks.length > 0 || selectedRange) ? <Pencil className="w-5 h-5" /> : <Calendar className="w-5 h-5" />)}
+                  {calendarOpen ? <Pencil className="w-4 h-4" /> : ((selectedDay || selectedWeeks.length > 0 || selectedRange) ? <Pencil className="w-4 h-4" /> : <Calendar className="w-4 h-4" />)}
                   <span className="text-[10px] font-semibold leading-none mt-1">Calendar</span>
 
                   {(selectedDay || selectedWeeks.length > 0 || selectedRange) && !calendarOpen ? (
@@ -1365,11 +1466,14 @@ const App: React.FC = () => {
       {onboarding?.step === 'hevy_login' ? (
         <HevyLoginModal
           intent={onboarding.intent}
+          initialMode={getHevyProApiKey() ? 'apiKey' : 'credentials'}
           errorMessage={hevyLoginError}
           isLoading={isAnalyzing}
           onLogin={handleHevyLogin}
+          onLoginWithApiKey={handleHevyApiKeyLogin}
           loginLabel={onboarding.intent === 'initial' ? 'Continue' : 'Login with Hevy'}
-          hasSavedSession={Boolean(getHevyAuthToken()) && getPreferencesConfirmed()}
+          apiKeyLoginLabel={onboarding.intent === 'initial' ? 'Continue' : 'Continue with API key'}
+          hasSavedSession={Boolean(getHevyAuthToken() || getHevyProApiKey()) && getPreferencesConfirmed()}
           onSyncSaved={handleHevySyncSaved}
           onClearCache={clearCacheAndRestart}
           onImportCsv={() => setOnboarding({ intent: onboarding.intent, step: 'hevy_csv', platform: 'hevy', backStep: 'hevy_login' })}

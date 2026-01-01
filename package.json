@@ -33,7 +33,7 @@
     "@lottiefiles/dotlottie-react": "^0.17.10",
     "date-fns": "^4.1.0",
     "gsap": "^3.14.2",
-    "lucide-react": "^0.556.0",
+    "lucide-react": "^0.562.0",
     "lz-string": "^1.5.0",
     "motion": "^12.23.26",
     "ogl": "^1.0.11",

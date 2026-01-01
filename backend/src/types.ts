@@ -46,6 +46,38 @@ export interface HevyWorkoutSet {
   duration_seconds?: number | string | null;
 }
 
+export interface HevyProWorkoutSet {
+  index?: number;
+  type?: string;
+  weight_kg?: number | null;
+  reps?: number | null;
+  distance_meters?: number | null;
+  duration_seconds?: number | null;
+  rpe?: number | null;
+  custom_metric?: number | null;
+}
+
+export interface HevyProWorkoutExercise {
+  index?: number;
+  title?: string;
+  notes?: string;
+  exercise_template_id?: string;
+  supersets_id?: number | null;
+  sets?: HevyProWorkoutSet[];
+}
+
+export interface HevyProWorkout {
+  id: string;
+  title?: string;
+  routine_id?: string;
+  description?: string;
+  start_time?: string;
+  end_time?: string;
+  updated_at?: string;
+  created_at?: string;
+  exercises?: HevyProWorkoutExercise[];
+}
+
 export interface WorkoutSetDTO {
   title: string;
   start_time: string;

@@ -108,7 +108,7 @@ By submitting a contribution (code, documentation, or any other material) to thi
 
 
 1. **Select your platform** (Hevy / Strong)  
-2. **Hevy**: Choose your **body type** + **weight unit**, then **Continue** to login/sync (or import CSV). / **Strong**: Choose body type + unit, then import CSV  
+2. **Hevy**: Choose your **body type** + **weight unit**, then **Continue** to login/sync (email+password or Pro API key), or import CSV. / **Strong**: Choose body type + unit, then import CSV  
 3. **Explore** your analytics across Dashboard, Exercises, and History tabs  
 4. **Get insights** with real-time feedback and flexible filtering  
 
@@ -189,4 +189,4 @@ If you find this project helpful, you can support it here:
 
 - The only official deployment is https://liftshift.app.
 - Any other domain is unofficial. Do not enter credentials into an unofficial deployment.
-- LiftShift stores sync credentials locally in your browser (tokens, API keys, and login inputs). Passwords are encrypted at rest when the browser supports WebCrypto + IndexedDB.
+- LiftShift stores sync credentials locally in your browser (auth tokens, API keys, and login inputs). Passwords are encrypted at rest when the browser supports WebCrypto + IndexedDB.

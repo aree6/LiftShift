@@ -952,11 +952,8 @@ export const MuscleAnalysis: React.FC<MuscleAnalysisProps> = ({ data, filtersSlo
           {/* Scrollable Exercises Section */}
           {(quickFilterData || (selectedMuscle && (viewMode === 'group' ? selectedGroupData : selectedMuscleData))) && (
             <div className="border-t border-slate-800">
-              <div className="flex items-center gap-2 px-4 py-3 bg-black/70 border-b border-slate-700/50">
-                <Dumbbell className="w-4 h-4 text-slate-400" />
-                <h3 className="text-sm font-semibold text-white">Top Exercises</h3>
-              </div>
-              <div className="overflow-y-auto max-h-[calc(100vh-520px)] px-4 pb-4 mt-2">
+             
+              <div className="overflow-y-auto max-h-[calc(100vh-400px)] px-4 pb-4 mt-2">
                 <div className="space-y-2">
                   {contributingExercises.map((ex, i) => {
                     const asset = assetsMap?.get(ex.name);

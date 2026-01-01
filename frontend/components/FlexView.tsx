@@ -618,7 +618,8 @@ const PersonalRecordsCard: React.FC<{
 const BestMonthCard: React.FC<{
   monthlyData: { month: number; workouts: number }[];
   theme: CardTheme;
-}> = ({ monthlyData, theme }) => {
+  selectedYear: number;
+}> = ({ monthlyData, theme, selectedYear }) => {
   const isDark = theme === 'dark';
   const textPrimary = isDark ? 'text-white' : 'text-slate-900';
   const textSecondary = isDark ? 'text-slate-400' : 'text-slate-600';
@@ -648,7 +649,7 @@ const BestMonthCard: React.FC<{
 
         {/* Header */}
         <h2 className={`text-xl sm:text-2xl font-bold ${textPrimary} mb-2`} style={FANCY_FONT}>
-          {bestMonth.workouts > 0 ? MONTH_NAMES[bestMonth.month] : 'Building baseline'}
+          {bestMonth.workouts > 0 ? `${MONTH_NAMES[bestMonth.month]} ${selectedYear}` : 'Building baseline'}
         </h2>
         <p className={`text-sm ${textSecondary} mb-4`}>was your best month with</p>
 
@@ -1241,6 +1242,8 @@ export const FlexView: React.FC<FlexViewProps> = ({
     };
   }, []);
 
+  const effectiveNow = useMemo(() => getEffectiveNowFromWorkoutData(data, new Date(0)), [data]);
+
   // Calculate all stats from data
   const stats = useMemo(() => {
     let totalVolumeKg = 0;
@@ -1248,7 +1251,6 @@ export const FlexView: React.FC<FlexViewProps> = ({
     let totalDuration = 0;
     const sessions = new Set<string>();
     const exerciseCounts = new Map<string, number>();
-    const monthlyWorkouts = new Map<number, Set<string>>();
     const muscleGroups = new Map<NormalizedMuscleGroup, number>();
 
     // Case-insensitive lookup cache for assets
@@ -1269,17 +1271,8 @@ export const FlexView: React.FC<FlexViewProps> = ({
         exerciseCounts.set(exerciseName, (exerciseCounts.get(exerciseName) || 0) + 1);
       }
 
-      // Monthly workouts
+      // Muscle groups
       if (set.parsedDate) {
-        const month = getMonth(set.parsedDate);
-        if (!monthlyWorkouts.has(month)) {
-          monthlyWorkouts.set(month, new Set());
-        }
-        if (sessionKey) {
-          monthlyWorkouts.get(month)!.add(sessionKey);
-        }
-
-        // Muscle groups
         const asset = assetsMap.get(exerciseName) || lowerAssetsMap.get(exerciseName.toLowerCase());
         if (asset) {
           const primaryMuscle = normalizeMuscleGroup(asset.primary_muscle);
@@ -1325,10 +1318,35 @@ export const FlexView: React.FC<FlexViewProps> = ({
         };
       });
 
-    // Monthly data
+    // Monthly data - only for the selected year
+    const selectedYear = effectiveNow.getFullYear();
+    const monthlyWorkoutsByYear = new Map<number, Map<number, Set<string>>>();
+    
+    for (const set of data) {
+      if (isWarmupSet(set)) continue;
+      
+      const sessionKey = getSessionKey(set);
+      if (sessionKey && set.parsedDate) {
+        const year = set.parsedDate.getFullYear();
+        const month = getMonth(set.parsedDate);
+        
+        if (!monthlyWorkoutsByYear.has(year)) {
+          monthlyWorkoutsByYear.set(year, new Map());
+        }
+        const yearMap = monthlyWorkoutsByYear.get(year)!;
+        
+        if (!yearMap.has(month)) {
+          yearMap.set(month, new Set());
+        }
+        yearMap.get(month)!.add(sessionKey);
+      }
+    }
+    
+    // Get monthly data for the selected year
+    const currentYearMonthlyWorkouts = monthlyWorkoutsByYear.get(selectedYear) || new Map();
     const monthlyData = Array.from({ length: 12 }, (_, idx) => ({
       month: idx,
-      workouts: monthlyWorkouts.get(idx)?.size || 0,
+      workouts: currentYearMonthlyWorkouts.get(idx)?.size || 0,
     }));
 
     // Muscle data
@@ -1348,9 +1366,7 @@ export const FlexView: React.FC<FlexViewProps> = ({
       monthlyData,
       muscleData,
     };
-  }, [data, weightUnit, assetsMap, dailySummariesProp]);
-
-  const effectiveNow = useMemo(() => getEffectiveNowFromWorkoutData(data, new Date(0)), [data]);
+  }, [data, weightUnit, assetsMap, dailySummariesProp, effectiveNow]);
 
   // Streak info
   const streakInfo = useMemo(() => calculateStreakInfo(data, effectiveNow), [data, effectiveNow]);
@@ -1438,7 +1454,7 @@ export const FlexView: React.FC<FlexViewProps> = ({
           />
         );
       case 'best-month':
-        return <BestMonthCard monthlyData={stats.monthlyData} theme={cardTheme} />;
+        return <BestMonthCard monthlyData={stats.monthlyData} theme={cardTheme} selectedYear={effectiveNow.getFullYear()} />;
       case 'top-exercises':
         return <TopExercisesCard exercises={stats.topExercises} theme={cardTheme} />;
       case 'muscle-focus':

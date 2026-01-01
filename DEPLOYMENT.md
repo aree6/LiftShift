@@ -10,6 +10,11 @@ The backend is required for Hevy login because:
 - The Hevy API requires an `x-api-key` header.
 - Browsers will block direct calls due to CORS.
 
+Hevy users can authenticate either by:
+
+- Email/username + password (proxied through the backend)
+- Hevy Pro API key (from https://hevy.com/settings?developer) pasted directly in the UI (proxied through the backend for data fetch)
+
 
 ## 0) What you will deploy
 
@@ -153,6 +158,7 @@ Add:
 Notes:
 
 - `VITE_BACKEND_URL` must be the public URL of your deployed backend (Render/Railway), not `localhost`.
+- `VITE_BACKEND_URL` should be the backend *origin* (no trailing `/api`). The frontend will call `${VITE_BACKEND_URL}/api/...`.
 - Example: `https://liftshift-backend.onrender.com`
 
 ### 3.2 Trigger a deploy
@@ -170,7 +176,7 @@ After both are deployed:
 2. You should see the platform selector
 3. Choose:
    - Strong (CSV) or
-   - Hevy (Login or CSV)
+   - Hevy (Login (email+password or Pro API key) or CSV)
 4. After setup, you should see the dashboard
 
 Backend verification (recommended):
@@ -196,6 +202,7 @@ If you ever want to restart onboarding:
   - `hevy_username_or_email`
   - `hevy_analytics_secret:hevy_password`
   - `hevy_auth_token`
+  - `hevy_pro_api_key`
   - `lyfta_api_key`
 
 If your browser is missing WebCrypto/IndexedDB support (or the page isn't a secure context), the app may fall back to storing passwords in Session Storage.
@@ -204,6 +211,8 @@ If your browser is missing WebCrypto/IndexedDB support (or the page isn't a secu
 ## 5) Notes
 
 - Hevy login is proxied through your backend.
+- Credential login stores a Hevy `auth_token` locally and uses it for subsequent syncs.
+- Pro API key login stores a Hevy Pro `api-key` locally and uses it for subsequent syncs.
 - The app stores the Hevy token in your browser (localStorage).
 - If you choose to use Hevy/Lyfta sync, the app may also store your login inputs locally to prefill onboarding (for example: username/email and API keys). Passwords are stored locally and are encrypted when the browser supports WebCrypto + IndexedDB.
 - Your workouts are processed client-side into `WorkoutSet[]`.

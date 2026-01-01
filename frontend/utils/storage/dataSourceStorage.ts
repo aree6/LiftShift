@@ -2,6 +2,7 @@ import type { DataSourceChoice } from '../dataSources/types';
 
 const DATA_SOURCE_KEY = 'hevy_analytics_data_source';
 const HEVY_AUTH_TOKEN_KEY = 'hevy_auth_token';
+const HEVY_PRO_API_KEY_KEY = 'hevy_pro_api_key';
 const LYFTA_API_KEY_KEY = 'lyfta_api_key';
 const LAST_CSV_PLATFORM_KEY = 'hevy_analytics_last_csv_platform';
 const SETUP_COMPLETE_KEY = 'hevy_analytics_setup_complete';
@@ -47,6 +48,28 @@ export const getHevyAuthToken = (): string | null => {
 export const clearHevyAuthToken = (): void => {
   try {
     localStorage.removeItem(HEVY_AUTH_TOKEN_KEY);
+  } catch {
+  }
+};
+
+export const saveHevyProApiKey = (apiKey: string): void => {
+  try {
+    localStorage.setItem(HEVY_PRO_API_KEY_KEY, apiKey);
+  } catch {
+  }
+};
+
+export const getHevyProApiKey = (): string | null => {
+  try {
+    return localStorage.getItem(HEVY_PRO_API_KEY_KEY);
+  } catch {
+    return null;
+  }
+};
+
+export const clearHevyProApiKey = (): void => {
+  try {
+    localStorage.removeItem(HEVY_PRO_API_KEY_KEY);
   } catch {
   }
 };
