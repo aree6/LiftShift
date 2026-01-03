@@ -375,17 +375,6 @@ export const TopExercisesCard = ({
                                         )}
                                       </div>
                                     </div>
-
-                                    <div className={`self-end pr-1 font-extrabold text-xl tracking-tight ${countClass}`}>
-                                      {medal ? (
-                                        <span style={countShimmerStyle}>{exercise.count}x</span>
-                                      ) : (
-                                        <>
-                                          {exercise.count}
-                                          <span className="text-white/90 font-bold ml-1">x</span>
-                                        </>
-                                      )}
-                                    </div>
                                   </div>
                                 </button>
                               );
@@ -421,7 +410,7 @@ export const TopExercisesCard = ({
                   <XAxis dataKey="date" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
                   <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
                   <Tooltip contentStyle={tooltipStyle as any} />
-                  <Legend wrapperStyle={{ fontSize: '11px' }} />
+                  <Legend wrapperStyle={{ fontSize: '11px', left: '52%', transform: 'translateX(-50%)', position: 'absolute' }} />
                   {topExerciseNames.map((exerciseName, idx) => (
                     <Area
                       key={exerciseName}

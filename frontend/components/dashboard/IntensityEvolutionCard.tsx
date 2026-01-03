@@ -181,13 +181,21 @@ export const IntensityEvolutionCard = ({
                   <Tooltip
                     contentStyle={tooltipStyle as any}
                     formatter={(val: number, name) => {
-                      if (name === 'Strength EMA') return [formatNumber(Number(val), { maxDecimals: 1 }), 'Strength EMA'];
-                      if (name === 'Hypertrophy EMA') return [formatNumber(Number(val), { maxDecimals: 1 }), 'Hypertrophy EMA'];
-                      if (name === 'Endurance EMA') return [formatNumber(Number(val), { maxDecimals: 1 }), 'Endurance EMA'];
+                      if (name === 'Strength') return [formatNumber(Number(val), { maxDecimals: 1 }), 'Strength'];
+                      if (name === 'Hypertrophy') return [formatNumber(Number(val), { maxDecimals: 1 }), 'Hypertrophy'];
+                      if (name === 'Endurance') return [formatNumber(Number(val), { maxDecimals: 1 }), 'Endurance'];
                       return [formatNumber(Number(val), { maxDecimals: 0 }), name];
                     }}
                   />
-                  <Legend wrapperStyle={{ fontSize: '11px' }} payload={legendPayload as any} />
+                  <Legend 
+                    wrapperStyle={{ 
+                      fontSize: '11px',
+                      left: '52%',
+                      transform: 'translateX(-50%)',
+                      position: 'absolute'
+                    }} 
+                    payload={legendPayload as any}
+                  />
 
                   {view === 'area' ? (
                     <>
@@ -206,7 +214,8 @@ export const IntensityEvolutionCard = ({
                   <Line
                     type="monotone"
                     dataKey="emaStrength"
-                    name="Strength EMA"
+                    name="Strength"
+                    legendType="none"
                     stroke="#3b82f6"
                     strokeOpacity={0.95}
                     strokeWidth={2.25}
@@ -219,7 +228,8 @@ export const IntensityEvolutionCard = ({
                   <Line
                     type="monotone"
                     dataKey="emaHypertrophy"
-                    name="Hypertrophy EMA"
+                    name="Hypertrophy"
+                    legendType="none"
                     stroke="#10b981"
                     strokeOpacity={0.95}
                     strokeWidth={2.25}
@@ -232,7 +242,8 @@ export const IntensityEvolutionCard = ({
                   <Line
                     type="monotone"
                     dataKey="emaEndurance"
-                    name="Endurance EMA"
+                    name="Endurance"
+                    legendType="none"
                     stroke="#a855f7"
                     strokeOpacity={0.95}
                     strokeWidth={2.25}

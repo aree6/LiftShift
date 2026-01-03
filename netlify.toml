@@ -2,6 +2,161 @@
   command = "npm run build"
   publish = "dist"
 
+ [[redirects]]
+   from = "/about"
+   to = "/about/index.html"
+   status = 200
+ 
+ [[redirects]]
+   from = "/about/*"
+   to = "/about/index.html"
+   status = 200
+ 
+ [[redirects]]
+   from = "/how-it-works"
+   to = "/how-it-works/index.html"
+   status = 200
+ 
+ [[redirects]]
+   from = "/how-it-works/*"
+   to = "/how-it-works/index.html"
+   status = 200
+ 
+ [[redirects]]
+   from = "/privacy"
+   to = "/privacy/index.html"
+   status = 200
+ 
+ [[redirects]]
+   from = "/privacy/*"
+   to = "/privacy/index.html"
+   status = 200
+ 
+ [[redirects]]
+   from = "/faq"
+   to = "/faq/index.html"
+   status = 200
+ 
+ [[redirects]]
+   from = "/faq/*"
+   to = "/faq/index.html"
+   status = 200
+ 
+ [[redirects]]
+   from = "/supported-apps/hevy"
+   to = "/supported-apps/hevy/index.html"
+   status = 200
+ 
+ [[redirects]]
+   from = "/supported-apps/hevy/*"
+   to = "/supported-apps/hevy/index.html"
+   status = 200
+ 
+ [[redirects]]
+   from = "/supported-apps/strong"
+   to = "/supported-apps/strong/index.html"
+   status = 200
+ 
+ [[redirects]]
+   from = "/supported-apps/strong/*"
+   to = "/supported-apps/strong/index.html"
+   status = 200
+ 
+ [[redirects]]
+   from = "/supported-apps/lyfta"
+   to = "/supported-apps/lyfta/index.html"
+   status = 200
+ 
+ [[redirects]]
+   from = "/supported-apps/lyfta/*"
+   to = "/supported-apps/lyfta/index.html"
+   status = 200
+ 
+ [[redirects]]
+   from = "/supported-apps"
+   to = "/supported-apps/index.html"
+   status = 200
+ 
+ [[redirects]]
+   from = "/supported-apps/*"
+   to = "/supported-apps/index.html"
+   status = 200
+ 
+ [[redirects]]
+   from = "/metrics/training-volume"
+   to = "/metrics/training-volume/index.html"
+   status = 200
+ 
+ [[redirects]]
+   from = "/metrics/training-volume/*"
+   to = "/metrics/training-volume/index.html"
+   status = 200
+ 
+ [[redirects]]
+   from = "/metrics/personal-records"
+   to = "/metrics/personal-records/index.html"
+   status = 200
+ 
+ [[redirects]]
+   from = "/metrics/personal-records/*"
+   to = "/metrics/personal-records/index.html"
+   status = 200
+ 
+ [[redirects]]
+   from = "/metrics/one-rep-max"
+   to = "/metrics/one-rep-max/index.html"
+   status = 200
+ 
+ [[redirects]]
+   from = "/metrics/one-rep-max/*"
+   to = "/metrics/one-rep-max/index.html"
+   status = 200
+ 
+ [[redirects]]
+   from = "/metrics/muscle-heatmap"
+   to = "/metrics/muscle-heatmap/index.html"
+   status = 200
+ 
+ [[redirects]]
+   from = "/metrics/muscle-heatmap/*"
+   to = "/metrics/muscle-heatmap/index.html"
+   status = 200
+ 
+ [[redirects]]
+   from = "/metrics"
+   to = "/metrics/index.html"
+   status = 200
+ 
+ [[redirects]]
+   from = "/metrics/*"
+   to = "/metrics/index.html"
+   status = 200
+ 
+ [[redirects]]
+   from = "/ai"
+   to = "/ai/index.html"
+   status = 200
+ 
+ [[redirects]]
+   from = "/ai/*"
+   to = "/ai/index.html"
+   status = 200
+ 
+ [[redirects]]
+   from = "/robots.txt"
+   to = "/robots.txt"
+   status = 200
+ 
+ [[redirects]]
+   from = "/sitemap.xml"
+   to = "/sitemap.xml"
+   status = 200
+ 
+ [[redirects]]
+   from = "/llms.txt"
+   to = "/llms.txt"
+   status = 200
+ 
 [[redirects]]
   from = "/*"
   to = "/index.html"

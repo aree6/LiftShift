@@ -26,6 +26,7 @@ import {
 } from './ChartBits';
 import { LazyRender } from '../LazyRender';
 import { ChartSkeleton } from '../ChartSkeleton';
+import { ValueDot } from '../../utils/chart/chartEnhancements';
 
 type PrTrendView = 'area' | 'bar';
 
@@ -149,17 +150,29 @@ export const PrTrendCard = ({
                 }}
               />
               {view === 'area' ? (
-                <Area
-                  type="monotone"
-                  dataKey="count"
-                  name="PRs"
-                  stroke="#eab308"
-                  strokeWidth={3}
-                  fill="url(#gPRs)"
-                  dot={{ r: 3, fill: '#eab308' }}
-                  activeDot={{ r: 5, strokeWidth: 0 }}
-                  animationDuration={1500}
-                />
+                <>
+                  <Area
+                    type="monotone"
+                    dataKey="count"
+                    name="PRs"
+                    stroke="#eab308"
+                    strokeWidth={3}
+                    fill="url(#gPRs)"
+                    dot={false}
+                    activeDot={{ r: 5, strokeWidth: 0 }}
+                    animationDuration={1500}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="count"
+                    stroke="#eab308"
+                    strokeWidth={0}
+                    dot={<ValueDot valueKey="count" unit="" data={chartData} color="#eab308" />}
+                    activeDot={{ r: 5, strokeWidth: 0 }}
+                    isAnimationActive={true}
+                    animationDuration={1500}
+                  />
+                </>
               ) : (
                 <Bar dataKey="count" name="PRs" fill="#eab308" radius={[8, 8, 0, 0]} animationDuration={1500} />
               )}

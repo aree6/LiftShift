@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Hevy Import | LiftShift</title>
+    <meta name="description" content="How to use LiftShift with Hevy: import via CSV (and supported sync methods). Learn what LiftShift reads from your export and how to avoid parsing issues." />
+    <link rel="canonical" href="https://liftshift.app/supported-apps/hevy/" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="LiftShift" />
+    <meta property="og:title" content="Hevy Import" />
+    <meta property="og:description" content="How to use LiftShift with Hevy: import via CSV (and supported sync methods)." />
+    <meta property="og:url" content="https://liftshift.app/supported-apps/hevy/" />
+    <meta property="og:image" content="https://liftshift.app/HevyAnalytics.png" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Hevy Import" />
+    <meta name="twitter:description" content="How to use LiftShift with Hevy: import via CSV (and supported sync methods)." />
+    <meta name="twitter:image" content="https://liftshift.app/HevyAnalytics.png" />
+
+    <link rel="stylesheet" href="/docs.css" />
+  </head>
+  <body>
+    <div class="container">
+      <header class="header">
+        <a class="brand" href="/">
+          <img src="/UI/logo.svg" alt="LiftShift logo" />
+          <strong>LiftShift</strong>
+        </a>
+        <nav class="nav" aria-label="Primary">
+          <a href="/">Open App</a>
+          <a href="/supported-apps/">Supported apps</a>
+          <a href="/how-it-works/">How it works</a>
+          <a href="/privacy/">Privacy</a>
+        </nav>
+      </header>
+
+      <main class="card">
+        <h1>Hevy</h1>
+        <p class="muted">This page explains how LiftShift uses Hevy data and what assumptions it makes.</p>
+
+        <h2>Import options</h2>
+        <ul>
+          <li><strong>CSV import</strong>: export your data from Hevy and upload it to LiftShift.</li>
+          <li><strong>Sync methods</strong>: if you use a sync method, you still control what is accessed and stored locally.</li>
+        </ul>
+
+        <h2>What LiftShift reads</h2>
+        <ul>
+          <li>Exercise names</li>
+          <li>Set reps and weight</li>
+          <li>Dates / timestamps</li>
+        </ul>
+
+        <h2>Troubleshooting: date parsing</h2>
+        <p>
+          If LiftShift cannot parse workout dates, it is often caused by a non-English export format.
+          Re-export in English and try again.
+        </p>
+      </main>
+
+      <footer class="footer">
+        <div>Next: <a href="/metrics/">Metrics definitions</a></div>
+      </footer>
+    </div>
+  </body>
+</html>

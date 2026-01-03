@@ -11,6 +11,24 @@ LiftShift turns workout exports into structured analytics and insights.
 
 - https://liftshift.app
 
+## Public Reference Pages (AI + SEO)
+
+LiftShift includes static, text-first pages designed to be easily indexed and cited by search engines and AI assistants.
+
+- **About:** https://liftshift.app/about/
+- **How it works:** https://liftshift.app/how-it-works/
+- **Privacy:** https://liftshift.app/privacy/
+- **Supported apps:** https://liftshift.app/supported-apps/
+- **Metrics glossary:** https://liftshift.app/metrics/
+- **FAQ:** https://liftshift.app/faq/
+- **AI reference:** https://liftshift.app/ai/
+
+Machine-readable / crawl support:
+
+- **robots.txt:** https://liftshift.app/robots.txt
+- **sitemap.xml:** https://liftshift.app/sitemap.xml
+- **llms.txt:** https://liftshift.app/llms.txt
+
 ## UI Screenshots
 
 <div align="center">

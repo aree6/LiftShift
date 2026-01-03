@@ -10,7 +10,7 @@ import { findBestComparison, formatLargeNumber, getRandomComparison } from '../u
 import { WeightUnit } from '../utils/storage/localStorage';
 import { convertWeight } from '../utils/format/units';
 import { getDisplayVolume } from '../utils/format/volumeDisplay';
-import { FANCY_FONT } from '../utils/ui/uiConstants';
+import { FANCY_FONT, FANCY_FONT_NUMBERS } from '../utils/ui/uiConstants';
 import { calculateStreakInfo, calculatePRInsights, StreakInfo, PRInsights } from '../utils/analysis/insights';
 import { getExerciseStats, getDailySummaries } from '../utils/analysis/analytics';
 import { getExerciseAssets, ExerciseAsset } from '../utils/data/exerciseAssets';
@@ -189,7 +189,7 @@ const YearlyHeatmapCard: React.FC<{
           </div>
         </div>
 
-        <div className={`${headlineCountClass} font-black ${textPrimary} mb-1 leading-none`} style={FANCY_FONT}>
+        <div className={`${headlineCountClass} font-black ${textPrimary} mb-1 leading-none`} style={FANCY_FONT_NUMBERS}>
           <CountUp from={0} to={workoutsThisYear} separator="," direction="up" duration={1} />
         </div>
         <div className={`text-base sm:text-lg ${textSecondary} ${headerGapClass}`}>
@@ -275,7 +275,7 @@ const SummaryCard: React.FC<{
 
         {/* Main stat - Workouts */}
         <div className="mb-6">
-          <div className={`text-7xl sm:text-8xl font-black ${textPrimary}`} style={FANCY_FONT}>
+          <div className={`text-7xl sm:text-8xl font-black ${textPrimary}`} style={FANCY_FONT_NUMBERS}>
             <CountUp
               from={0}
               to={totalWorkouts}
@@ -291,13 +291,13 @@ const SummaryCard: React.FC<{
         {/* Secondary stats row */}
         <div className="grid grid-cols-2 gap-8 mb-6">
           <div className="text-center">
-            <div className={`text-3xl sm:text-4xl font-bold ${textPrimary}`} style={FANCY_FONT}>
+            <div className={`text-3xl sm:text-4xl font-bold ${textPrimary}`} style={FANCY_FONT_NUMBERS}>
               {hours > 0 ? `${hours}h` : '<1h'}
             </div>
             <div className={`text-sm ${textSecondary}`}>Duration</div>
           </div>
           <div className="text-center">
-            <div className={`text-3xl sm:text-4xl font-bold ${textPrimary}`} style={FANCY_FONT}>
+            <div className={`text-3xl sm:text-4xl font-bold ${textPrimary}`} style={FANCY_FONT_NUMBERS}>
               {formatLargeNumber(totalVolume)}
               <span className={`text-lg ml-1 ${textSecondary}`}>{weightUnit}</span>
             </div>
@@ -308,13 +308,13 @@ const SummaryCard: React.FC<{
         {/* Tertiary stats row */}
         <div className="grid grid-cols-2 gap-8">
           <div className="text-center">
-            <div className={`text-2xl sm:text-3xl font-bold ${textPrimary}`} style={FANCY_FONT}>
+            <div className={`text-2xl sm:text-3xl font-bold ${textPrimary}`} style={FANCY_FONT_NUMBERS}>
               {formatLargeNumber(totalSets)}
             </div>
             <div className={`text-sm ${textSecondary}`}>Sets</div>
           </div>
           <div className="text-center">
-            <div className={`text-2xl sm:text-3xl font-bold ${textPrimary}`} style={FANCY_FONT}>
+            <div className={`text-2xl sm:text-3xl font-bold ${textPrimary}`} style={FANCY_FONT_NUMBERS}>
               {formatLargeNumber(totalReps)}
             </div>
             <div className={`text-sm ${textSecondary}`}>Reps</div>
@@ -362,7 +362,7 @@ const StreakCard: React.FC<{
             <div className="absolute inset-0 flex items-center justify-center pt-8">
               <span
                 className={`text-5xl sm:text-6xl font-black text-black tabular-nums tracking-tight leading-none drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)]`}
-                style={{ ...FANCY_FONT, fontStyle: 'normal' }}
+                style={{ ...FANCY_FONT_NUMBERS, fontStyle: 'normal' }}
               >
                 <CountUp
                   from={0}
@@ -473,7 +473,7 @@ const PersonalRecordsCard: React.FC<{
             <div className="w-full px-8 flex items-center justify-center">
               <span
                 className={`${prCountSizeClass} inline-block origin-center font-black ${prNumberColor} tabular-nums tracking-tight leading-none whitespace-nowrap max-w-[80%] text-center`}
-                style={{ ...FANCY_FONT, transform: `scale(${prCountScale})` }}
+                style={{ ...FANCY_FONT_NUMBERS, transform: `scale(${prCountScale})` }}
               >
                 {isCompactPR ? (
                   <>
@@ -594,7 +594,7 @@ const PersonalRecordsCard: React.FC<{
                           </div>
                         </div>
 
-                        <div className={`min-w-[96px] text-right font-extrabold text-lg tracking-tight ${countClass}`} style={FANCY_FONT}>
+                        <div className={`min-w-[96px] text-right font-extrabold text-lg tracking-tight ${countClass}`} style={FANCY_FONT_NUMBERS}>
                           {exercise.weight}
                           <span className={`${isDark ? 'text-white/90' : 'text-slate-900/80'} font-bold ml-1`}>{weightUnit}</span>
                         </div>
@@ -654,7 +654,7 @@ const BestMonthCard: React.FC<{
         <p className={`text-sm ${textSecondary} mb-4`}>was your best month with</p>
 
         {/* Main number */}
-        <div className={`text-7xl sm:text-8xl font-black mb-1 ${mainNumberColor}`} style={FANCY_FONT}>
+        <div className={`text-7xl sm:text-8xl font-black mb-1 ${mainNumberColor}`} style={FANCY_FONT_NUMBERS}>
           <CountUp
             from={0}
             to={bestMonth.workouts}
@@ -816,7 +816,7 @@ const TopExercisesCard: React.FC<{
                       </div>
                     </div>
 
-                    <div className={`min-w-[72px] text-right font-extrabold text-xl tracking-tight ${countClass}`} style={FANCY_FONT}>
+                    <div className={`min-w-[72px] text-right font-extrabold text-xl tracking-tight ${countClass}`} style={FANCY_FONT_NUMBERS}>
                       {exercise.count}
                       <span className={`${isDark ? 'text-white/90' : 'text-slate-900/80'} font-bold ml-1`}>x</span>
                     </div>
@@ -1101,7 +1101,7 @@ const VolumeComparisonCard: React.FC<{
           </div>
 
           {/* Main volume number */}
-          <div className={`text-4xl sm:text-5xl font-black ${textPrimary} mb-0.5`} style={FANCY_FONT}>
+          <div className={`text-4xl sm:text-5xl font-black ${textPrimary} mb-0.5`} style={FANCY_FONT_NUMBERS}>
             {formatLargeNumber(totalVolume)}
             <span className={`text-xl sm:text-2xl ml-2 ${textSecondary}`}>{weightUnit}</span>
           </div>
@@ -1138,7 +1138,7 @@ const VolumeComparisonCard: React.FC<{
                 <p className={`text-xs ${textMuted} mb-1 font-medium`}>
                   That&apos;s like lifting
                 </p>
-                <div className={`text-4xl sm:text-5xl font-black ${accentText} leading-none`} style={FANCY_FONT}>
+                <div className={`text-4xl sm:text-5xl font-black ${accentText} leading-none`} style={FANCY_FONT_NUMBERS}>
                   <CountUp from={0} to={comparison.count} separator="," direction="up" duration={1} />
                 </div>
                 <h3 className={`text-lg sm:text-2xl font-bold ${textPrimary} mt-1`} style={FANCY_FONT}>

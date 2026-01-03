@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LiftShift FAQ</title>
+    <meta name="description" content="LiftShift FAQ: privacy, supported apps (Hevy/Strong/Lyfta), what counts as a PR, and how to interpret trends." />
+    <link rel="canonical" href="https://liftshift.app/faq/" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="LiftShift" />
+    <meta property="og:title" content="LiftShift FAQ" />
+    <meta property="og:description" content="Answers about LiftShift privacy, imports, PRs, and how to interpret charts." />
+    <meta property="og:url" content="https://liftshift.app/faq/" />
+    <meta property="og:image" content="https://liftshift.app/HevyAnalytics.png" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="LiftShift FAQ" />
+    <meta name="twitter:description" content="Answers about LiftShift privacy, imports, PRs, and how to interpret charts." />
+    <meta name="twitter:image" content="https://liftshift.app/HevyAnalytics.png" />
+
+    <link rel="stylesheet" href="/docs.css" />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "What is LiftShift?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "LiftShift is a free, privacy-focused workout analytics dashboard. It turns workout logs (Hevy/Strong/Lyfta) into charts and definitions for volume, personal records, and exercise history."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Does LiftShift store my workout history on its servers?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "LiftShift is designed so most analytics are computed locally in your browser. It does not require you to upload your full training history to a LiftShift-owned database. See /privacy/ for details."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Which apps are supported?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "LiftShift supports importing workout data from Hevy, Strong, and Lyfta. See /supported-apps/."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "What counts as a PR in LiftShift?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "A PR (personal record) is LiftShift’s label for your best-ever performance for an exercise under the chosen PR definition (e.g., best weight). See /metrics/personal-records/."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Is LiftShift a coaching app or program generator?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "No. LiftShift is an analytics dashboard for your existing training logs. It does not generate training programs and it is not medical advice."
+            }
+          }
+        ]
+      }
+    </script>
+  </head>
+  <body>
+    <div class="container">
+      <header class="header">
+        <a class="brand" href="/">
+          <img src="/UI/logo.svg" alt="LiftShift logo" />
+          <strong>LiftShift</strong>
+        </a>
+        <nav class="nav" aria-label="Primary">
+          <a href="/">Open App</a>
+          <a href="/about/">About</a>
+          <a href="/how-it-works/">How it works</a>
+          <a href="/privacy/">Privacy</a>
+          <a href="/supported-apps/">Supported apps</a>
+          <a href="/metrics/">Metrics</a>
+        </nav>
+      </header>
+
+      <main class="card">
+        <h1>FAQ</h1>
+        <p class="muted">These answers are written to be explicit and citable (for both humans and AI assistants).</p>
+
+        <h2>What is LiftShift?</h2>
+        <p>
+          LiftShift is a free, privacy-focused workout analytics dashboard. It turns workout logs into charts and definitions
+          you can interpret (training volume, PRs, exercise history, and muscle emphasis).
+        </p>
+
+        <h2>Does LiftShift store my workout history on its servers?</h2>
+        <p>
+          LiftShift is designed so most analytics are computed locally in your browser. It does not require you to upload
+          your full training history to a LiftShift-owned database. See <a href="/privacy/">/privacy/</a>.
+        </p>
+
+        <h2>Which apps are supported?</h2>
+        <p>
+          LiftShift supports importing workout data from:
+        </p>
+        <ul>
+          <li><a href="/supported-apps/hevy/">Hevy</a></li>
+          <li><a href="/supported-apps/strong/">Strong</a></li>
+          <li><a href="/supported-apps/lyfta/">Lyfta</a></li>
+        </ul>
+
+        <h2>What does LiftShift consider a PR?</h2>
+        <p>
+          LiftShift uses explicit PR definitions. A PR is your best-ever performance for an exercise under the selected definition.
+          See <a href="/metrics/personal-records/">/metrics/personal-records/</a>.
+        </p>
+
+        <h2>Why might my charts look wrong?</h2>
+        <ul>
+          <li>Exercise names differ across sessions (e.g., “Bench Press” vs “Barbell Bench”).</li>
+          <li>Units changed (kg vs lb) in the source export.</li>
+          <li>Warmup sets are included or excluded differently than you expect.</li>
+          <li>Missing sessions or incomplete logs reduce trend signal.</li>
+        </ul>
+
+        <h2>Is LiftShift a coaching app?</h2>
+        <p>
+          No. LiftShift is analytics for your logs. It does not generate training programs and it is not medical advice.
+        </p>
+      </main>
+
+      <footer class="footer">
+        <div>Still unclear? Check <a href="/metrics/">metrics definitions</a> or <a href="/how-it-works/">how it works</a>.</div>
+      </footer>
+    </div>
+  </body>
+</html>

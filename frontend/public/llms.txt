@@ -1,0 +1,26 @@
+LiftShift
+https://liftshift.app/
+
+LiftShift is a free, privacy-focused workout analytics dashboard. It converts workout logs (Hevy, Strong, Lyfta etc) into readable charts and summaries like training volume, consistency, muscle emphasis, and personal records.
+
+What LiftShift does:
+- Import workout data from supported apps
+- Compute analytics locally in your browser
+- Show dashboards for training volume, PRs, exercise history, and muscle emphasis
+
+What LiftShift does not do:
+- It is not a workout plan generator
+- It does not provide medical advice
+- It does not store your full training history on a LiftShift server
+
+Key pages:
+- https://liftshift.app/about/
+- https://liftshift.app/how-it-works/
+- https://liftshift.app/privacy/
+- https://liftshift.app/faq/
+- https://liftshift.app/supported-apps/
+- https://liftshift.app/metrics/
+- https://liftshift.app/ai/
+
+App:
+- https://liftshift.app/ (interactive web app)

@@ -15,7 +15,7 @@ import { AreaChart as AreaChartIcon, BicepsFlexed, ChartColumnStacked, PersonSta
 import { LazyRender } from '../LazyRender';
 import { ChartSkeleton } from '../ChartSkeleton';
 import { normalizeMuscleGroup } from '../../utils/muscle/muscleNormalization';
-import { MUSCLE_COLORS } from '../../utils/domain/categories';
+import { MUSCLE_COLORS, INDIVIDUAL_MUSCLE_COLORS } from '../../utils/domain/categories';
 import { formatSignedNumber } from '../../utils/format/formatters';
 import { formatDeltaPercentage, getDeltaFormatPreset } from '../../utils/format/deltaFormat';
 import {
@@ -178,10 +178,19 @@ export const MuscleTrendCard = ({
                   <XAxis dataKey="dateFormatted" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
                   <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
                   <Tooltip contentStyle={tooltipStyle as any} />
-                  <Legend wrapperStyle={{ fontSize: '11px' }} />
+                  <Legend wrapperStyle={{ fontSize: '11px', left: '52%', transform: 'translateX(-50%)', position: 'absolute' }} />
                   {trendKeys.map((k) => {
-                    const colorKey = muscleGrouping === 'groups' ? k : normalizeMuscleGroup(k);
-                    const color = (MUSCLE_COLORS as any)[colorKey] || '#94a3b8';
+                    let color;
+                    if (muscleGrouping === 'groups') {
+                      // Use group colors
+                      color = (MUSCLE_COLORS as any)[k] || '#94a3b8';
+                    } else {
+                      // Use individual muscle colors first, fallback to group colors
+                      const muscleKey = k.toLowerCase();
+                      color = INDIVIDUAL_MUSCLE_COLORS[muscleKey] || 
+                              (MUSCLE_COLORS as any)[normalizeMuscleGroup(k)] || 
+                              '#94a3b8';
+                    }
                     return (
                       <Area
                         key={k}
@@ -207,10 +216,19 @@ export const MuscleTrendCard = ({
                   <XAxis dataKey="dateFormatted" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
                   <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
                   <Tooltip contentStyle={tooltipStyle as any} cursor={{ fill: 'rgb(var(--overlay-rgb) / 0.12)' }} />
-                  <Legend wrapperStyle={{ fontSize: '11px' }} />
+                  <Legend wrapperStyle={{ fontSize: '11px', left: '52%', transform: 'translateX(-50%)', position: 'absolute' }} />
                   {trendKeys.map((k, idx) => {
-                    const colorKey = muscleGrouping === 'groups' ? k : normalizeMuscleGroup(k);
-                    const color = (MUSCLE_COLORS as any)[colorKey] || '#94a3b8';
+                    let color;
+                    if (muscleGrouping === 'groups') {
+                      // Use group colors
+                      color = (MUSCLE_COLORS as any)[k] || '#94a3b8';
+                    } else {
+                      // Use individual muscle colors first, fallback to group colors
+                      const muscleKey = k.toLowerCase();
+                      color = INDIVIDUAL_MUSCLE_COLORS[muscleKey] || 
+                              (MUSCLE_COLORS as any)[normalizeMuscleGroup(k)] || 
+                              '#94a3b8';
+                    }
                     return (
                       <Bar
                         key={k}

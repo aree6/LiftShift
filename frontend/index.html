@@ -3,6 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=5.0, user-scalable=yes" />
+    <meta name="theme-color" content="#0b1220" />
     
     <!-- SEO Meta Tags -->
     <meta name="description" content="LiftShift is a free, privacy-focused workout analytics dashboard. Import your training data from Hevy, Strong, or Lyfta and unlock detailed visualizations of your progress, muscle development, and personal records.">
@@ -15,13 +16,16 @@
     <meta property="og:title" content="LiftShift - Free Workout Analytics Dashboard">
     <meta property="og:description" content="Transform your workout data into powerful insights. Track progress, visualize muscle development, and discover personal records with our free analytics tool.">
     <meta property="og:site_name" content="LiftShift">
+    <meta property="og:url" content="https://liftshift.app/">
+    <meta property="og:image" content="https://liftshift.app/UI/logo.svg">
     
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="LiftShift - Free Workout Analytics Dashboard">
     <meta name="twitter:description" content="Transform your workout data into powerful insights. Track progress, visualize muscle development, and discover personal records.">
+    <meta name="twitter:image" content="https://liftshift.app/UI/logo.svg">
     
-        <script>
+    <script>
       (function () {
         try {
           var key = 'hevy_analytics_theme_mode';
@@ -44,10 +48,28 @@
       <script type="application/ld+json">
       {
         "@context": "https://schema.org",
-        "@type": "WebSite",
-        "name": "LiftShift",
-        "url": "https://liftshift.app/",
-        "image": "https://liftshift.app/UI/logo.png"
+        "@graph": [
+          {
+            "@type": "WebSite",
+            "name": "LiftShift",
+            "url": "https://liftshift.app/",
+            "image": "https://liftshift.app/HevyAnalytics.png"
+          },
+          {
+            "@type": "Organization",
+            "name": "LiftShift",
+            "url": "https://liftshift.app/",
+            "sameAs": ["https://github.com/aree6/LiftShift"]
+          },
+          {
+            "@type": "WebApplication",
+            "name": "LiftShift",
+            "url": "https://liftshift.app/",
+            "applicationCategory": "HealthApplication",
+            "operatingSystem": "Web",
+            "isAccessibleForFree": true
+          }
+        ]
       }
       </script>
     <link rel="canonical" href="https://liftshift.app/">
@@ -190,6 +212,18 @@
           <li>Import your data via API or CSV file</li>
           <li>Explore your personalized analytics dashboard</li>
         </ol>
+
+        <h2>Reference Pages</h2>
+        <ul>
+          <li><a href="/about/">About LiftShift</a></li>
+          <li><a href="/how-it-works/">How LiftShift works</a></li>
+          <li><a href="/privacy/">Privacy model</a></li>
+          <li><a href="/supported-apps/">Supported apps</a></li>
+          <li><a href="/metrics/">Metrics glossary</a></li>
+          <li><a href="/faq/">FAQ</a></li>
+          <li><a href="/ai/">AI reference</a></li>
+          <li><a href="/llms.txt">llms.txt</a></li>
+        </ul>
         
         <p>Please enable JavaScript to use LiftShift.</p>
       </div>

@@ -12,6 +12,13 @@ export const FANCY_FONT: Readonly<React.CSSProperties> = {
   fontStyle: 'italic',
 };
 
+/** Decorative font style for numbers (non-italic) */
+export const FANCY_FONT_NUMBERS: Readonly<React.CSSProperties> = {
+  fontFamily: '"Libre Baskerville", "Poppins", sans-serif',
+  fontWeight: 600,
+  fontStyle: 'normal',
+};
+
 /** Standard Recharts tooltip styling */
 export const CHART_TOOLTIP_STYLE: Readonly<React.CSSProperties> = {
   backgroundColor: 'rgb(var(--panel-rgb) / 0.88)',

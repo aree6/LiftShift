@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { subDays } from 'date-fns';
 import { 
-  AreaChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer 
+  AreaChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell
 } from 'recharts';
 import { 
   Search, TrendingUp, TrendingDown, AlertTriangle, Minus, Activity, Hourglass,
@@ -27,6 +27,7 @@ import { WeightUnit, getSmartFilterMode, TimeFilterMode } from '../utils/storage
 import { convertWeight, getStandardWeightIncrementKg } from '../utils/format/units';
 import { summarizeExerciseHistory, analyzeExerciseTrendCore, ExerciseSessionEntry, ExerciseTrendStatus, MIN_SESSIONS_FOR_TREND } from '../utils/analysis/exerciseTrend';
 import { formatNumber, formatSignedNumber } from '../utils/format/formatters';
+import { ValueDot } from '../utils/chart/chartEnhancements';
 import { pickDeterministic } from '../utils/analysis/messageVariations';
 import { addEmaSeries, DEFAULT_EMA_HALF_LIFE_DAYS } from '../utils/analysis/ema';
 
@@ -1358,9 +1359,6 @@ export const ExerciseView: React.FC<ExerciseViewProps> = ({ stats, filtersSlot, 
                     <div className="flex items-center gap-2 text-blue-400">
                       <span className="w-2.5 h-2.5 rounded bg-blue-500/20 border border-blue-500"></span> Top reps
                     </div>
-                    <div className="flex items-center gap-2 text-slate-200">
-                      <span className="w-2.5 h-0.5 bg-white/80"></span> EMA
-                    </div>
                     <div className="flex items-center gap-2 text-slate-500">
                       <span className="w-2.5 h-0.5 bg-slate-500 border-t border-dashed border-slate-500"></span> Sets
                     </div>
@@ -1369,9 +1367,6 @@ export const ExerciseView: React.FC<ExerciseViewProps> = ({ stats, filtersSlot, 
                   <>
                     <div className="flex items-center gap-2 text-blue-400">
                       <span className="w-2.5 h-2.5 rounded bg-blue-500/20 border border-blue-500"></span> Est. 1RM
-                    </div>
-                    <div className="flex items-center gap-2 text-slate-200">
-                      <span className="w-2.5 h-0.5 bg-white/80"></span> EMA
                     </div>
                     <div className="flex items-center gap-2 text-slate-500">
                       <span className="w-2.5 h-0.5 bg-slate-500 border-t border-dashed border-slate-500"></span> Lift Weight
@@ -1424,31 +1419,36 @@ export const ExerciseView: React.FC<ExerciseViewProps> = ({ stats, filtersSlot, 
                     content={<CustomTooltip weightUnit={weightUnit} />}
                     cursor={{ stroke: 'rgb(var(--border-rgb) / 0.5)', strokeWidth: 1, strokeDasharray: '4 4' }}
                   />
+                  <>
                   <Area
                     type="monotone"
                     dataKey={isBodyweightLike ? 'reps' : 'oneRepMax'}
                     stroke="#3b82f6"
                     strokeWidth={2.5}
                     fill="url(#color1RM)"
-                    dot={{ r: 3, fill: '#3b82f6' }}
+                    dot={false}
                     activeDot={{ r: 5, strokeWidth: 0 }}
                     isAnimationActive={true}
                     animationDuration={1000}
                   />
-
                   <Line
                     type="monotone"
-                    dataKey="emaValue"
-                    stroke="var(--text-primary)"
-                    strokeOpacity={0.9}
-                    strokeWidth={2}
-                    dot={false}
-                    activeDot={{ r: 4, strokeWidth: 0 }}
+                    dataKey={isBodyweightLike ? 'reps' : 'weight'}
+                    stroke="transparent"
+                    strokeWidth={0}
+                    dot={<ValueDot 
+                      valueKey={isBodyweightLike ? 'reps' : 'weight'} 
+                      unit={isBodyweightLike ? undefined : weightUnit} 
+                      data={chartDataWithEma}
+                      color="var(--text-muted)"
+                    />}
+                    activeDot={{ r: 5, strokeWidth: 0 }}
                     isAnimationActive={true}
                     animationDuration={1000}
                   />
-                  
-                  <Line 
+                </>
+
+                  <Line
                     type="stepAfter" 
                     dataKey={isBodyweightLike ? 'sets' : 'weight'}
                     stroke="var(--text-muted)" 
