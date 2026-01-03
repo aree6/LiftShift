@@ -783,11 +783,27 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ data, filtersSlot, wei
     return count;
   }, [data]);
 
+  // Handle page changes with scroll to top
+  const handlePageChange = (newPage: number) => {
+    setCurrentPage(newPage);
+    // Scroll to top of history view smoothly after a short delay to allow for re-render
+    setTimeout(() => {
+      // Try to scroll to the history view container first, fallback to window top
+      const historyElement = document.querySelector('[data-history-view]') as HTMLElement;
+      if (historyElement) {
+        historyElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } else {
+        // Fallback: scroll to a bit below the very top to account for any fixed headers
+        window.scrollTo({ top: 100, behavior: 'smooth' });
+      }
+    }, 150);
+  };
+
   // Pagination controls for header
   const paginationControls = (
     <div className="flex items-center gap-2">
       <button 
-        onClick={() => setCurrentPage(p => Math.max(1, p - 1))} 
+        onClick={() => handlePageChange(Math.max(1, currentPage - 1))} 
         disabled={currentPage === 1}
         className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-xs font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-9 w-9 bg-transparent border border-black/70 text-slate-200 hover:border-white hover:text-white hover:bg-white/5 transition-all duration-200"
       >
@@ -797,7 +813,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ data, filtersSlot, wei
         Page {currentPage} of {totalPages}
       </span>
       <button 
-        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} 
+        onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))} 
         disabled={currentPage === totalPages}
         className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-xs font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-9 w-9 bg-transparent border border-black/70 text-slate-200 hover:border-white hover:text-white hover:bg-white/5 transition-all duration-200"
       >
@@ -808,6 +824,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ data, filtersSlot, wei
 
   return (
     <div
+      data-history-view
       className="flex flex-col gap-2 w-full text-slate-200 pb-10"
       onClick={() => {
         if (tooltip) setTooltip(null);
@@ -823,6 +840,13 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ data, filtersSlot, wei
           rightSlot={totalPages > 1 ? paginationControls : null}
         />
       </div>
+
+      {/* Top pagination for mobile */}
+      {totalPages > 1 && (
+        <div className="sm:hidden flex justify-center pt-2 pb-4">
+          {paginationControls}
+        </div>
+      )}
 
       {/* 
         Animation Wrapper: 
@@ -1339,8 +1363,9 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ data, filtersSlot, wei
         })}
       </div>
 
+      {/* Bottom pagination for both mobile and desktop */}
       {totalPages > 1 && (
-        <div className="sm:hidden flex justify-center pt-4 pb-6">
+        <div className="flex justify-center pt-4 pb-6">
           {paginationControls}
         </div>
       )}
