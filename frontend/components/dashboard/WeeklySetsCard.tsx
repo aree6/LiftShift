@@ -16,6 +16,7 @@ import {
   ResponsiveContainer,
   Tooltip,
 } from 'recharts';
+import { formatDeltaPercentage } from '../../utils/format/deltaFormat';
 import { BodyMap, type BodyMapGender } from '../BodyMap';
 import { LazyRender } from '../LazyRender';
 import { ChartSkeleton } from '../ChartSkeleton';
@@ -335,7 +336,7 @@ export const WeeklySetsCard = ({
                 tone="neutral"
               />
               <TrendBadge
-                label={`Top3 ${weeklySetsInsight.top3Share.toFixed(0)}%`}
+                label={`Top3 ${formatDeltaPercentage(weeklySetsInsight.top3Share)}`}
                 tone={
                   weeklySetsInsight.top3Share >= 70
                     ? 'bad'

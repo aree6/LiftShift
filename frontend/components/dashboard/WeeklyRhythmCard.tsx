@@ -14,6 +14,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import { formatDeltaPercentage } from '../../utils/format/deltaFormat';
 import {
   BadgeLabel,
   ChartDescription,
@@ -124,8 +125,8 @@ export const WeeklyRhythmCard = ({
         <InsightLine>
           {weeklyRhythmInsight ? (
             <>
-              <TrendBadge label={<BadgeLabel main={`Top ${weeklyRhythmInsight.top.subject} ${weeklyRhythmInsight.top.share.toFixed(0)}%`} />} tone="info" />
-              <TrendBadge label={<BadgeLabel main={`Low ${weeklyRhythmInsight.bottom.subject} ${weeklyRhythmInsight.bottom.share.toFixed(0)}%`} />} tone="neutral" />
+              <TrendBadge label={<BadgeLabel main={`Top ${weeklyRhythmInsight.top.subject} ${formatDeltaPercentage(weeklyRhythmInsight.top.share)}`} />} tone="info" />
+              <TrendBadge label={<BadgeLabel main={`Low ${weeklyRhythmInsight.bottom.subject} ${formatDeltaPercentage(weeklyRhythmInsight.bottom.share)}`} />} tone="neutral" />
               <TrendBadge label={<BadgeLabel main={weeklyRhythmInsight.rhythmLabel} />} tone={weeklyRhythmInsight.rhythmTone} />
             </>
           ) : (

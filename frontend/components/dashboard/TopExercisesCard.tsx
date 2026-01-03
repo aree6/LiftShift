@@ -12,6 +12,7 @@ import {
 } from 'recharts';
 import type { ExerciseAsset } from '../../utils/data/exerciseAssets';
 import { formatSignedNumber } from '../../utils/format/formatters';
+import { formatDeltaPercentage, getDeltaFormatPreset } from '../../utils/format/deltaFormat';
 import { LazyRender } from '../LazyRender';
 import { ChartSkeleton } from '../ChartSkeleton';
 import {
@@ -68,7 +69,7 @@ export const TopExercisesCard = ({
   assetsLowerMap: Map<string, ExerciseAsset> | null;
 }) => {
   const formatSignedPctWithNoun = (pct: number, noun: string) =>
-    `${formatSignedNumber(pct, { maxDecimals: 0 })}% ${noun}`;
+    `${formatDeltaPercentage(pct, getDeltaFormatPreset('badge'))} ${noun}`;
 
   const pie = pieColors;
 
@@ -451,7 +452,7 @@ export const TopExercisesCard = ({
               )}
               {topExercisesInsight.top && (
                 <TrendBadge
-                  label={<BadgeLabel main={`${topExercisesInsight.topShare.toFixed(0)}%`} meta="of shown" />}
+                  label={<BadgeLabel main={`${formatDeltaPercentage(topExercisesInsight.topShare)}`} meta="of shown" />}
                   tone="neutral"
                 />
               )}
@@ -481,7 +482,7 @@ export const TopExercisesCard = ({
               )}
               {topExercisesInsight.top && (
                 <TrendBadge
-                  label={<BadgeLabel main={`${topExercisesInsight.topShare.toFixed(0)}%`} meta="of shown" />}
+                  label={<BadgeLabel main={`${formatDeltaPercentage(topExercisesInsight.topShare)}`} meta="of shown" />}
                   tone={topExercisesInsight.topShare >= 45 ? 'bad' : topExercisesInsight.topShare >= 30 ? 'neutral' : 'good'}
                 />
               )}

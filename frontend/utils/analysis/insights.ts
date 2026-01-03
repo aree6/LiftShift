@@ -5,6 +5,7 @@ import { getSessionKey } from '../date/dateUtils';
 import { isWarmupSet } from './setClassification';
 import { WeightUnit } from '../storage/localStorage';
 import { convertWeight, getStandardWeightIncrementKg } from '../format/units';
+import { formatDeltaPercentage, getDeltaFormatPreset } from '../format/deltaFormat';
 
 // ============================================================================
 // DELTA CALCULATIONS - Show movement vs previous periods
@@ -24,6 +25,7 @@ export interface DeltaResult {
   previous: number;
   delta: number;
   deltaPercent: number;
+  formattedPercent: string;
   direction: 'up' | 'down' | 'same';
 }
 
@@ -65,11 +67,15 @@ export const calculateDelta = (current: number, previous: number): DeltaResult =
   const deltaPercent = previous > 0 ? Math.round((delta / previous) * 100) : (current > 0 ? 100 : 0);
   const direction: 'up' | 'down' | 'same' = delta > 0 ? 'up' : delta < 0 ? 'down' : 'same';
   
+  // Use centralized formatting for better UX with large percentages
+  const formattedPercent = formatDeltaPercentage(deltaPercent, getDeltaFormatPreset('badge'));
+  
   return { 
     current: Number(current.toFixed(2)), 
     previous: Number(previous.toFixed(2)), 
     delta, 
     deltaPercent, 
+    formattedPercent,
     direction 
   };
 };

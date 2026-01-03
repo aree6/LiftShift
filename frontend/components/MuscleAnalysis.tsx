@@ -28,6 +28,7 @@ import {
 import { TrendingUp, TrendingDown, Dumbbell, X, Activity, Layers, PersonStanding, BicepsFlexed } from 'lucide-react';
 import { normalizeMuscleGroup, type NormalizedMuscleGroup } from '../utils/muscle/muscleNormalization';
 import { LazyRender } from './LazyRender';
+import { formatDeltaPercentage, getDeltaFormatPreset } from '../utils/format/deltaFormat';
 import { ChartSkeleton } from './ChartSkeleton';
 import { Tooltip as HoverTooltip, TooltipData } from './Tooltip';
 import { CHART_TOOLTIP_STYLE } from '../utils/ui/uiConstants';
@@ -493,11 +494,15 @@ export const MuscleAnalysis: React.FC<MuscleAnalysisProps> = ({ data, filtersSlo
     const delta = Number((current - previous).toFixed(1));
     const deltaPercent = Math.round((delta / previous) * 100);
     
+    // Use centralized formatting for better UX with large percentages
+    const formattedPercent = formatDeltaPercentage(deltaPercent, getDeltaFormatPreset('badge'));
+    
     return {
       current,
       previous,
       delta,
       deltaPercent,
+      formattedPercent,
       direction: delta > 0 ? 'up' : delta < 0 ? 'down' : 'same' as 'up' | 'down' | 'same',
     };
   }, [trendData]);
@@ -851,7 +856,7 @@ export const MuscleAnalysis: React.FC<MuscleAnalysisProps> = ({ data, filtersSlo
                     : 'bg-rose-500/10 text-rose-400'
                 }`}>
                   {volumeDelta.direction === 'up' ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                  {volumeDelta.direction === 'up' ? '+' : ''}{volumeDelta.deltaPercent}% vs prev {trendPeriod === 'weekly' ? 'wk' : trendPeriod === 'monthly' ? 'mo' : 'day'}
+                  {volumeDelta.formattedPercent} vs prev {trendPeriod === 'weekly' ? 'wk' : trendPeriod === 'monthly' ? 'mo' : 'day'}
                 </span>
               )}
             </div>

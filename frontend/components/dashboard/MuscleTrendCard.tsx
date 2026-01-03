@@ -17,6 +17,7 @@ import { ChartSkeleton } from '../ChartSkeleton';
 import { normalizeMuscleGroup } from '../../utils/muscle/muscleNormalization';
 import { MUSCLE_COLORS } from '../../utils/domain/categories';
 import { formatSignedNumber } from '../../utils/format/formatters';
+import { formatDeltaPercentage, getDeltaFormatPreset } from '../../utils/format/deltaFormat';
 import {
   BadgeLabel,
   ChartDescription,
@@ -39,7 +40,7 @@ type MuscleTrendInsight = {
 
 const formatSigned = (n: number) => formatSignedNumber(n, { maxDecimals: 2 });
 const formatSignedPctWithNoun = (pct: number, noun: string) =>
-  `${formatSignedNumber(pct, { maxDecimals: 0 })}% ${noun}`;
+  `${formatDeltaPercentage(pct, getDeltaFormatPreset('badge'))} ${noun}`;
 
 export const MuscleTrendCard = ({
   isMounted,

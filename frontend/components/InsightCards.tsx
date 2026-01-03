@@ -17,6 +17,7 @@ import { WeightUnit } from '../utils/storage/localStorage';
 import { convertWeight } from '../utils/format/units';
 import { formatHumanReadableDate } from '../utils/date/dateUtils';
 import { formatNumber } from '../utils/format/formatters';
+import { formatDeltaPercentage, getDeltaFormatPreset } from '../utils/format/deltaFormat';
 
 // Simple monochrome SVG for Gemini (Google) that inherits color via currentColor
 const GeminiIcon: React.FC<{ className?: string }> = ({ className }) => (
@@ -102,7 +103,7 @@ const DeltaBadge: React.FC<{ delta: DeltaResult; suffix?: string; showPercent?: 
   showPercent = true,
   context = ''
 }) => {
-  const { direction, deltaPercent } = delta;
+  const { direction, formattedPercent } = delta;
   
   if (direction === 'same') {
     return (
@@ -110,7 +111,7 @@ const DeltaBadge: React.FC<{ delta: DeltaResult; suffix?: string; showPercent?: 
         <Minus className="w-3 h-3" />
         <span className="text-[10px] font-bold">
           Stable
-          {showPercent ? ` (${deltaPercent}%)` : ''}
+          {showPercent ? ` (${delta.deltaPercent}%)` : ''}
         </span>
         {context && <span className="text-[9px] opacity-75">{context}</span>}
       </span>
@@ -126,8 +127,7 @@ const DeltaBadge: React.FC<{ delta: DeltaResult; suffix?: string; showPercent?: 
     <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded ${bgClass} ${colorClass}`}>
       <Icon className="w-3 h-3" />
       <span className="text-[10px] font-bold">
-        {isUp ? '+' : ''}
-        {showPercent ? `${deltaPercent}%` : formatNumber(delta.delta, { maxDecimals: 2 })}
+        {formattedPercent}
         {suffix}
       </span>
       {context && <span className="text-[9px] opacity-75">{context}</span>}

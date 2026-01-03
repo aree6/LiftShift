@@ -24,6 +24,7 @@ import { WeightUnit } from '../utils/storage/localStorage';
 import { convertWeight } from '../utils/format/units';
 import { formatSignedNumber } from '../utils/format/formatters';
 import { formatDisplayVolume } from '../utils/format/volumeDisplay';
+import { formatDeltaPercentage, getDeltaFormatPreset } from '../utils/format/deltaFormat';
 import { formatRelativeWithDate, getEffectiveNowFromWorkoutData, getSessionKey } from '../utils/date/dateUtils';
 import { parseHevyDateString } from '../utils/date/parseHevyDateString';
 import { LazyRender } from './LazyRender';
@@ -64,15 +65,18 @@ const SessionDeltaBadge: React.FC<{ current: number; previous: number; suffix?: 
   const isPositive = delta > 0;
   const Icon = isPositive ? TrendingUp : TrendingDown;
   const colorClass = isPositive ? 'text-emerald-400' : 'text-rose-400';
-  const pct = Math.round((delta / previous) * 100);
+  const deltaPercent = Math.round((delta / previous) * 100);
+  
+  // Use centralized formatting for better UX with large percentages
+  const formattedPercent = formatDeltaPercentage(deltaPercent, getDeltaFormatPreset('badge'));
   
   return (
     <span
       className={`relative -top-[2px] inline-flex items-center gap-0.5 ml-1 text-[10px] font-bold leading-none ${colorClass}`}
-      title={`${pct}% ${label} ${context}`}
+      title={`${deltaPercent}% ${label} ${context}`}
     >
       <Icon className={`w-3 h-3 ${colorClass}`} />
-      <span>{pct}%</span>
+      <span>{formattedPercent}</span>
     </span>
   );
 };

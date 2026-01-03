@@ -13,6 +13,7 @@ import {
 } from 'recharts';
 import type { TimeFilterMode } from '../../utils/storage/localStorage';
 import { formatSignedNumber } from '../../utils/format/formatters';
+import { formatDeltaPercentage, getDeltaFormatPreset } from '../../utils/format/deltaFormat';
 import { addEmaSeries, DEFAULT_EMA_HALF_LIFE_DAYS } from '../../utils/analysis/ema';
 import {
   BadgeLabel,
@@ -188,7 +189,7 @@ export const PrTrendCard = ({
                   main={
                     <span className="inline-flex items-center gap-1">
                       <TrendIcon direction={prTrendDelta.direction} />
-                      <span>{`${formatSigned(prTrendDelta.deltaPercent)}%`}</span>
+                      <span>{formatDeltaPercentage(prTrendDelta.deltaPercent, getDeltaFormatPreset('badge'))}</span>
                     </span>
                   }
                   meta="vs prev mo"
@@ -207,7 +208,7 @@ export const PrTrendCard = ({
                   main={
                     <span className="inline-flex items-center gap-1">
                       <TrendIcon direction={prTrendDelta7d.direction} />
-                      <span>{`${formatSigned(prTrendDelta7d.deltaPercent)}%`}</span>
+                      <span>{formatDeltaPercentage(prTrendDelta7d.deltaPercent, getDeltaFormatPreset('badge'))}</span>
                     </span>
                   }
                   meta="vs prev 7d"

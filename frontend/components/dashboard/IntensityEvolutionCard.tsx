@@ -26,6 +26,7 @@ import {
 import { LazyRender } from '../LazyRender';
 import { ChartSkeleton } from '../ChartSkeleton';
 import { formatNumber, formatSignedNumber } from '../../utils/format/formatters';
+import { formatDeltaPercentage, getDeltaFormatPreset } from '../../utils/format/deltaFormat';
 import { addEmaSeries, DEFAULT_EMA_HALF_LIFE_DAYS } from '../../utils/analysis/ema';
 
 type IntensityView = 'area' | 'stackedBar';
@@ -266,11 +267,11 @@ export const IntensityEvolutionCard = ({
                     key={s.short}
                     label={
                       <BadgeLabel
-                        main={`${s.short} ${s.pct.toFixed(0)}%`}
+                        main={`${s.short} ${formatDeltaPercentage(s.pct, getDeltaFormatPreset('badge'))}`}
                         meta={
                           <ShiftedMeta>
                             <TrendIcon direction={s.delta.direction} />
-                            <span>{`${formatSigned(s.delta.deltaPercent)}% vs prev mo`}</span>
+                            <span>{formatDeltaPercentage(s.delta.deltaPercent, getDeltaFormatPreset('badge'))} vs prev mo</span>
                           </ShiftedMeta>
                         }
                       />

@@ -13,6 +13,7 @@ import {
 } from 'recharts';
 import type { TimeFilterMode, WeightUnit } from '../../utils/storage/localStorage';
 import { formatNumber, formatSignedNumber } from '../../utils/format/formatters';
+import { formatDeltaPercentage, getDeltaFormatPreset } from '../../utils/format/deltaFormat';
 import { addEmaSeries, DEFAULT_EMA_HALF_LIFE_DAYS } from '../../utils/analysis/ema';
 import {
   BadgeLabel,
@@ -208,7 +209,7 @@ export const VolumeDensityCard = ({
                     main={
                       <span className="inline-flex items-center gap-1">
                         <TrendIcon direction={volumeDensityTrend.delta.direction} />
-                        <span>{`${formatSigned(volumeDensityTrend.delta.deltaPercent)}%`}</span>
+                        <span>{formatDeltaPercentage(volumeDensityTrend.delta.deltaPercent, getDeltaFormatPreset('badge'))}</span>
                       </span>
                     }
                     meta="vs prev mo"
