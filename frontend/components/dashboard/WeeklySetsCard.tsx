@@ -27,7 +27,7 @@ import {
   InsightText,
   TrendBadge,
 } from './ChartBits';
-import { getVolumeColor, SVG_MUSCLE_NAMES } from '../../utils/muscle/muscleMapping';
+import { SVG_MUSCLE_NAMES } from '../../utils/muscle/muscleMapping';
 import { SVG_TO_MUSCLE_GROUP, getGroupHighlightIds } from '../../utils/muscle/muscleMappingConstants';
 
 type WeeklySetsView = 'radar' | 'heatmap';
@@ -110,9 +110,8 @@ export const WeeklySetsCard = ({
         : (SVG_MUSCLE_NAMES as any)[heatmapHoveredMuscle] || 'Unknown';
 
     const value = heatmap.volumes.get(heatmapHoveredMuscle) || 0;
-    const accent = getVolumeColor(value, heatmap.maxVolume);
 
-    return { name, value, accent };
+    return { name, value };
   }, [heatmapHoveredMuscle, compositionGrouping, heatmap]);
 
   return (
@@ -268,16 +267,10 @@ export const WeeklySetsCard = ({
 
                     {weeklySetsHoverMeta && (
                       <div className="absolute top-24 sm:top-28 left-1/2 -translate-x-1/2 bg-black/90 border border-slate-700/50 rounded-lg px-3 py-2 shadow-xl pointer-events-none z-20">
-                        <div
-                          className="font-semibold text-[11px] text-center whitespace-nowrap"
-                          style={{ color: weeklySetsHoverMeta.accent }}
-                        >
+                        <div className="font-semibold text-[11px] text-center whitespace-nowrap text-white">
                           {weeklySetsHoverMeta.name}
                         </div>
-                        <div
-                          className="text-[10px] text-center font-semibold whitespace-nowrap"
-                          style={{ color: weeklySetsHoverMeta.accent }}
-                        >
+                        <div className="text-[10px] text-center font-semibold whitespace-nowrap text-white">
                           {`${weeklySetsHoverMeta.value.toFixed(1)}/wk`}
                         </div>
                       </div>
