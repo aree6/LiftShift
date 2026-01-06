@@ -101,6 +101,7 @@ const App: React.FC = () => {
   const [csvImportError, setCsvImportError] = useState<string | null>(null);
   const [highlightedExercise, setHighlightedExercise] = useState<string | null>(null);
   const [initialMuscleForAnalysis, setInitialMuscleForAnalysis] = useState<{ muscleId: string; viewMode: 'muscle' | 'group' } | null>(null);
+  const [initialWeeklySetsWindow, setInitialWeeklySetsWindow] = useState<'all' | '7d' | '30d' | '365d' | null>(null);
   const [loadingKind, setLoadingKind] = useState<'hevy' | 'lyfta' | 'csv' | null>(null);
 
   // Loading State
@@ -235,8 +236,9 @@ const App: React.FC = () => {
   };
 
   // Handler for navigating to MuscleAnalysis from Dashboard heatmap
-  const handleMuscleClick = (muscleId: string, viewMode: 'muscle' | 'group') => {
+  const handleMuscleClick = (muscleId: string, viewMode: 'muscle' | 'group', weeklySetsWindow: 'all' | '7d' | '30d' | '365d') => {
     setInitialMuscleForAnalysis({ muscleId, viewMode });
+    setInitialWeeklySetsWindow(weeklySetsWindow);
     navigateToTab(Tab.MUSCLE_ANALYSIS, 'deep');
   };
 
@@ -275,6 +277,7 @@ const App: React.FC = () => {
   const [selectedRange, setSelectedRange] = useState<{ start: Date; end: Date } | null>(null);
   const [selectedWeeks, setSelectedWeeks] = useState<Array<{ start: Date; end: Date }>>([]);
   const [calendarOpen, setCalendarOpen] = useState(false);
+  const [targetHistoryDate, setTargetHistoryDate] = useState<Date | null>(null);
 
   useEffect(() => {
     if (!getSetupComplete()) return;
@@ -698,9 +701,12 @@ const App: React.FC = () => {
 
   // Handler for heatmap click
   const handleDayClick = (date: Date) => {
-    setSelectedDay(date);
-    setSelectedRange(null);
+    setTargetHistoryDate(date);
     navigateToTab(Tab.HISTORY, 'deep');
+  };
+
+  const handleTargetDateConsumed = () => {
+    setTargetHistoryDate(null);
   };
 
   const handleHistoryDayTitleClick = (date: Date) => {
@@ -1290,6 +1296,8 @@ const App: React.FC = () => {
                   stickyHeader={hasActiveCalendarFilter}
                   onExerciseClick={handleExerciseClick}
                   onDayTitleClick={handleHistoryDayTitleClick}
+                  targetDate={targetHistoryDate}
+                  onTargetDateConsumed={handleTargetDateConsumed}
                 />
               )}
               {activeTab === Tab.MUSCLE_ANALYSIS && (
@@ -1298,7 +1306,11 @@ const App: React.FC = () => {
                   filtersSlot={desktopFilterControls}
                   onExerciseClick={handleExerciseClick}
                   initialMuscle={initialMuscleForAnalysis}
-                  onInitialMuscleConsumed={() => setInitialMuscleForAnalysis(null)}
+                  initialWeeklySetsWindow={initialWeeklySetsWindow}
+                  onInitialMuscleConsumed={() => {
+                    setInitialMuscleForAnalysis(null);
+                    setInitialWeeklySetsWindow(null);
+                  }}
                   bodyMapGender={bodyMapGender}
                   stickyHeader={hasActiveCalendarFilter}
                 />
