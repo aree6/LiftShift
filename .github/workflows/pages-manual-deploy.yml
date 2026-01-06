@@ -45,18 +45,14 @@ jobs:
       - name: Configure Pages
         uses: actions/configure-pages@v5
 
-      - name: Cleanup old artifacts
-        run: |
-          echo "Cleaning up old github-pages artifacts..."
-          gh api repos/${{ github.repository }}/actions/artifacts --jq '.artifacts[] | select(.name == "github-pages") | .id' | xargs -I {} gh api --method DELETE repos/${{ github.repository }}/actions/artifacts/{} || true
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: dist/client
+          artifact_name: github-pages-${{ github.run_attempt }}-${{ github.run_number }}
 
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+        with:
+          artifact_name: github-pages-${{ github.run_attempt }}-${{ github.run_number }}
