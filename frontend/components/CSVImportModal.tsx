@@ -5,7 +5,7 @@ import MaleFrontBodyMapGroup from './MaleFrontBodyMapGroup';
 import FemaleFrontBodyMapGroup from './FemaleFrontBodyMapGroup';
 import type { BodyMapGender } from './BodyMap';
 import type { WeightUnit } from '../utils/storage/localStorage';
-import { CSV_LOADING_ANIMATION_SRC } from '../constants';
+import { CSV_LOADING_ANIMATION_SRC, assetPath } from '../constants';
 import { UNIFORM_HEADER_BUTTON_CLASS, UNIFORM_HEADER_ICON_BUTTON_CLASS } from '../utils/ui/uiConstants';
 
 type Intent = 'initial' | 'update';
@@ -57,17 +57,6 @@ export const CSVImportModal: React.FC<CSVImportModalProps> = ({
 
   const showBodyTypeAndUnitSelectors = variant === 'preferences' || !hideBodyTypeAndUnit;
   const canUploadCsv = Boolean(selectedGender && selectedUnit);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    fetch(CSV_LOADING_ANIMATION_SRC, {
-      method: 'GET',
-      mode: 'cors',
-      cache: 'force-cache',
-      signal: controller.signal,
-    }).catch(() => {});
-    return () => controller.abort();
-  }, []);
 
   const showNonEnglishHevyDateHelp = Boolean(
     errorMessage && errorMessage.includes("couldn't parse the workout dates")

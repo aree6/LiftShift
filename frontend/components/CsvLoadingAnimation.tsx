@@ -1,6 +1,6 @@
 import React from 'react';
 import { DotLottieReact } from '@lottiefiles/dotlottie-react';
-import { CSV_LOADING_ANIMATION_SRC } from '../constants';
+import { CSV_LOADING_ANIMATION_SRC, assetPath } from '../constants';
 
 type CsvLoadingAnimationProps = {
   className?: string;
@@ -19,7 +19,7 @@ export const CsvLoadingAnimation: React.FC<CsvLoadingAnimationProps> = ({
       role="img"
     >
       <DotLottieReact
-        src={CSV_LOADING_ANIMATION_SRC}
+        src={assetPath(CSV_LOADING_ANIMATION_SRC)}
         loop
         autoplay
         style={{ width: '100%', height: '100%' }}
