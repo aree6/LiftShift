@@ -12,8 +12,8 @@ import { convertWeight } from '../utils/format/units';
 import { getDisplayVolume } from '../utils/format/volumeDisplay';
 import { FANCY_FONT, FANCY_FONT_NUMBERS } from '../utils/ui/uiConstants';
 import { calculateStreakInfo, calculatePRInsights, StreakInfo, PRInsights } from '../utils/analysis/insights';
-import { getExerciseStats, getDailySummaries } from '../utils/analysis/analytics';
 import { getExerciseAssets, ExerciseAsset } from '../utils/data/exerciseAssets';
+import { assetPath } from '../constants';
 import { isWarmupSet } from '../utils/analysis/setClassification';
 import { normalizeMuscleGroup, type NormalizedMuscleGroup } from '../utils/muscle/muscleNormalization';
 import { MUSCLE_GROUP_TO_SVG_IDS } from '../utils/muscle/muscleMappingConstants';
@@ -464,7 +464,7 @@ const PersonalRecordsCard: React.FC<{
         <div className="relative mb-3">
           {/* Laurel wreath image */}
           <img 
-            src="/comparisonImages/Laurel-Wreath1.svg" 
+            src={assetPath('/comparisonImages/Laurel-Wreath1.svg')} 
             alt="" 
             className="w-56 h-56 sm:w-64 sm:h-64 object-contain opacity-95"
           />
@@ -1127,7 +1127,7 @@ const VolumeComparisonCard: React.FC<{
                     : 'bg-gradient-to-tr from-blue-300/55 via-cyan-200/40 to-purple-300/45'
                 }`} />
                 <img
-                  src={`/comparisonImages/${comparison.filename}`}
+                  src={assetPath(`/comparisonImages/${comparison.filename}`)}
                   alt={comparison.item.label}
                   className="relative w-40 h-40 sm:w-52 sm:h-52 object-contain drop-shadow-lg"
                   loading="eager"

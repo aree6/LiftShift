@@ -42,6 +42,7 @@ import { DataSourceModal } from './components/DataSourceModal';
 import { LandingPage } from './components/LandingPage';
 import { HevyLoginModal } from './components/HevyLoginModal';
 import { LyfataLoginModal } from './components/LyfataLoginModal';
+import { assetPath } from './constants';
 import type { DataSourceChoice } from './utils/dataSources/types';
 import {
   getDataSourceChoice,
@@ -1013,7 +1014,7 @@ const App: React.FC = () => {
               {/* Top Row: Logo and Nav Buttons */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-                  <img src="/UI/logo.svg" alt="LiftShift Logo" className="w-6 h-6 sm:w-7 sm:h-7" decoding="async" />
+                  <img src={assetPath('/UI/logo.svg')} alt="LiftShift Logo" className="w-6 h-6 sm:w-7 sm:h-7" decoding="async" />
                   <div className="flex items-center gap-3 min-w-0">
                     <span
                       className="font-bold text-base sm:text-lg tracking-tight inline-flex items-start whitespace-nowrap"

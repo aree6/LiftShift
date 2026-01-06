@@ -7,6 +7,7 @@ import { ReviewsCarousel } from './landing/ReviewsCarousel';
 import LightRays from './landing/LightRays';
 import { Github, Flame, CalendarDays, Trophy, BarChart3, Dumbbell } from 'lucide-react';
 import { FANCY_FONT } from '../utils/ui/uiConstants';
+import { assetPath } from '../constants';
 
 interface LandingPageProps {
   onSelectPlatform: (source: DataSourceChoice) => void;
@@ -17,19 +18,19 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSelectPlatform }) =>
   const platformDockItems = [
     { 
       name: 'Hevy',
-      image: '/hevy_small.webp',
+      image: assetPath('/hevy_small.webp'),
       onClick: () => onSelectPlatform('hevy'),
       badge: 'Recommended'
     },
     { 
       name: 'Strong',
-      image: '/Strong_small.webp',
+      image: assetPath('/Strong_small.webp'),
       onClick: () => onSelectPlatform('strong'),
       badge: 'CSV'
     },
     { 
       name: 'Lyfta',
-      image: '/lyfta_small.webp',
+      image: assetPath('/lyfta_small.webp'),
       onClick: () => onSelectPlatform('lyfta'),
       badge: 'CSV'
     },
@@ -75,7 +76,7 @@ image: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox=
           {/* Top Nav - Minimal */}
           <nav className="flex items-center justify-between mb-12 sm:mb-20">
             <div className="flex items-center gap-3">
-              <img src="/UI/logo.svg" alt="LiftShift Logo" className="w-9 h-9 sm:w-11 sm:h-11" />
+              <img src={assetPath('/UI/logo.svg')} alt="LiftShift Logo" className="w-9 h-9 sm:w-11 sm:h-11" />
               <span className="font-bold text-xl sm:text-2xl tracking-tight text-white">
                 LiftShift
               </span>

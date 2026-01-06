@@ -1,21 +1,22 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { ChevronLeft, ChevronRight, Quote } from 'lucide-react';
-import { FANCY_FONT } from '@/utils/ui/uiConstants';
+import { FANCY_FONT } from '../../utils/ui/uiConstants';
+import { assetPath } from '../../constants';
 
 interface ReviewsCarouselProps {
   className?: string;
 }
 
 const REVIEW_IMAGES = [
-  '/carousel/1.webp',
-  '/carousel/2.webp',
-  '/carousel/3.webp',
-  '/carousel/4.webp',
-  '/carousel/5.webp',
-  '/carousel/6.webp',
-  '/carousel/7.webp',
-  '/carousel/8.webp',
-  '/carousel/9.webp',
+  assetPath('/carousel/1.webp'),
+  assetPath('/carousel/2.webp'),
+  assetPath('/carousel/3.webp'),
+  assetPath('/carousel/4.webp'),
+  assetPath('/carousel/5.webp'),
+  assetPath('/carousel/6.webp'),
+  assetPath('/carousel/7.webp'),
+  assetPath('/carousel/8.webp'),
+  assetPath('/carousel/9.webp'),
 ];
 
 export const ReviewsCarousel: React.FC<ReviewsCarouselProps> = ({ className = '' }) => {
