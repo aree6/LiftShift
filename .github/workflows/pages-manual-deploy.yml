@@ -39,6 +39,7 @@ jobs:
         env:
           VITE_BACKEND_URL: ${{ secrets.VITE_BACKEND_URL }}
           VITE_BASE_PATH: /LiftShift/
+          BASE_ASSETS: /LiftShift/
         run: npm run build
 
       - name: Configure Pages

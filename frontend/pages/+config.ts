@@ -9,4 +9,6 @@ export default {
   title: 'LiftShift - Free Workout Analytics Dashboard',
   description:
     'LiftShift transforms workout logs into beautiful analytics dashboards. Privacy-first, runs locally in your browser.',
+  // Set baseAssets for GitHub Pages deployment
+  baseAssets: process.env.BASE_ASSETS || undefined,
 } satisfies Config;
