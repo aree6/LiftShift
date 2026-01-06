@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { WorkoutSet } from '../types';
 import { BodyMap, BodyMapGender } from './BodyMap';
 import { ViewHeader } from './ViewHeader';
@@ -42,6 +42,7 @@ import { addEmaSeries, DEFAULT_EMA_HALF_LIFE_DAYS } from '../utils/analysis/ema'
 import { formatNumber } from '../utils/format/formatters';
 import { computationCache } from '../utils/storage/computationCache';
 import { computeWindowedExerciseBreakdown } from '../utils/muscle/windowedExerciseBreakdown';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   SVG_TO_MUSCLE_GROUP,
   MUSCLE_GROUP_ORDER,
@@ -70,6 +71,9 @@ type ViewMode = 'muscle' | 'group';
 const MUSCLE_GROUP_DISPLAY = SVG_TO_MUSCLE_GROUP;
 
 export const MuscleAnalysis: React.FC<MuscleAnalysisProps> = ({ data, filtersSlot, onExerciseClick, initialMuscle, initialWeeklySetsWindow, onInitialMuscleConsumed, stickyHeader = false, bodyMapGender = 'male' }) => {
+  const navigate = useNavigate();
+  const location = useLocation();
+
   const [exerciseMuscleData, setExerciseMuscleData] = useState<Map<string, ExerciseMuscleData>>(new Map());
   const [selectedMuscle, setSelectedMuscle] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -80,6 +84,22 @@ export const MuscleAnalysis: React.FC<MuscleAnalysisProps> = ({ data, filtersSlo
   const [viewMode, setViewMode] = useState<ViewMode>('group');
   const [activeQuickFilter, setActiveQuickFilter] = useState<QuickFilterCategory | null>(null);
   const [hoverTooltip, setHoverTooltip] = useState<TooltipData | null>(null);
+
+  // In group mode, selectedMuscle stores the group name (e.g. "Back"), but we still want the URL to
+  // round-trip through the underlying SVG id that was clicked.
+  const selectedSvgIdForUrlRef = useRef<string | null>(null);
+
+  const clearSelectionUrl = useCallback(() => {
+    navigate({ pathname: location.pathname, search: '' });
+  }, [navigate, location.pathname]);
+
+  const updateSelectionUrl = useCallback((opts: { svgId: string; mode: ViewMode; window: WeeklySetsWindow }) => {
+    const params = new URLSearchParams();
+    params.set('muscle', opts.svgId);
+    params.set('view', opts.mode);
+    params.set('window', opts.window);
+    navigate({ pathname: location.pathname, search: `?${params.toString()}` });
+  }, [navigate, location.pathname]);
 
   const effectiveNow = useMemo(() => getEffectiveNowFromWorkoutData(data, new Date(0)), [data]);
 
@@ -129,6 +149,7 @@ export const MuscleAnalysis: React.FC<MuscleAnalysisProps> = ({ data, filtersSlo
   useEffect(() => {
     if (initialMuscle && !isLoading) {
       setViewMode(initialMuscle.viewMode);
+      selectedSvgIdForUrlRef.current = initialMuscle.muscleId;
       if (initialMuscle.viewMode === 'group') {
         // For group mode, get the group name from the muscle ID
         const group = MUSCLE_GROUP_DISPLAY[initialMuscle.muscleId];
@@ -518,13 +539,33 @@ return acc + sum;
     setActiveQuickFilter(null);
     if (viewMode === 'group') {
       // In group view, clicking a muscle selects its group
-      const group = MUSCLE_GROUP_DISPLAY[muscleId] || muscleId;
+      const group = getGroupForSvgId(muscleId);
       if (group === 'Other') return;
-      setSelectedMuscle(prev => prev === group ? null : group);
+      setSelectedMuscle(prev => {
+        const next = prev === group ? null : group;
+        if (!next) {
+          selectedSvgIdForUrlRef.current = null;
+          clearSelectionUrl();
+        } else {
+          selectedSvgIdForUrlRef.current = muscleId;
+          updateSelectionUrl({ svgId: muscleId, mode: 'group', window: weeklySetsWindow });
+        }
+        return next;
+      });
     } else {
-      setSelectedMuscle(prev => prev === muscleId ? null : muscleId);
+      setSelectedMuscle(prev => {
+        const next = prev === muscleId ? null : muscleId;
+        if (!next) {
+          selectedSvgIdForUrlRef.current = null;
+          clearSelectionUrl();
+        } else {
+          selectedSvgIdForUrlRef.current = muscleId;
+          updateSelectionUrl({ svgId: muscleId, mode: 'muscle', window: weeklySetsWindow });
+        }
+        return next;
+      });
     }
-  }, [viewMode]);
+  }, [viewMode, clearSelectionUrl, updateSelectionUrl, weeklySetsWindow]);
 
   const handleMuscleHover = useCallback((muscleId: string | null, e?: MouseEvent) => {
     setHoveredMuscle(muscleId);
@@ -640,14 +681,18 @@ return acc + sum;
 
   const closePanel = useCallback(() => {
     setSelectedMuscle(null);
-  }, []);
+    selectedSvgIdForUrlRef.current = null;
+    clearSelectionUrl();
+  }, [clearSelectionUrl]);
 
   // Clear selection when switching view modes
   const handleViewModeChange = useCallback((mode: ViewMode) => {
     setSelectedMuscle(null);
     setActiveQuickFilter(null);
     setViewMode(mode);
-  }, []);
+    selectedSvgIdForUrlRef.current = null;
+    clearSelectionUrl();
+  }, [clearSelectionUrl]);
 
   // Handle quick filter click - auto-select muscles in category
   const handleQuickFilterClick = useCallback((category: QuickFilterCategory) => {
@@ -660,8 +705,10 @@ return acc + sum;
       }
       setActiveQuickFilter(category);
       setSelectedMuscle(null);
+      selectedSvgIdForUrlRef.current = null;
+      clearSelectionUrl();
     }
-  }, [activeQuickFilter, viewMode]);
+  }, [activeQuickFilter, viewMode, clearSelectionUrl]);
 
   // SVG IDs to highlight based on active quick filter
   const quickFilterHighlightIds = useMemo(() => {
@@ -845,7 +892,12 @@ return acc + sum;
             </div>
             {(selectedMuscle || activeQuickFilter) && (
               <button
-                onClick={() => { setSelectedMuscle(null); setActiveQuickFilter(null); }}
+                onClick={() => {
+                  setSelectedMuscle(null);
+                  setActiveQuickFilter(null);
+                  selectedSvgIdForUrlRef.current = null;
+                  clearSelectionUrl();
+                }}
                 className="p-1.5 hover:bg-black/60 rounded-lg transition-colors"
               >
                 <X className="w-5 h-5 text-slate-400" />
@@ -867,7 +919,12 @@ return acc + sum;
                   {(['all', '7d', '30d', '365d'] as const).map(w => (
                     <button
                       key={w}
-                      onClick={() => setWeeklySetsWindow(w)}
+                      onClick={() => {
+                        setWeeklySetsWindow(w);
+                        const svgId = selectedSvgIdForUrlRef.current;
+                        if (!svgId) return;
+                        updateSelectionUrl({ svgId, mode: viewMode, window: w });
+                      }}
                       className={`px-2 py-1 rounded text-[10px] font-medium transition-all ${
                         weeklySetsWindow === w
                           ? 'bg-red-600 text-white'

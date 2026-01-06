@@ -7,13 +7,18 @@
     <script>
       (function () {
         // GitHub Pages serves 404.html for unknown paths.
-        // For a SPA, we rewrite to / with the original path preserved in the query.
+        // For a SPA, we rewrite to the site base path with the original path preserved in the query.
         // index.html should restore it.
         var l = window.location;
         var path = l.pathname || '/';
         var search = l.search || '';
         var hash = l.hash || '';
-        var redirect = '/?p=' + encodeURIComponent(path) + '&q=' + encodeURIComponent(search) + '&h=' + encodeURIComponent(hash);
+        var segments = path.split('/');
+        var isGithubIo = typeof l.hostname === 'string' && l.hostname.toLowerCase().endsWith('github.io');
+        // For project pages: /<repo>/..., base is /<repo>/
+        // For user pages and custom domains: base is /
+        var base = (isGithubIo && segments.length > 2 && segments[1]) ? '/' + segments[1] + '/' : '/';
+        var redirect = base + '?p=' + encodeURIComponent(path) + '&q=' + encodeURIComponent(search) + '&h=' + encodeURIComponent(hash);
         l.replace(redirect);
       })();
     </script>

@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
+import { BrowserRouter } from 'react-router-dom';
 import { initGA } from './utils/integrations/ga';
 import { ThemeProvider } from './components/ThemeProvider';
 import './tailwind.css';
@@ -12,11 +13,20 @@ if (!rootElement) {
 
 initGA();
 
+const getRouterBasename = (): string => {
+  const baseUrl = (import.meta as any).env?.BASE_URL;
+  if (typeof baseUrl !== 'string') return '/';
+  const trimmed = baseUrl.replace(/\/+$/g, '');
+  return trimmed || '/';
+};
+
 const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
-    <ThemeProvider>
-      <App />
-    </ThemeProvider>
+    <BrowserRouter basename={getRouterBasename()}>
+      <ThemeProvider>
+        <App />
+      </ThemeProvider>
+    </BrowserRouter>
   </React.StrictMode>
 );

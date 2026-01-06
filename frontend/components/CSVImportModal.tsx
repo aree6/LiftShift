@@ -1,5 +1,4 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { motion } from 'motion/react';
 import { Upload, Check, X, ArrowLeft, ArrowRight, Trash2, UserRound, Weight } from 'lucide-react';
 import MaleFrontBodyMapGroup from './MaleFrontBodyMapGroup';
 import FemaleFrontBodyMapGroup from './FemaleFrontBodyMapGroup';
@@ -7,6 +6,7 @@ import type { BodyMapGender } from './BodyMap';
 import type { WeightUnit } from '../utils/storage/localStorage';
 import { CSV_LOADING_ANIMATION_SRC, assetPath } from '../constants';
 import { UNIFORM_HEADER_BUTTON_CLASS, UNIFORM_HEADER_ICON_BUTTON_CLASS } from '../utils/ui/uiConstants';
+import { OnboardingModalShell } from './OnboardingModalShell';
 
 type Intent = 'initial' | 'update';
 
@@ -129,95 +129,128 @@ export const CSVImportModal: React.FC<CSVImportModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-sm overflow-y-auto overscroll-contain">
-      <div className="min-h-full w-full px-2 sm:px-3 py-8 flex items-center justify-center">
-        <div className="max-w-4xl mx-auto">
-          <div className="relative bg-black/60 border border-slate-700/50 rounded-2xl p-5 sm:p-6 overflow-hidden backdrop-blur-md">
-            <div className="absolute inset-0 pointer-events-none">
-              <div className="absolute -top-24 -right-28 w-72 h-72 rounded-full blur-3xl bg-emerald-500/10" />
-              <div className="absolute -bottom-28 -left-28 w-72 h-72 rounded-full blur-3xl bg-violet-500/10" />
-              <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-black/20" />
-            </div>
+    <OnboardingModalShell
+      header={
+        <div className="grid grid-cols-3 items-start gap-4">
+          <div className="flex items-center justify-start">
+            {onBack ? (
+              <button
+                type="button"
+                onClick={onBack}
+                className={UNIFORM_HEADER_ICON_BUTTON_CLASS}
+              >
+                <ArrowLeft className="w-4 h-4" />
+              </button>
+            ) : null}
+          </div>
 
-            <div className="relative grid grid-cols-3 items-start gap-4 mb-6">
-              <div className="flex items-center justify-start">
-                {onBack ? (
-                  <button
-                    type="button"
-                    onClick={onBack}
-                    className={UNIFORM_HEADER_ICON_BUTTON_CLASS}
-                  >
-                    <ArrowLeft className="w-4 h-4" />
-                  </button>
-                ) : null}
-              </div>
+          <div className="flex justify-center" />
 
-              <div className="flex justify-center">
-                <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">LiftShift</h2>
-              </div>
+          <div className="flex items-center justify-end">
+            {intent === 'update' && onClose ? (
+              <button
+                type="button"
+                onClick={onClose}
+                className={`${UNIFORM_HEADER_BUTTON_CLASS} gap-2`}
+              >
+                <X className="w-4 h-4" />
+                <span className="hidden sm:inline">Close</span>
+              </button>
+            ) : null}
+          </div>
+        </div>
+      }
+      footer={
+        variant === 'csv' ? (
+          <div className="flex items-center justify-center gap-3">
+            {platform !== 'other' ? (
+              <button
+                type="button"
+                onClick={() => setShowExportHelp((v) => !v)}
+                className={`${UNIFORM_HEADER_BUTTON_CLASS} h-10 text-sm font-semibold gap-2`}
+              >
+                <Upload className="w-4 h-4" />
+                <span className="hidden sm:inline">{showExportHelp ? 'Hide export guide' : 'How to export CSV'}</span>
+                <span className="sm:hidden">{showExportHelp ? 'Hide' : 'Export guide'}</span>
+              </button>
+            ) : null}
 
-              <div className="flex items-center justify-end">
-                {intent === 'update' && onClose ? (
-                  <button
-                    type="button"
-                    onClick={onClose}
-                    className={`${UNIFORM_HEADER_BUTTON_CLASS} gap-2`}
-                  >
-                    <X className="w-4 h-4" />
-                    <span className="hidden sm:inline">Close</span>
-                  </button>
-                ) : null}
-              </div>
-            </div>
+            {onClearCache ? (
+              <button
+                type="button"
+                onClick={onClearCache}
+                disabled={isLoading}
+                className={`${UNIFORM_HEADER_BUTTON_CLASS} h-10 text-sm font-semibold disabled:opacity-60 gap-2`}
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>Clear cache</span>
+              </button>
+            ) : null}
+          </div>
+        ) : onClearCache ? (
+          <div className="flex justify-center">
+            <button
+              type="button"
+              onClick={onClearCache}
+              disabled={isLoading}
+              className={`${UNIFORM_HEADER_BUTTON_CLASS} h-10 text-sm font-semibold disabled:opacity-60 gap-2`}
+            >
+              <Trash2 className="w-4 h-4" />
+              <span>Clear cache</span>
+            </button>
+          </div>
+        ) : null
+      }
+    >
+      <div className="flex flex-col h-full min-h-0 pt-6">
+        <p className="text-slate-400 mb-6 text-center text-xs sm:text-sm flex-shrink-0">
+          {(() => {
+            if (variant === 'preferences') {
+              return "Let's get set up. Choose your body type and unit, then continue.";
+            }
 
-          <p className="text-slate-400 mb-6 text-center text-xs sm:text-sm">
-            {(() => {
-              if (variant === 'preferences') {
-                return "Let's get set up. Choose your body type and unit, then continue.";
-              }
-
-              // For 'other' platform we should be generic and avoid platform-specific copy
-              if (platform === 'other') {
-                if (showBodyTypeAndUnitSelectors) {
-                  return "Let's get set up. Choose your body type and unit, then upload your CSV.";
-                }
-                return "Drop your CSV below.";
-              }
-
-              const platformName = platform === 'strong' ? 'Strong' : platform === 'lyfta' ? 'Lyfta' : 'Hevy';
+            // For 'other' platform we should be generic and avoid platform-specific copy
+            if (platform === 'other') {
               if (showBodyTypeAndUnitSelectors) {
-                return `Let's get set up. Choose your body type and unit, then upload your ${platformName} CSV export.`;
+                return "Let's get set up. Choose your body type and unit, then upload your CSV.";
               }
-              return `Drop your ${platformName} CSV export below.`;
-            })()}
-          </p>
+              return "Drop your CSV below.";
+            }
 
-          {errorMessage ? (
-            <div className="mb-6 rounded-lg border border-red-500/30 bg-red-950/40 px-4 py-3 text-xs sm:text-sm text-red-200">
-              {errorMessage}
-              {showNonEnglishHevyDateHelp ? (
-                <div className="mt-3">
-                  <img
-                    src="/step5.png"
-                    className="w-full max-w-sm h-auto rounded-lg border border-red-500/20 mx-auto"
-                    alt="Hevy export language must be English"
-                    loading="lazy"
-                    decoding="async"
-                  />
-                </div>
-              ) : null}
-            </div>
-          ) : null}
+            const platformName = platform === 'strong' ? 'Strong' : platform === 'lyfta' ? 'Lyfta' : 'Hevy';
+            if (showBodyTypeAndUnitSelectors) {
+              return `Let's get set up. Choose your body type and unit, then upload your ${platformName} CSV export.`;
+            }
+            return `Drop your ${platformName} CSV export below.`;
+          })()}
+        </p>
 
-          {showBodyTypeAndUnitSelectors ? (
-            <>
-              {/* Gender Selection with Body Map Preview */}
-              <div className="w-full mb-6">
-                <p className="text-sm font-semibold text-slate-300 mb-3 text-center inline-flex items-center justify-center gap-2 w-full">
-                  <UserRound className="w-4 h-4 text-slate-300" />
-                  <span>Choose your body type</span>
-                </p>
-                <div className="grid grid-cols-2 gap-3">
+        {errorMessage ? (
+          <div className="mb-6 rounded-lg border border-red-500/30 bg-red-950/40 px-4 py-3 text-xs sm:text-sm text-red-200 flex-shrink-0">
+            {errorMessage}
+            {showNonEnglishHevyDateHelp ? (
+              <div className="mt-3">
+                <img
+                  src="/step5.png"
+                  className="w-full max-w-sm h-auto rounded-lg border border-red-500/20 mx-auto"
+                  alt="Hevy export language must be English"
+                  loading="lazy"
+                  decoding="async"
+                />
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
+        {showBodyTypeAndUnitSelectors ? (
+          <div className="flex-shrink-0">
+            {/* Gender Selection with Body Map Preview */}
+            <div className="w-full mb-6">
+              <p className="text-sm font-semibold text-slate-300 mb-3 text-center inline-flex items-center justify-center gap-2 w-full">
+                <UserRound className="w-4 h-4 text-slate-300" />
+                <span>Choose your body type</span>
+              </p>
+              <div className="grid grid-cols-2 gap-3">
                 {/* Male Option */}
                 <button
                   onClick={() => {
@@ -271,16 +304,16 @@ export const CSVImportModal: React.FC<CSVImportModalProps> = ({
                     Female
                   </span>
                 </button>
-                </div>
               </div>
+            </div>
 
-              {/* Weight Unit Selection */}
-              <div className="w-full mb-6">
-                <p className="text-sm font-semibold text-slate-300 mb-3 text-center inline-flex items-center justify-center gap-2 w-full">
-                  <Weight className="w-4 h-4 text-slate-300" />
-                  <span>Choose your weight unit</span>
-                </p>
-                <div className="grid grid-cols-2 gap-3">
+            {/* Weight Unit Selection */}
+            <div className="w-full mb-6">
+              <p className="text-sm font-semibold text-slate-300 mb-3 text-center inline-flex items-center justify-center gap-2 w-full">
+                <Weight className="w-4 h-4 text-slate-300" />
+                <span>Choose your weight unit</span>
+              </p>
+              <div className="grid grid-cols-2 gap-3">
                 {/* KG Option */}
                 <button
                   onClick={() => {
@@ -338,12 +371,13 @@ export const CSVImportModal: React.FC<CSVImportModalProps> = ({
                     Pounds
                   </span>
                 </button>
-                </div>
               </div>
-            </>
-          ) : null}
+            </div>
+          </div>
+        ) : null}
 
-          {variant === 'preferences' ? (
+        {variant === 'preferences' ? (
+          <div className="flex-shrink-0">
             <button
               type="button"
               onClick={handleContinue}
@@ -353,28 +387,30 @@ export const CSVImportModal: React.FC<CSVImportModalProps> = ({
               <span>{continueLabel}</span>
               <ArrowRight className="w-4 h-4" />
             </button>
-          ) : (
-            <>
-              {/* Drag and Drop Area - Only enabled after gender and unit selection */}
+          </div>
+        ) : (
+          <div className="flex-1 min-h-0 flex flex-col">
               <div
                 onDragOver={canUploadCsv ? handleDragOver : undefined}
                 onDrop={canUploadCsv ? handleDrop : undefined}
                 onClick={() => canUploadCsv && fileInputRef.current?.click()}
-                className={`w-full p-6 mb-6 border-2 border-dashed rounded-xl transition-all flex flex-col items-center justify-center ${
+                className={`w-full border-2 border-dashed rounded-xl transition-all flex flex-col items-center justify-center flex-1 min-h-0 px-6 sm:px-10 py-8 ${
                   canUploadCsv
                     ? 'border-slate-600 hover:border-slate-400 hover:bg-black/60 cursor-pointer'
                     : 'border-slate-800 bg-black/40 cursor-not-allowed opacity-50'
                 }`}
               >
-                <Upload className={`w-6 h-6 sm:w-8 sm:h-8 mb-3 ${canUploadCsv ? 'text-slate-500' : 'text-slate-600'}`} />
-                <p className={`font-medium text-center text-sm sm:text-base ${canUploadCsv ? 'text-slate-300' : 'text-slate-500'}`}>
+                <Upload className={`w-12 h-12 sm:w-16 sm:h-16 mb-6 ${canUploadCsv ? 'text-slate-500' : 'text-slate-600'}`} />
+                <p className={`font-medium text-center text-lg sm:text-xl lg:text-2xl ${canUploadCsv ? 'text-slate-300' : 'text-slate-500'}`}>
                   {canUploadCsv
-                    ? (platform === 'other' ? 'Drop your CSV here' : `Drop your ${platform === 'strong' ? 'Strong' : platform === 'lyfta' ? 'Lyfta' : 'Hevy'} CSV here`)
+                    ? platform === 'other'
+                      ? 'Drop your CSV here'
+                      : `Drop your ${platform === 'strong' ? 'Strong' : platform === 'lyfta' ? 'Lyfta' : 'Hevy'} CSV here`
                     : hideBodyTypeAndUnit
-                    ? 'Go back to choose body type + unit first'
-                    : 'Choose body type + unit first'}
+                      ? 'Go back to choose body type + unit first'
+                      : 'Choose body type + unit first'}
                 </p>
-                <p className="text-slate-500 text-xs sm:text-sm mt-1">
+                <p className="text-slate-500 text-sm sm:text-base lg:text-lg mt-3">
                   {canUploadCsv ? 'or click to choose a file' : 'Then upload your CSV'}
                 </p>
               </div>
@@ -387,103 +423,59 @@ export const CSVImportModal: React.FC<CSVImportModalProps> = ({
                 className="hidden"
                 disabled={isLoading || !canUploadCsv}
               />
-            </>
-          )}
 
-          {/* Export help section - toggled by bottom button (hidden for unknown platforms) */}
-          {variant === 'csv' && platform !== 'other' && showExportHelp ? (
-            <div className="w-full mb-4">
-              {platform === 'hevy' ? (
-                  <div className="mt-3 space-y-3">
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                      <img src="/Step1.png" className="w-full h-auto rounded-lg border border-slate-700" alt="Hevy export step 1" loading="lazy" decoding="async" />
-                      <img src="/Step2.png" className="w-full h-auto rounded-lg border border-slate-700" alt="Hevy export step 2" loading="lazy" decoding="async" />
-                      <img src="/Step3.png" className="w-full h-auto rounded-lg border border-slate-700" alt="Hevy export step 3" loading="lazy" decoding="async" />
-                      <img src="/Step4.png" className="w-full h-auto rounded-lg border border-slate-700" alt="Hevy export step 4" loading="lazy" decoding="async" />
+              {variant === 'csv' && platform !== 'other' && showExportHelp ? (
+                <div className="w-full mt-4 flex-shrink-0">
+                  {platform === 'hevy' ? (
+                    <div className="mt-3 space-y-3">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        <img src="/Step1.png" className="w-full h-auto rounded-lg border border-slate-700" alt="Hevy export step 1" loading="lazy" decoding="async" />
+                        <img src="/Step2.png" className="w-full h-auto rounded-lg border border-slate-700" alt="Hevy export step 2" loading="lazy" decoding="async" />
+                        <img src="/Step3.png" className="w-full h-auto rounded-lg border border-slate-700" alt="Hevy export step 3" loading="lazy" decoding="async" />
+                        <img src="/Step4.png" className="w-full h-auto rounded-lg border border-slate-700" alt="Hevy export step 4" loading="lazy" decoding="async" />
+                      </div>
+
+                      <div className="flex justify-center">
+                        <img
+                          src="/step5.png"
+                          className="w-full max-w-xs h-auto rounded-lg border border-slate-700/60"
+                          alt="Set Hevy export language to English"
+                          loading="lazy"
+                          decoding="async"
+                        />
+                      </div>
+
+                      <div className="text-xs text-slate-400 text-center">
+                        Support is English-only right now. Make sure your Hevy app language is set to English before exporting.
+                      </div>
                     </div>
-
-                    <div className="flex justify-center">
-                      <img
-                        src="/step5.png"
-                        className="w-full max-w-xs h-auto rounded-lg border border-slate-700/60"
-                        alt="Set Hevy export language to English"
-                        loading="lazy"
-                        decoding="async"
-                      />
+                  ) : platform === 'strong' ? (
+                    <div className="mt-3 space-y-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <img src="/StrongStep1.png" className="w-full h-auto rounded-lg border border-slate-700" alt="Strong export step 1" loading="lazy" decoding="async" />
+                        <img src="/StrongStep2.png" className="w-full h-auto rounded-lg border border-slate-700" alt="Strong export step 2" loading="lazy" decoding="async" />
+                        <img src="/StrongStep3.png" className="w-full h-auto rounded-lg border border-slate-700" alt="Strong export step 3" loading="lazy" decoding="async" />
+                      </div>
                     </div>
-
-                    <div className="text-xs text-slate-400 text-center">
-                      Support is English-only right now. Make sure your Hevy app language is set to English before exporting.
+                  ) : (
+                    <div className="mt-3">
+                      <p className="text-xs text-slate-400 text-center">
+                        Support is English-only right now. Make sure your Lyfta app language is set to English before exporting.
+                      </p>
                     </div>
-                  </div>
-                ) : platform === 'strong' ? (
-                  <div className="mt-3 space-y-3">
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                      <img src="/StrongStep1.png" className="w-full h-auto rounded-lg border border-slate-700" alt="Strong export step 1" loading="lazy" decoding="async" />
-                      <img src="/StrongStep2.png" className="w-full h-auto rounded-lg border border-slate-700" alt="Strong export step 2" loading="lazy" decoding="async" />
-                      <img src="/StrongStep3.png" className="w-full h-auto rounded-lg border border-slate-700" alt="Strong export step 3" loading="lazy" decoding="async" />
-                    </div>
-                  </div>
-                ) : (
-                  <div className="mt-3">
-                    <p className="text-xs text-slate-400 text-center">
-                      Support is English-only right now. Make sure your Lyfta app language is set to English before exporting.
-                    </p>
-                  </div>
-                )}
-            </div>
-          ) : null}
-
-          {isLoading && (
-            <p className="text-slate-400 text-xs sm:text-sm text-center">
-              Importing your data...
-            </p>
-          )}
-
-          {/* Action buttons row - See how to export CSV + Clear cache */}
-          {variant === 'csv' ? (
-            <div className="mt-4 flex items-center justify-center gap-3">
-              {platform !== 'other' ? (
-                <button
-                  type="button"
-                  onClick={() => setShowExportHelp((v) => !v)}
-                  className={`${UNIFORM_HEADER_BUTTON_CLASS} h-10 text-sm font-semibold gap-2`}
-                >
-                  <Upload className="w-4 h-4" />
-                  <span className="hidden sm:inline">{showExportHelp ? 'Hide export guide' : 'How to export CSV'}</span>
-                  <span className="sm:hidden">{showExportHelp ? 'Hide' : 'Export guide'}</span>
-                </button>
+                  )}
+                </div>
               ) : null}
 
-              {onClearCache ? (
-                <button
-                  type="button"
-                  onClick={onClearCache}
-                  disabled={isLoading}
-                  className={`${UNIFORM_HEADER_BUTTON_CLASS} h-10 text-sm font-semibold disabled:opacity-60 gap-2`}
-                >
-                  <Trash2 className="w-4 h-4" />
-                  <span>Clear cache</span>
-                </button>
+              {isLoading ? (
+                <p className="text-slate-400 text-xs sm:text-sm text-center flex-shrink-0 mt-3">
+                  Importing your data...
+                </p>
               ) : null}
-            </div>
-          ) : onClearCache ? (
-            <div className="mt-4 flex justify-center">
-              <button
-                type="button"
-                onClick={onClearCache}
-                disabled={isLoading}
-                className={`${UNIFORM_HEADER_BUTTON_CLASS} h-10 text-sm font-semibold disabled:opacity-60 gap-2`}
-              >
-                <Trash2 className="w-4 h-4" />
-                <span>Clear cache</span>
-              </button>
-            </div>
-          ) : null}
           </div>
-        </div>
+        )}
       </div>
-    </div>
+    </OnboardingModalShell>
   );
 };
 

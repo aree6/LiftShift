@@ -32,10 +32,10 @@ jobs:
         run: npm run build
 
       - name: Check build output
-        run: ls -la dist/
+        run: ls -la dist/client/
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: dist-${{ matrix.node-version }}
-          path: dist/
+          path: dist/client/

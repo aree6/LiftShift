@@ -10,6 +10,8 @@ export const FANCY_FONT: Readonly<React.CSSProperties> = {
   fontFamily: '"Libre Baskerville", "Poppins", sans-serif',
   fontWeight: 600,
   fontStyle: 'italic',
+  letterSpacing: '0.02em',
+  
 };
 
 /** Decorative font style for numbers (non-italic) */

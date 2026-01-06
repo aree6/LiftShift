@@ -18,7 +18,10 @@ const getNextMode = (current: ThemeMode): ThemeMode => {
 };
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [mode, setModeState] = useState<ThemeMode>(() => getThemeMode());
+  const [mode, setModeState] = useState<ThemeMode>(() => {
+    if (typeof window === 'undefined') return 'midnight-dark';
+    return getThemeMode();
+  });
 
   const setMode = useCallback((next: ThemeMode) => {
     setModeState(next);

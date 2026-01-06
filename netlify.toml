@@ -1,6 +1,6 @@
 [build]
   command = "npm run build"
-  publish = "dist"
+  publish = "dist/client"
 
  [[redirects]]
    from = "/about"
@@ -20,6 +20,16 @@
  [[redirects]]
    from = "/how-it-works/*"
    to = "/how-it-works/index.html"
+   status = 200
+
+ [[redirects]]
+   from = "/features"
+   to = "/features/index.html"
+   status = 200
+ 
+ [[redirects]]
+   from = "/features/*"
+   to = "/features/index.html"
    status = 200
  
  [[redirects]]

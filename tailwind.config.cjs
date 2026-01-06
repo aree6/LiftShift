@@ -5,7 +5,11 @@ module.exports = {
     './frontend/**/*.{ts,tsx}',
   ],
   theme: {
-    extend: {},
+    extend: {
+      screens: {
+        'xs': '440px',
+      },
+    },
   },
   plugins: [],
 };

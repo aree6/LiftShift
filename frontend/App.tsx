@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo, Suspense, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, Suspense, useRef, useCallback, useLayoutEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   parseWorkoutCSVAsyncWithUnit,
   ParseWorkoutCsvResult,
@@ -38,7 +39,6 @@ import { SupportLinks } from './components/SupportLinks';
 import { ThemedBackground } from './components/ThemedBackground';
 import { ThemeToggleButton } from './components/ThemeToggleButton';
 import { CsvLoadingAnimation } from './components/CsvLoadingAnimation';
-import { DataSourceModal } from './components/DataSourceModal';
 import { LandingPage } from './components/LandingPage';
 import { HevyLoginModal } from './components/HevyLoginModal';
 import { LyfataLoginModal } from './components/LyfataLoginModal';
@@ -78,8 +78,33 @@ enum Tab {
   FLEX = 'flex'
 }
 
+const getTabFromPathname = (pathname: string): Tab => {
+  const normalized = (pathname || '/').replace(/\/+$/g, '') || '/';
+  if (normalized === '/' || normalized === '/dashboard') return Tab.DASHBOARD;
+  if (normalized === `/${Tab.EXERCISES}`) return Tab.EXERCISES;
+  if (normalized === `/${Tab.HISTORY}`) return Tab.HISTORY;
+  if (normalized === `/${Tab.MUSCLE_ANALYSIS}`) return Tab.MUSCLE_ANALYSIS;
+  if (normalized === `/${Tab.FLEX}`) return Tab.FLEX;
+  return Tab.DASHBOARD;
+};
+
+const getPathForTab = (tab: Tab): string => {
+  if (tab === Tab.DASHBOARD) return '/';
+  return `/${tab}`;
+};
+
+const parseLocalDateFromYyyyMmDd = (value: string): Date | null => {
+  const m = /^([0-9]{4})-([0-9]{2})-([0-9]{2})$/.exec(value);
+  if (!m) return null;
+  const year = Number(m[1]);
+  const monthIndex = Number(m[2]) - 1;
+  const day = Number(m[3]);
+  if (!Number.isFinite(year) || !Number.isFinite(monthIndex) || !Number.isFinite(day)) return null;
+  return new Date(year, monthIndex, day);
+};
+
 type OnboardingIntent = 'initial' | 'update';
-type OnboardingStep = 'platform' | 'strong_csv' | 'lyfta_csv' | 'other_csv' | 'lyfta_prefs' | 'lyfta_login' | 'hevy_prefs' | 'hevy_login' | 'hevy_csv';
+type OnboardingStep = 'platform' | 'strong_prefs' | 'strong_csv' | 'lyfta_prefs' | 'lyfta_csv' | 'other_prefs' | 'other_csv' | 'lyfta_login' | 'hevy_prefs' | 'hevy_login' | 'hevy_csv';
 
 type OnboardingFlow = {
   intent: OnboardingIntent;
@@ -91,8 +116,10 @@ type OnboardingFlow = {
 
 const App: React.FC = () => {
   const { mode } = useTheme();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [parsedData, setParsedData] = useState<WorkoutSet[]>([]);
-  const [activeTab, setActiveTab] = useState<Tab>(Tab.DASHBOARD);
+  const [activeTab, setActiveTab] = useState<Tab>(() => getTabFromPathname(location.pathname));
   const [onboarding, setOnboarding] = useState<OnboardingFlow | null>(() => {
     return getSetupComplete() ? null : { intent: 'initial', step: 'platform' };
   });
@@ -103,6 +130,7 @@ const App: React.FC = () => {
   const [highlightedExercise, setHighlightedExercise] = useState<string | null>(null);
   const [initialMuscleForAnalysis, setInitialMuscleForAnalysis] = useState<{ muscleId: string; viewMode: 'muscle' | 'group' } | null>(null);
   const [initialWeeklySetsWindow, setInitialWeeklySetsWindow] = useState<'all' | '7d' | '30d' | '365d' | null>(null);
+  const [targetHistoryDate, setTargetHistoryDate] = useState<Date | null>(null);
   const [loadingKind, setLoadingKind] = useState<'hevy' | 'lyfta' | 'csv' | null>(null);
 
   // Loading State
@@ -115,8 +143,42 @@ const App: React.FC = () => {
   const activeTabRef = useRef<Tab>(activeTab);
   const tabScrollPositionsRef = useRef<Record<string, number>>({});
   const pendingNavRef = useRef<{ tab: Tab; kind: 'top' | 'deep' } | null>(null);
+  const pendingUrlNavKindRef = useRef<'top' | 'deep' | null>(null);
+
+  const platformQueryConsumedRef = useRef(false);
 
   useEffect(() => {
+    if (platformQueryConsumedRef.current) return;
+    const params = new URLSearchParams(location.search);
+    const platform = params.get('platform');
+    if (!platform) return;
+
+    const isKnown = platform === 'hevy' || platform === 'strong' || platform === 'lyfta' || platform === 'other';
+    if (!isKnown) return;
+
+    platformQueryConsumedRef.current = true;
+
+    const intent: OnboardingIntent = getSetupComplete() ? 'update' : 'initial';
+
+    if (platform === 'strong') {
+      setOnboarding({ intent, step: 'strong_prefs', platform: 'strong' });
+    } else if (platform === 'lyfta') {
+      setOnboarding({ intent, step: 'lyfta_prefs', platform: 'lyfta' });
+    } else if (platform === 'other') {
+      setOnboarding({ intent, step: 'other_prefs', platform: 'other' });
+    } else {
+      setOnboarding({ intent, step: 'hevy_prefs', platform: 'hevy' });
+    }
+
+    params.delete('platform');
+    const nextSearch = params.toString();
+    navigate(
+      { pathname: location.pathname || '/', search: nextSearch ? `?${nextSearch}` : '' },
+      { replace: true }
+    );
+  }, [location.pathname, location.search, navigate]);
+
+  useLayoutEffect(() => {
     activeTabRef.current = activeTab;
   }, [activeTab]);
 
@@ -197,6 +259,78 @@ const App: React.FC = () => {
     setActiveTab(tab);
   }, []);
 
+  useLayoutEffect(() => {
+    const tabFromUrl = getTabFromPathname(location.pathname);
+    const params = new URLSearchParams(location.search);
+
+    if (tabFromUrl === Tab.EXERCISES) {
+      const exercise = params.get('exercise');
+      setHighlightedExercise(exercise ? exercise : null);
+    } else {
+      setHighlightedExercise(null);
+    }
+
+    if (tabFromUrl === Tab.HISTORY) {
+      const date = params.get('date');
+      const parsed = date ? parseLocalDateFromYyyyMmDd(date) : null;
+      setTargetHistoryDate(parsed);
+    } else {
+      setTargetHistoryDate(null);
+    }
+
+    if (tabFromUrl === Tab.MUSCLE_ANALYSIS) {
+      const muscleId = params.get('muscle');
+      const viewMode = params.get('view');
+      const weeklySetsWindow = params.get('window');
+
+      const isValidViewMode = viewMode === 'muscle' || viewMode === 'group';
+      const isValidWindow = weeklySetsWindow === 'all' || weeklySetsWindow === '7d' || weeklySetsWindow === '30d' || weeklySetsWindow === '365d';
+
+      if (muscleId && isValidViewMode) {
+        setInitialMuscleForAnalysis({ muscleId, viewMode });
+        setInitialWeeklySetsWindow(isValidWindow ? weeklySetsWindow : 'all');
+      } else {
+        setInitialMuscleForAnalysis(null);
+        setInitialWeeklySetsWindow(null);
+      }
+    } else {
+      setInitialMuscleForAnalysis(null);
+      setInitialWeeklySetsWindow(null);
+    }
+
+    const isDeep =
+      (tabFromUrl === Tab.EXERCISES && params.has('exercise')) ||
+      (tabFromUrl === Tab.HISTORY && params.has('date')) ||
+      (tabFromUrl === Tab.MUSCLE_ANALYSIS && params.has('muscle'));
+
+    const pendingKind = pendingUrlNavKindRef.current;
+    pendingUrlNavKindRef.current = null;
+
+    if (tabFromUrl !== activeTabRef.current) {
+      navigateToTab(tabFromUrl, pendingKind ?? (isDeep ? 'deep' : 'top'));
+      return;
+    }
+
+    const desiredKind = pendingKind ?? (isDeep ? 'deep' : 'top');
+    const el = mainRef.current;
+    if (!el) return;
+
+    if (desiredKind === 'deep') {
+      tabScrollPositionsRef.current[activeTabRef.current] = 0;
+      requestAnimationFrame(() => {
+        if (!mainRef.current) return;
+        mainRef.current.scrollTop = 0;
+      });
+      return;
+    }
+
+    const targetTop = tabScrollPositionsRef.current[activeTabRef.current] ?? 0;
+    requestAnimationFrame(() => {
+      if (!mainRef.current) return;
+      mainRef.current.scrollTop = targetTop;
+    });
+  }, [location.pathname, location.search, navigateToTab]);
+
   const clearCacheAndRestart = useCallback(() => {
     clearCSVData();
     clearHevyAuthToken();
@@ -233,14 +367,29 @@ const App: React.FC = () => {
   // Handler for navigating to ExerciseView from MuscleAnalysis
   const handleExerciseClick = (exerciseName: string) => {
     setHighlightedExercise(exerciseName);
-    navigateToTab(Tab.EXERCISES, 'deep');
+    const params = new URLSearchParams();
+    params.set('exercise', exerciseName);
+    pendingUrlNavKindRef.current = 'deep';
+    
+    // If we're already on the Exercises tab, replace the current entry instead of pushing
+    // This prevents exercise selections from polluting the browser history
+    if (activeTab === Tab.EXERCISES) {
+      navigate({ pathname: getPathForTab(Tab.EXERCISES), search: `?${params.toString()}` }, { replace: true });
+    } else {
+      navigate({ pathname: getPathForTab(Tab.EXERCISES), search: `?${params.toString()}` });
+    }
   };
 
   // Handler for navigating to MuscleAnalysis from Dashboard heatmap
   const handleMuscleClick = (muscleId: string, viewMode: 'muscle' | 'group', weeklySetsWindow: 'all' | '7d' | '30d' | '365d') => {
     setInitialMuscleForAnalysis({ muscleId, viewMode });
     setInitialWeeklySetsWindow(weeklySetsWindow);
-    navigateToTab(Tab.MUSCLE_ANALYSIS, 'deep');
+    const params = new URLSearchParams();
+    params.set('muscle', muscleId);
+    params.set('view', viewMode);
+    params.set('window', weeklySetsWindow);
+    pendingUrlNavKindRef.current = 'deep';
+    navigate({ pathname: getPathForTab(Tab.MUSCLE_ANALYSIS), search: `?${params.toString()}` });
   };
 
   const startProgress = () => {
@@ -278,7 +427,6 @@ const App: React.FC = () => {
   const [selectedRange, setSelectedRange] = useState<{ start: Date; end: Date } | null>(null);
   const [selectedWeeks, setSelectedWeeks] = useState<Array<{ start: Date; end: Date }>>([]);
   const [calendarOpen, setCalendarOpen] = useState(false);
-  const [targetHistoryDate, setTargetHistoryDate] = useState<Date | null>(null);
 
   useEffect(() => {
     if (!getSetupComplete()) return;
@@ -526,10 +674,10 @@ const App: React.FC = () => {
     });
   }, []);
 
-  // Track "page" views when switching tabs (simple SPA routing)
+  // Track "page" views when switching tabs
   useEffect(() => {
-    trackPageView(`/${activeTab}`);
-  }, [activeTab]);
+    trackPageView(`${window.location.pathname || '/'}${window.location.search || ''}`);
+  }, [location.pathname, location.search]);
 
   // Derive unique months for filter
   const availableMonths = useMemo(() => {
@@ -703,7 +851,10 @@ const App: React.FC = () => {
   // Handler for heatmap click
   const handleDayClick = (date: Date) => {
     setTargetHistoryDate(date);
-    navigateToTab(Tab.HISTORY, 'deep');
+    const params = new URLSearchParams();
+    params.set('date', format(date, 'yyyy-MM-dd'));
+    pendingUrlNavKindRef.current = 'deep';
+    navigate({ pathname: getPathForTab(Tab.HISTORY), search: `?${params.toString()}` });
   };
 
   const handleTargetDateConsumed = () => {
@@ -715,7 +866,8 @@ const App: React.FC = () => {
     setSelectedRange(null);
     setSelectedWeeks([]);
     setSelectedMonth('all');
-    navigateToTab(Tab.MUSCLE_ANALYSIS, 'deep');
+    pendingUrlNavKindRef.current = 'deep';
+    navigate(getPathForTab(Tab.MUSCLE_ANALYSIS));
   };
 
   const handleOpenUpdateFlow = () => {
@@ -723,7 +875,7 @@ const App: React.FC = () => {
     setHevyLoginError(null);
     setLyfatLoginError(null);
     if (dataSource === 'strong') {
-      setOnboarding({ intent: 'update', step: 'strong_csv', platform: 'strong' });
+      setOnboarding({ intent: 'update', step: 'strong_prefs', platform: 'strong' });
       return;
     }
     if (dataSource === 'lyfta') {
@@ -1009,7 +1161,7 @@ const App: React.FC = () => {
       {onboarding?.intent === 'initial' ? null : (
         <>
           {/* Top Header Navigation */}
-          <header className="bg-black/70 border-b border-slate-700/50 flex-shrink-0">
+          <header className="bg-black/70 flex-shrink-0">
             <div className="px-2 sm:px-3 py-1.5 flex flex-col gap-2">
               {/* Top Row: Logo and Nav Buttons */}
               <div className="flex items-center justify-between">
@@ -1021,7 +1173,7 @@ const App: React.FC = () => {
                       style={{ color: 'var(--app-fg)' }}
                     >
                       <span>LiftShift</span>
-                      <sup className="ml-1 inline-block rounded-full border border-amber-500/30 bg-amber-500/15 px-1 py-0.5 text-[8px] sm:text-[9px] font-semibold leading-none tracking-wide text-amber-400 align-super -translate-y-0.5 -translate-x-2">
+                      <sup className="ml-1 inline-block rounded-full border border-amber-500/30 bg-amber-500/15 px-1 py-0.5 text-[7px] sm:text-[9px] font-semibold leading-none tracking-wide text-amber-400 align-super -translate-y-0.5 -translate-x-2">
                         BETA
                       </sup>
                     </span>
@@ -1074,23 +1226,23 @@ const App: React.FC = () => {
                   onClick={() => {
                     setHighlightedExercise(null);
                     setInitialMuscleForAnalysis(null);
-                    navigateToTab(Tab.DASHBOARD, 'top');
+                    navigate(getPathForTab(Tab.DASHBOARD));
                   }}
-                  className={`w-full flex items-center justify-center gap-2 px-2 sm:px-3 py-1.5 rounded-lg whitespace-nowrap ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border transition-all duration-200 ${activeTab === Tab.DASHBOARD ? 'bg-white/10 border-slate-600/70 text-white ring-2 ring-white/25 shadow-sm' : 'bg-transparent border-black/70 text-slate-400 hover:border-white hover:text-white hover:bg-white/5'}`}
+                  className={`w-full flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 rounded-lg whitespace-nowrap ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border transition-all duration-200 ${activeTab === Tab.DASHBOARD ? 'bg-white/10 border-slate-600/70 text-white ring-2 ring-white/25 shadow-sm' : 'bg-transparent border-black/70 text-slate-400 hover:border-white hover:text-white hover:bg-white/5'}`}
                 >
-                  <LayoutDashboard className="w-4 h-4" />
-                  <span className="hidden sm:inline font-medium">Dashboard</span>
+                  <LayoutDashboard className="w-5 h-5" />
+                  <span className="font-medium text-[7px] sm:text-xs">Dashboard</span>
                 </button>
                 <button 
                   onClick={() => {
                     setHighlightedExercise(null);
                     setInitialMuscleForAnalysis(null);
-                    navigateToTab(Tab.MUSCLE_ANALYSIS, 'top');
+                    navigate(getPathForTab(Tab.MUSCLE_ANALYSIS));
                   }}
-                  className={`w-full flex items-center justify-center gap-2 px-2 sm:px-3 py-1.5 rounded-lg whitespace-nowrap ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border transition-all duration-200 ${activeTab === Tab.MUSCLE_ANALYSIS ? 'bg-white/10 border-slate-600/70 text-white ring-2 ring-white/25 shadow-sm' : 'bg-transparent border-black/70 text-slate-400 hover:border-white hover:text-white hover:bg-white/5'}`}
+                  className={`w-full flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 rounded-lg whitespace-nowrap ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border transition-all duration-200 ${activeTab === Tab.MUSCLE_ANALYSIS ? 'bg-white/10 border-slate-600/70 text-white ring-2 ring-white/25 shadow-sm' : 'bg-transparent border-black/70 text-slate-400 hover:border-white hover:text-white hover:bg-white/5'}`}
                 >
                   <svg
-                    className="w-4 h-4"
+                    className="w-6 h-6"
                     viewBox="0 0 195.989 195.989"
                     fill="currentColor"
                     stroke="currentColor"
@@ -1101,18 +1253,18 @@ const App: React.FC = () => {
                   >
                     <path d="M195.935,84.745c-2.07-15.789-20.983-37.722-20.983-37.722c-4.933-12.69-17.677-8.47-17.677-8.47l-8.507,2.295 c-8.421,2.533-8.025,13.555-4.372,15.789c1.602,0.978,6.297,1.233,7.685,0c0.414-0.374,0.098-2.165,0.098-2.165 c8.933,0.487,9.584-4.688,9.584-4.688l3.039-0.606c3.044-1.665,3.72,5.395,3.72,5.395c-2.07,20.009,6.595,27.334,6.595,27.334 c-1.254,3.973-5.62,3.206-5.62,3.206c-13.853-7.197-24.131,6.403-24.131,6.403c-7.831-6.671-23.991,5.148-23.991,5.148 c-9.055,1.79-9.591-9.106-9.591-9.106s-0.42-6.941-0.713-7.578c-0.426-1.084,1.925-0.536,1.925-0.536 c7.965-14.495,0-12.559,0-12.559c1.93-25.008-19.991-19.759-19.991-19.759C76.143,51.748,82.32,68.544,82.32,68.544 c-3.702-0.904-1.927,4.616-1.927,4.616c0.956,8.473,3.985,6.552,3.985,6.552c0.393,2.968,2.058,7.054,2.058,7.054l0.256,6.808 c-1.903,11.298-13.829,1.927-13.829,1.927c-6.996-9.864-24.536-4.348-24.536-4.348c-9.061-13.479-23.333-5.785-23.333-5.785 c1.516-3.349-0.256-20.009-0.256-20.009c1.772-2.058,5.331-13.712,5.331-13.712c1.522,2.058,8.388,2.42,8.388,2.42 c0.524,3.093,2.731,4.351,2.731,4.351c4.665,1.934,2.731-13.335,2.731-13.335c1.221-4.847-6.573-6.013-6.573-6.013 c-13.594-3.739-16.742,4.847-16.742,4.847l-3.547,7.712c-5.063,5.52-14.565,24.368-14.565,24.368 C-2.977,90.999,2.26,93.705,2.26,93.705l9.864,7.667c16.736,16.203,26.85,13.877,26.85,13.877 c13.46-0.256,12.352,8.458,12.352,8.458c0.536,13.342,9.852,27.182,9.852,27.182c0.685,2.326,1.172,4.786,1.656,7.222h63.811 c1.182-2.636,2.412-5.097,3.508-6.625c5.225-7.38,12.361-16.952,14.991-23.297c5.151-12.477,7.594-12.185,7.594-12.185 c18.383,0,28.527-13.329,28.527-13.329c3.014-3.86,7.593-8.616,10.948-10.522C196.726,89.571,195.935,84.745,195.935,84.745z"/>
                   </svg>
-                  <span className="hidden sm:inline font-medium">Muscle</span>
+                  <span className="font-medium text-[7px] sm:text-xs">Muscle</span>
                 </button>
                 <button 
                   onClick={() => {
                     setHighlightedExercise(null);
                     setInitialMuscleForAnalysis(null);
-                    navigateToTab(Tab.EXERCISES, 'top');
+                    navigate(getPathForTab(Tab.EXERCISES));
                   }}
-                  className={`w-full flex items-center justify-center gap-2 px-2 sm:px-3 py-1.5 rounded-lg whitespace-nowrap ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border transition-all duration-200 ${activeTab === Tab.EXERCISES ? 'bg-white/10 border-slate-600/70 text-white ring-2 ring-white/25 shadow-sm' : 'bg-transparent border-black/70 text-slate-400 hover:border-white hover:text-white hover:bg-white/5'}`}
+                  className={`w-full flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 rounded-lg whitespace-nowrap ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border transition-all duration-200 ${activeTab === Tab.EXERCISES ? 'bg-white/10 border-slate-600/70 text-white ring-2 ring-white/25 shadow-sm' : 'bg-transparent border-black/70 text-slate-400 hover:border-white hover:text-white hover:bg-white/5'}`}
                 >
                   <svg
-                    className="w-4 h-4"
+                    className="w-5 h-5"
                     viewBox="0 0 24 24"
                     fill="none"
                     stroke="currentColor"
@@ -1129,18 +1281,18 @@ const App: React.FC = () => {
                     <path d="M9.09766 5.73407C9.09766 5.04662 9.65502 4.48926 10.3425 4.48926C11.0299 4.48926 11.5873 5.04662 11.5873 5.73407C11.5873 6.42152 11.0299 6.97889 10.3425 6.97889C9.65502 6.97889 9.09766 6.42152 9.09766 5.73407Z" />
                     <path d="M2 22H22.0001" />
                   </svg>
-                  <span className="hidden sm:inline font-medium">Exercises</span>
+                  <span className="font-medium text-[7px] sm:text-xs">Exercises</span>
                 </button>
                 <button 
                   onClick={() => {
                     setHighlightedExercise(null);
                     setInitialMuscleForAnalysis(null);
-                    navigateToTab(Tab.HISTORY, 'top');
+                    navigate(getPathForTab(Tab.HISTORY));
                   }}
-                  className={`w-full flex items-center justify-center gap-2 px-2 sm:px-3 py-1.5 rounded-lg whitespace-nowrap ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border transition-all duration-200 ${activeTab === Tab.HISTORY ? 'bg-white/10 border-slate-600/70 text-white ring-2 ring-white/25 shadow-sm' : 'bg-transparent border-black/70 text-slate-400 hover:border-white hover:text-white hover:bg-white/5'}`}
+                  className={`w-full flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 rounded-lg whitespace-nowrap ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border transition-all duration-200 ${activeTab === Tab.HISTORY ? 'bg-white/10 border-slate-600/70 text-white ring-2 ring-white/25 shadow-sm' : 'bg-transparent border-black/70 text-slate-400 hover:border-white hover:text-white hover:bg-white/5'}`}
                 >
                   <svg
-                    className="w-4 h-4"
+                    className="w-5 h-5"
                     viewBox="0 0 503.379 503.379"
                     fill="currentColor"
                     stroke="currentColor"
@@ -1164,18 +1316,18 @@ const App: React.FC = () => {
 		c-6.682,0-12.105,5.426-12.105,12.105c0,6.685,5.423,12.104,12.105,12.104h131.14c6.685,0,12.104-5.42,12.104-12.104
 		C380.015,379.778,374.601,374.353,367.91,374.353z"/>
                   </svg>
-                  <span className="hidden sm:inline font-medium">History</span>
+                  <span className="font-medium text-[7px] sm:text-xs">History</span>
                 </button>
                 <button 
                   onClick={() => {
                     setHighlightedExercise(null);
                     setInitialMuscleForAnalysis(null);
-                    navigateToTab(Tab.FLEX, 'top');
+                    navigate(getPathForTab(Tab.FLEX));
                   }}
-                  className={`w-full flex items-center justify-center gap-2 px-2 sm:px-3 py-1.5 rounded-lg whitespace-nowrap ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border transition-all duration-200 ${activeTab === Tab.FLEX ? 'bg-white/10 border-slate-600/70 text-white ring-2 ring-white/25 shadow-sm' : 'bg-transparent border-black/70 text-slate-400 hover:border-white hover:text-white hover:bg-white/5'}`}
+                  className={`w-full flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 rounded-lg whitespace-nowrap ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border transition-all duration-200 ${activeTab === Tab.FLEX ? 'bg-white/10 border-slate-600/70 text-white ring-2 ring-white/25 shadow-sm' : 'bg-transparent border-black/70 text-slate-400 hover:border-white hover:text-white hover:bg-white/5'}`}
                 >
                   <svg
-                    className="w-4 h-4"
+                    className="w-5 h-5"
                     viewBox="0 0 512.001 512.001"
                     fill="currentColor"
                     stroke="currentColor"
@@ -1186,7 +1338,7 @@ const App: React.FC = () => {
                   >
                     <path d="M426.667,0H85.334C73.552,0,64,9.552,64,21.334v469.333C64,502.449,73.552,512,85.334,512h341.333 c11.782,0,21.333-9.551,21.333-21.333V21.334C448,9.552,438.449,0,426.667,0z M182.326,469.334l223.007-207.078v69.398 l-157.349,137.68H182.326z M405.334,96.987L106.667,358.32v-50.35L392.378,42.667h12.956V96.987z M329.674,42.667L106.667,249.745 v-69.398l157.349-137.68H329.674z M199.223,42.667l-92.556,80.986V42.667H199.223z M106.667,415.014l298.667-261.333v50.35 L119.623,469.334h-12.956V415.014z M312.778,469.334l92.556-80.986v80.986H312.778z"/>
                   </svg>
-                  <span className="hidden sm:inline font-medium text-xs">Flex</span>
+                  <span className="font-medium text-[7px] sm:text-xs">Flex</span>
                 </button>
 
                 <button
@@ -1199,7 +1351,7 @@ const App: React.FC = () => {
                   title="Calendar"
                   aria-label="Calendar"
                 >
-                  {calendarOpen ? <Pencil className="w-4 h-4" /> : ((selectedDay || selectedWeeks.length > 0 || selectedRange) ? <Pencil className="w-4 h-4" /> : <Calendar className="w-4 h-4" />)}
+                  {calendarOpen ? <Pencil className="w-5 h-5" /> : ((selectedDay || selectedWeeks.length > 0 || selectedRange) ? <Pencil className="w-5 h-5" /> : <Calendar className="w-5 h-5" />)}
                   <span className="text-[10px] font-semibold leading-none mt-1">Calendar</span>
 
                   {(selectedDay || selectedWeeks.length > 0 || selectedRange) && !calendarOpen ? (
@@ -1260,7 +1412,7 @@ const App: React.FC = () => {
             </div>
           )}
 
-          <main ref={mainRef} className="flex-1 overflow-x-hidden overflow-y-auto bg-black/70 p-1 sm:p-2 md:p-3 lg:p-4">
+          <main ref={mainRef} className="flex-1 overflow-x-hidden overflow-y-auto bg-black/70 px-2 py-1 sm:px-3 sm:py-2 md:p-3 lg:p-4">
 
             <Suspense fallback={<div className="text-slate-400 p-4">Loading...</div>}>
               {activeTab === Tab.DASHBOARD && (
@@ -1283,6 +1435,7 @@ const App: React.FC = () => {
                   filtersSlot={desktopFilterControls}
                   highlightedExercise={highlightedExercise}
                   onHighlightApplied={() => setHighlightedExercise(null)}
+                  onExerciseClick={handleExerciseClick}
                   weightUnit={weightUnit}
                   bodyMapGender={bodyMapGender}
                   stickyHeader={hasActiveCalendarFilter}
@@ -1329,11 +1482,11 @@ const App: React.FC = () => {
               )}
             </Suspense>
 
-            <div className="hidden sm:block">
+            <div className="hidden sm:block mt-8">
               <SupportLinks variant="secondary" layout="footer" />
             </div>
 
-            <div className="sm:hidden pb-10">
+            <div className="sm:hidden pb-10 mt-8">
               <SupportLinks variant="all" layout="footer" />
             </div>
           </main>
@@ -1348,7 +1501,7 @@ const App: React.FC = () => {
             setHevyLoginError(null);
             setLyfatLoginError(null);
             if (source === 'strong') {
-              setOnboarding({ intent: onboarding.intent, step: 'strong_csv', platform: 'strong' });
+              setOnboarding({ intent: onboarding.intent, step: 'strong_prefs', platform: 'strong' });
               return;
             }
             if (source === 'lyfta') {
@@ -1356,7 +1509,7 @@ const App: React.FC = () => {
               return;
             }
             if (source === 'other') {
-              setOnboarding({ intent: onboarding.intent, step: 'other_csv', platform: 'other' });
+              setOnboarding({ intent: onboarding.intent, step: 'other_prefs', platform: 'other' });
               return;
             }
             setOnboarding({ intent: onboarding.intent, step: 'hevy_prefs', platform: 'hevy' });
@@ -1391,14 +1544,13 @@ const App: React.FC = () => {
             onClose={() => setOnboarding(null)}
           />
         ) : (
-          <DataSourceModal
-            intent={onboarding.intent}
-            onSelect={(source) => {
+          <LandingPage
+            onSelectPlatform={(source) => {
               setCsvImportError(null);
               setHevyLoginError(null);
               setLyfatLoginError(null);
               if (source === 'strong') {
-                setOnboarding({ intent: onboarding.intent, step: 'strong_csv', platform: 'strong' });
+                setOnboarding({ intent: onboarding.intent, step: 'strong_prefs', platform: 'strong' });
                 return;
               }
               if (source === 'lyfta') {
@@ -1406,12 +1558,11 @@ const App: React.FC = () => {
                 return;
               }
               if (source === 'other') {
-                setOnboarding({ intent: onboarding.intent, step: 'other_csv', platform: 'other' });
+                setOnboarding({ intent: onboarding.intent, step: 'other_prefs', platform: 'other' });
                 return;
               }
               setOnboarding({ intent: onboarding.intent, step: 'hevy_prefs', platform: 'hevy' });
             }}
-            onClose={() => setOnboarding(null)}
           />
         )
       ) : null}
@@ -1462,6 +1613,66 @@ const App: React.FC = () => {
             setWeightUnit(unit);
             savePreferencesConfirmed(true);
             setOnboarding({ intent: onboarding.intent, step: 'lyfta_login', platform: 'lyfta' });
+          }}
+          onBack={
+            onboarding.intent === 'initial'
+              ? () => setOnboarding({ intent: onboarding.intent, step: 'platform' })
+              : () => setOnboarding({ intent: onboarding.intent, step: 'platform' })
+          }
+          onClose={
+            onboarding.intent === 'update'
+              ? () => setOnboarding(null)
+              : undefined
+          }
+        />
+      ) : null}
+
+      {onboarding?.step === 'strong_prefs' ? (
+        <CSVImportModal
+          intent={onboarding.intent}
+          platform="strong"
+          variant="preferences"
+          continueLabel="Continue"
+          isLoading={isAnalyzing}
+          initialGender={getPreferencesConfirmed() ? bodyMapGender : undefined}
+          initialUnit={getPreferencesConfirmed() ? weightUnit : undefined}
+          onGenderChange={(g) => setBodyMapGender(g)}
+          onUnitChange={(u) => setWeightUnit(u)}
+          onContinue={(gender, unit) => {
+            setBodyMapGender(gender);
+            setWeightUnit(unit);
+            savePreferencesConfirmed(true);
+            setOnboarding({ intent: onboarding.intent, step: 'strong_csv', platform: 'strong', backStep: 'strong_prefs' });
+          }}
+          onBack={
+            onboarding.intent === 'initial'
+              ? () => setOnboarding({ intent: onboarding.intent, step: 'platform' })
+              : () => setOnboarding({ intent: onboarding.intent, step: 'platform' })
+          }
+          onClose={
+            onboarding.intent === 'update'
+              ? () => setOnboarding(null)
+              : undefined
+          }
+        />
+      ) : null}
+
+      {onboarding?.step === 'other_prefs' ? (
+        <CSVImportModal
+          intent={onboarding.intent}
+          platform="other"
+          variant="preferences"
+          continueLabel="Continue"
+          isLoading={isAnalyzing}
+          initialGender={getPreferencesConfirmed() ? bodyMapGender : undefined}
+          initialUnit={getPreferencesConfirmed() ? weightUnit : undefined}
+          onGenderChange={(g) => setBodyMapGender(g)}
+          onUnitChange={(u) => setWeightUnit(u)}
+          onContinue={(gender, unit) => {
+            setBodyMapGender(gender);
+            setWeightUnit(unit);
+            savePreferencesConfirmed(true);
+            setOnboarding({ intent: onboarding.intent, step: 'other_csv', platform: 'other', backStep: 'other_prefs' });
           }}
           onBack={
             onboarding.intent === 'initial'
@@ -1531,11 +1742,9 @@ const App: React.FC = () => {
         <CSVImportModal
           intent={onboarding.intent}
           platform="strong"
+          hideBodyTypeAndUnit={true}
           onClearCache={clearCacheAndRestart}
           onFileSelect={(file, gender, unit) => {
-            setBodyMapGender(gender);
-            setWeightUnit(unit);
-            savePreferencesConfirmed(true);
             setCsvImportError(null);
             processFile(file, 'strong', unit);
           }}
@@ -1545,11 +1754,14 @@ const App: React.FC = () => {
           onGenderChange={(g) => setBodyMapGender(g)}
           onUnitChange={(u) => setWeightUnit(u)}
           errorMessage={csvImportError}
-          onBack={
-            onboarding.intent === 'initial'
-              ? () => setOnboarding({ intent: onboarding.intent, step: 'platform' })
-              : () => setOnboarding({ intent: 'initial', step: 'platform' })
-          }
+          onBack={() => {
+            if (onboarding.intent === 'initial') {
+              const backStep = onboarding.backStep ?? 'strong_prefs';
+              setOnboarding({ intent: onboarding.intent, step: backStep, platform: 'strong' });
+              return;
+            }
+            setOnboarding({ intent: 'initial', step: 'platform' });
+          }}
           onClose={
             onboarding.intent === 'update'
               ? () => setOnboarding(null)
@@ -1562,11 +1774,9 @@ const App: React.FC = () => {
         <CSVImportModal
           intent={onboarding.intent}
           platform="other"
+          hideBodyTypeAndUnit={true}
           onClearCache={clearCacheAndRestart}
           onFileSelect={(file, gender, unit) => {
-            setBodyMapGender(gender);
-            setWeightUnit(unit);
-            savePreferencesConfirmed(true);
             setCsvImportError(null);
             processFile(file, 'other', unit);
           }}
@@ -1576,11 +1786,14 @@ const App: React.FC = () => {
           onGenderChange={(g) => setBodyMapGender(g)}
           onUnitChange={(u) => setWeightUnit(u)}
           errorMessage={csvImportError}
-          onBack={
-            onboarding.intent === 'initial'
-              ? () => setOnboarding({ intent: onboarding.intent, step: 'platform' })
-              : () => setOnboarding(null)
-          }
+          onBack={() => {
+            if (onboarding.intent === 'initial') {
+              const backStep = onboarding.backStep ?? 'other_prefs';
+              setOnboarding({ intent: onboarding.intent, step: backStep, platform: 'other' });
+              return;
+            }
+            setOnboarding(null);
+          }}
           onClose={
             onboarding.intent === 'update'
               ? () => setOnboarding(null)
@@ -1593,12 +1806,9 @@ const App: React.FC = () => {
         <CSVImportModal
           intent={onboarding.intent}
           platform="lyfta"
-          hideBodyTypeAndUnit
+          hideBodyTypeAndUnit={true}
           onClearCache={clearCacheAndRestart}
           onFileSelect={(file, gender, unit) => {
-            setBodyMapGender(gender);
-            setWeightUnit(unit);
-            savePreferencesConfirmed(true);
             setCsvImportError(null);
             processFile(file, 'lyfta', unit);
           }}
@@ -1660,7 +1870,7 @@ const App: React.FC = () => {
       
       {/* Loading Overlay */}
       {isAnalyzing && (
-        <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-sm flex flex-col items-center justify-center animate-fade-in">
+        <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-sm flex flex-col items-center justify-center animate-fade-in px-4 sm:px-6">
           <div className="w-full max-w-md p-8 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl flex flex-col items-center">
             <CsvLoadingAnimation className="mb-6" size={160} />
             <h2 className="text-2xl font-bold text-white mb-2">

@@ -38,6 +38,7 @@ jobs:
       - name: Build
         env:
           VITE_BACKEND_URL: ${{ secrets.VITE_BACKEND_URL }}
+          VITE_BASE_PATH: /LiftShift/
         run: npm run build
 
       - name: Configure Pages
@@ -46,7 +47,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: dist
+          path: dist/client
 
       - name: Deploy to GitHub Pages
         id: deployment

@@ -155,11 +155,20 @@ Add:
 
 - `VITE_BACKEND_URL` = `https://YOUR_BACKEND_URL`
 
+Optional (only if you deploy under a subpath, e.g. GitHub Pages project site):
+
+- `VITE_BASE_PATH` = `/LiftShift/`
+
 Notes:
 
 - `VITE_BACKEND_URL` must be the public URL of your deployed backend (Render/Railway), not `localhost`.
 - `VITE_BACKEND_URL` should be the backend *origin* (no trailing `/api`). The frontend will call `${VITE_BACKEND_URL}/api/...`.
 - Example: `https://liftshift-backend.onrender.com`
+
+Base path notes:
+
+- The app supports deployments at the domain root (`/`) and under a subpath (like `/LiftShift/`).
+- When `VITE_BASE_PATH` is set, Vite will emit the correct asset URLs and the React Router `basename` will match automatically.
 
 ### 3.2 Trigger a deploy
 

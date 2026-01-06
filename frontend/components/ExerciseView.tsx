@@ -489,12 +489,13 @@ interface ExerciseViewProps {
   filtersSlot?: React.ReactNode;
   highlightedExercise?: string | null;
   onHighlightApplied?: () => void;
+  onExerciseClick?: (exerciseName: string) => void;
   weightUnit?: WeightUnit;
   bodyMapGender?: BodyMapGender;
   stickyHeader?: boolean;
 }
 
-export const ExerciseView: React.FC<ExerciseViewProps> = ({ stats, filtersSlot, highlightedExercise, onHighlightApplied, weightUnit = 'kg' as WeightUnit, bodyMapGender = 'male', stickyHeader = false }) => {
+export const ExerciseView: React.FC<ExerciseViewProps> = ({ stats, filtersSlot, highlightedExercise, onHighlightApplied, onExerciseClick, weightUnit = 'kg' as WeightUnit, bodyMapGender = 'male', stickyHeader = false }) => {
   const [selectedExerciseName, setSelectedExerciseName] = useState<string>(highlightedExercise || stats[0]?.name || "");
   const [trendFilter, setTrendFilter] = useState<ExerciseTrendStatus | null>(null);
 
@@ -1022,7 +1023,13 @@ export const ExerciseView: React.FC<ExerciseViewProps> = ({ stats, filtersSlot, 
                     ref={(el) => {
                       exerciseButtonRefs.current[ex.name] = el;
                     }}
-                    onClick={() => setSelectedExerciseName(ex.name)}
+                    onClick={() => {
+                      if (onExerciseClick) {
+                        onExerciseClick(ex.name);
+                        return;
+                      }
+                      setSelectedExerciseName(ex.name);
+                    }}
                     className={`w-full text-left px-2 py-1.5 rounded-md transition-all duration-200 flex items-center justify-between group border ${
                       isSelected
                         ? selectedHighlight.button
