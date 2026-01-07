@@ -40,6 +40,8 @@ import { Tooltip as HoverTooltip, TooltipData } from './Tooltip';
 import { CHART_TOOLTIP_STYLE } from '../utils/ui/uiConstants';
 import { addEmaSeries, DEFAULT_EMA_HALF_LIFE_DAYS } from '../utils/analysis/ema';
 import { formatNumber } from '../utils/format/formatters';
+import { computationCache } from '../utils/storage/computationCache';
+import { computeWindowedExerciseBreakdown } from '../utils/muscle/windowedExerciseBreakdown';
 import {
   SVG_TO_MUSCLE_GROUP,
   MUSCLE_GROUP_ORDER,
@@ -258,133 +260,6 @@ export const MuscleAnalysis: React.FC<MuscleAnalysisProps> = ({ data, filtersSlo
     return Math.max(max, 1);
   }, [windowedGroupVolumes]);
 
-  // Selected group data (when in group view mode)
-  const selectedGroupData = useMemo(() => {
-    if (viewMode !== 'group' || !selectedMuscle) return null;
-    const group = selectedMuscle as NormalizedMuscleGroup;
-    if (!MUSCLE_GROUP_ORDER.includes(group)) return null;
-    
-    const sets = windowedGroupVolumes.get(group) || 0;
-    const exerciseMap = new Map<string, { sets: number; primarySets: number; secondarySets: number }>();
-
-    if (exerciseMuscleData.size === 0 || data.length === 0) {
-      return { sets, exercises: exerciseMap };
-    }
-
-    for (const setRow of data) {
-      if (!setRow.exercise_title) continue;
-      const exData = lookupExerciseMuscleData(setRow.exercise_title, exerciseMuscleData);
-      if (!exData) continue;
-
-      const primaryGroup = normalizeMuscleGroup(exData.primary_muscle);
-      if (primaryGroup === 'Cardio') continue;
-
-      const entry = exerciseMap.get(setRow.exercise_title) || { sets: 0, primarySets: 0, secondarySets: 0 };
-
-      if (primaryGroup === 'Full Body') {
-        entry.sets += 1;
-        entry.primarySets += 1;
-        exerciseMap.set(setRow.exercise_title, entry);
-        continue;
-      }
-
-      if (primaryGroup === group) {
-        entry.sets += 1;
-        entry.primarySets += 1;
-      }
-
-      const secRaw = String(exData.secondary_muscle ?? '').trim();
-      if (secRaw && !/none/i.test(secRaw)) {
-        for (const s2 of secRaw.split(',')) {
-          const m = normalizeMuscleGroup(s2);
-          if (m === 'Cardio' || m === 'Full Body') continue;
-          if (m === group) {
-            entry.sets += 0.5;
-            entry.secondarySets += 0.5;
-          }
-        }
-      }
-
-      if (entry.sets > 0) {
-        exerciseMap.set(setRow.exercise_title, entry);
-      }
-    }
-
-    return { sets, exercises: exerciseMap };
-  }, [viewMode, selectedMuscle, windowedGroupVolumes, exerciseMuscleData, data]);
-
-  // Selected muscle data
-  const selectedMuscleData = useMemo(() => {
-    if (!selectedMuscle) return null;
-    return muscleVolume.get(selectedMuscle) || null;
-  }, [selectedMuscle, muscleVolume]);
-
-  // Quick filter data - aggregates exercises from all muscles in the quick filter category
-  const quickFilterData = useMemo(() => {
-    if (!activeQuickFilter) return null;
-
-    const filterGroups = new Set<NormalizedMuscleGroup>();
-    for (const svgId of getSvgIdsForQuickFilter(activeQuickFilter)) {
-      const group = getGroupForSvgId(svgId);
-      if (MUSCLE_GROUP_ORDER.includes(group)) filterGroups.add(group);
-    }
-
-    let totalSets = 0;
-    const exerciseMap = new Map<string, { sets: number; primarySets: number; secondarySets: number }>();
-
-    if (exerciseMuscleData.size === 0 || data.length === 0 || filterGroups.size === 0) {
-      return { sets: totalSets, exercises: exerciseMap };
-    }
-
-    for (const setRow of data) {
-      if (!setRow.exercise_title) continue;
-      const exData = lookupExerciseMuscleData(setRow.exercise_title, exerciseMuscleData);
-      if (!exData) continue;
-
-      const primaryGroup = normalizeMuscleGroup(exData.primary_muscle);
-      if (primaryGroup === 'Cardio') continue;
-
-      let inc = 0;
-      let pInc = 0;
-      let sInc = 0;
-
-      if (primaryGroup === 'Full Body') {
-        for (const g of filterGroups) {
-          inc += 1;
-          pInc += 1;
-        }
-      } else {
-        if (filterGroups.has(primaryGroup)) {
-          inc += 1;
-          pInc += 1;
-        }
-
-        const secRaw = String(exData.secondary_muscle ?? '').trim();
-        if (secRaw && !/none/i.test(secRaw)) {
-          for (const s2 of secRaw.split(',')) {
-            const m = normalizeMuscleGroup(s2);
-            if (m === 'Cardio' || m === 'Full Body') continue;
-            if (filterGroups.has(m)) {
-              inc += 0.5;
-              sInc += 0.5;
-            }
-          }
-        }
-      }
-
-      if (inc <= 0) continue;
-
-      totalSets += inc;
-      const entry = exerciseMap.get(setRow.exercise_title) || { sets: 0, primarySets: 0, secondarySets: 0 };
-      entry.sets += inc;
-      entry.primarySets += pInc;
-      entry.secondarySets += sInc;
-      exerciseMap.set(setRow.exercise_title, entry);
-    }
-
-    return { sets: totalSets, exercises: exerciseMap };
-  }, [activeQuickFilter, exerciseMuscleData, data]);
-
   const selectedSubjectKeys = useMemo(() => {
     if (viewMode === 'group') {
       if (activeQuickFilter) {
@@ -458,82 +333,31 @@ export const MuscleAnalysis: React.FC<MuscleAnalysisProps> = ({ data, filtersSlo
     return Math.round((total / weeks) * 10) / 10;
   }, [assetsMap, windowStart, selectedSubjectKeys, viewMode, data, effectiveNow, groupWeeklyRatesBySubject]);
 
-  const windowedExerciseBreakdown = useMemo(() => {
+  const windowedSelectionBreakdown = useMemo(() => {
+    if (!assetsMap) return null;
     if (!windowStart) return null;
-
-    // Choose which groups we're targeting (group mode only). If none selected, treat as no breakdown.
-    if (viewMode !== 'group') return null;
     if (!selectedMuscle && !activeQuickFilter) return null;
 
-    const filterGroups = new Set<NormalizedMuscleGroup>();
-    if (activeQuickFilter) {
-      for (const svgId of getSvgIdsForQuickFilter(activeQuickFilter)) {
-        const g = getGroupForSvgId(svgId);
-        if (MUSCLE_GROUP_ORDER.includes(g)) filterGroups.add(g);
-      }
-    } else if (selectedMuscle) {
-      const g = selectedMuscle as NormalizedMuscleGroup;
-      if (MUSCLE_GROUP_ORDER.includes(g)) filterGroups.add(g);
-    }
+    const grouping = viewMode === 'group' ? 'groups' : 'muscles';
+    const selected = selectedSubjectKeys;
+    if (selected.length === 0) return null;
 
-    if (filterGroups.size === 0) return null;
-
-    let totalSetsInWindow = 0;
-    const exerciseMap = new Map<string, { sets: number; primarySets: number; secondarySets: number }>();
-
-    for (const setRow of data) {
-      if (isWarmupSet(setRow)) continue;
-      const d = setRow.parsedDate;
-      if (!d) continue;
-      if (d < windowStart || d > effectiveNow) continue;
-      if (!setRow.exercise_title) continue;
-
-      const exData = lookupExerciseMuscleData(setRow.exercise_title, exerciseMuscleData);
-      if (!exData) continue;
-
-      const primaryGroup = normalizeMuscleGroup(exData.primary_muscle);
-      if (primaryGroup === 'Cardio') continue;
-
-      let inc = 0;
-      let pInc = 0;
-      let sInc = 0;
-
-      if (primaryGroup === 'Full Body') {
-        for (const g of filterGroups) {
-          inc += 1;
-          pInc += 1;
-        }
-      } else {
-        if (filterGroups.has(primaryGroup)) {
-          inc += 1;
-          pInc += 1;
-        }
-
-        const secRaw = String(exData.secondary_muscle ?? '').trim();
-        if (secRaw && !/none/i.test(secRaw)) {
-          for (const s2 of secRaw.split(',')) {
-            const m = normalizeMuscleGroup(s2);
-            if (m === 'Cardio' || m === 'Full Body') continue;
-            if (filterGroups.has(m)) {
-              inc += 0.5;
-              sInc += 0.5;
-            }
-          }
-        }
-      }
-
-      if (inc <= 0) continue;
-
-      totalSetsInWindow += inc;
-      const entry = exerciseMap.get(setRow.exercise_title) || { sets: 0, primarySets: 0, secondarySets: 0 };
-      entry.sets += inc;
-      entry.primarySets += pInc;
-      entry.secondarySets += sInc;
-      exerciseMap.set(setRow.exercise_title, entry);
-    }
-
-    return { totalSetsInWindow, exercises: exerciseMap };
-  }, [windowStart, viewMode, selectedMuscle, activeQuickFilter, data, effectiveNow, exerciseMuscleData]);
+    const key = `muscleAnalysis:windowedExerciseBreakdown:${grouping}:${weeklySetsWindow}:${selected.join('|')}:${windowStart.getTime()}:${effectiveNow.getTime()}`;
+    return computationCache.getOrCompute(
+      key,
+      data,
+      () =>
+        computeWindowedExerciseBreakdown({
+          data,
+          assetsMap,
+          start: windowStart,
+          end: effectiveNow,
+          grouping,
+          selectedSubjects: selected,
+        }),
+      { ttl: 10 * 60 * 1000 }
+    );
+  }, [assetsMap, windowStart, selectedMuscle, activeQuickFilter, selectedSubjectKeys, viewMode, weeklySetsWindow, data, effectiveNow]);
 
   const weeklySetsDelta = useMemo(() => {
     if (!assetsMap) return null;
@@ -660,37 +484,13 @@ return acc + sum;
 
   // Contributing exercises (works for muscle, group, and quick filter views)
   const contributingExercises = useMemo(() => {
-    // In group view, use windowed exercise breakdown so percentages are consistent with the selected time filter.
-    if (viewMode === 'group' && windowedExerciseBreakdown) {
-      const exercises: Array<{ name: string; sets: number; primarySets: number; secondarySets: number }> = [];
-      windowedExerciseBreakdown.exercises.forEach((exData, name) => {
-        exercises.push({ name, ...exData });
-      });
-      return exercises.sort((a, b) => b.sets - a.sets).slice(0, 8);
-    }
-
-    // Quick filter takes precedence
-    if (quickFilterData) {
-      const exercises: Array<{ name: string; sets: number; primarySets: number; secondarySets: number }> = [];
-      quickFilterData.exercises.forEach((exData, name) => {
-        exercises.push({ name, ...exData });
-      });
-      return exercises.sort((a, b) => b.sets - a.sets).slice(0, 8);
-    }
-    if (viewMode === 'group' && selectedGroupData) {
-      const exercises: Array<{ name: string; sets: number; primarySets: number; secondarySets: number }> = [];
-      selectedGroupData.exercises.forEach((exData, name) => {
-        exercises.push({ name, ...exData });
-      });
-      return exercises.sort((a, b) => b.sets - a.sets).slice(0, 8);
-    }
-    if (!selectedMuscleData) return [];
+    if (!windowedSelectionBreakdown) return [];
     const exercises: Array<{ name: string; sets: number; primarySets: number; secondarySets: number }> = [];
-    selectedMuscleData.exercises.forEach((exData, name) => {
+    windowedSelectionBreakdown.exercises.forEach((exData, name) => {
       exercises.push({ name, ...exData });
     });
     return exercises.sort((a, b) => b.sets - a.sets).slice(0, 8);
-  }, [selectedMuscleData, selectedGroupData, viewMode, quickFilterData, windowedExerciseBreakdown]);
+  }, [windowedSelectionBreakdown]);
 
   // Total sets for the period
   const totalSets = useMemo(() => {
@@ -1021,17 +821,9 @@ return acc + sum;
                 className="text-red-400 text-sm font-semibold whitespace-nowrap"
                 title={activeQuickFilter || selectedMuscle ? 'sets in current filter' : ''}
               >
-                {activeQuickFilter
-                  ? (viewMode === 'group'
-                      ? `${Math.round((windowedExerciseBreakdown?.totalSetsInWindow ?? 0) * 10) / 10} sets`
-                      : (quickFilterData ? `${Math.round(quickFilterData.sets * 10) / 10} sets` : '0 sets'))
-                  : selectedMuscle
-                    ? (viewMode === 'group' && selectedGroupData
-                        ? `${Math.round((windowedExerciseBreakdown?.totalSetsInWindow ?? 0) * 10) / 10} sets`
-                        : selectedMuscleData
-                          ? `${Math.round(selectedMuscleData.sets * 10) / 10} sets`
-                          : '0 sets')
-                    : null}
+                {activeQuickFilter || selectedMuscle
+                  ? `${Math.round((windowedSelectionBreakdown?.totalSetsInWindow ?? 0) * 10) / 10} sets`
+                  : null}
               </span>
               <span
                 className="text-cyan-400 text-sm font-semibold whitespace-nowrap"
@@ -1148,7 +940,7 @@ return acc + sum;
           </div>
 
           {/* Scrollable Exercises Section */}
-          {(quickFilterData || (selectedMuscle && (viewMode === 'group' ? selectedGroupData : selectedMuscleData))) && (
+          {windowedSelectionBreakdown && (
             <div className="border-t border-slate-800">
              
               <div className="overflow-y-auto max-h-[calc(100vh-400px)] px-4 pb-4 mt-2">
@@ -1158,13 +950,7 @@ return acc + sum;
                     const imgUrl = asset?.sourceType === 'video' ? asset.thumbnail : (asset?.thumbnail || asset?.source);
                     const exData = lookupExerciseMuscleData(ex.name, exerciseMuscleData);
                     const { volumes: exVolumes, maxVolume: exMaxVol } = getExerciseMuscleVolumes(exData);
-                    const totalSetsForCalc = quickFilterData
-                      ? (viewMode === 'group'
-                          ? (windowedExerciseBreakdown?.totalSetsInWindow || 1)
-                          : (quickFilterData.sets || 1))
-                      : viewMode === 'group' 
-                        ? (windowedExerciseBreakdown?.totalSetsInWindow || 1)
-                        : (selectedMuscleData?.sets || 1);
+                    const totalSetsForCalc = windowedSelectionBreakdown?.totalSetsInWindow || 1;
                     const pct = totalSetsForCalc > 0 ? Math.round((ex.sets / totalSetsForCalc) * 100) : 0;
 
                     const isPrimary = ex.primarySets > 0;
