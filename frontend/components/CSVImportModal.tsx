@@ -58,6 +58,17 @@ export const CSVImportModal: React.FC<CSVImportModalProps> = ({
   const showBodyTypeAndUnitSelectors = variant === 'preferences' || !hideBodyTypeAndUnit;
   const canUploadCsv = Boolean(selectedGender && selectedUnit);
 
+  // Preload the Lottie animation when the modal opens
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch(assetPath(CSV_LOADING_ANIMATION_SRC), {
+      method: 'GET',
+      cache: 'force-cache',
+      signal: controller.signal,
+    }).catch(() => {});
+    return () => controller.abort();
+  }, []);
+
   const showNonEnglishHevyDateHelp = Boolean(
     errorMessage && errorMessage.includes("couldn't parse the workout dates")
   );
