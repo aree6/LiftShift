@@ -441,7 +441,7 @@ export const TopExercisesCard = ({
               )}
               {topExercisesInsight.top && (
                 <TrendBadge
-                  label={<BadgeLabel main={`${formatDeltaPercentage(topExercisesInsight.topShare)}`} meta="of shown" />}
+                  label={<BadgeLabel main={`${formatDeltaPercentage(topExercisesInsight.topShare)}`} meta="of all sets" />}
                   tone="neutral"
                 />
               )}
@@ -471,7 +471,7 @@ export const TopExercisesCard = ({
               )}
               {topExercisesInsight.top && (
                 <TrendBadge
-                  label={<BadgeLabel main={`${formatDeltaPercentage(topExercisesInsight.topShare)}`} meta="of shown" />}
+                  label={<BadgeLabel main={`${formatDeltaPercentage(topExercisesInsight.topShare)}`} meta="of all sets" />}
                   tone={topExercisesInsight.topShare >= 45 ? 'bad' : topExercisesInsight.topShare >= 30 ? 'neutral' : 'good'}
                 />
               )}
@@ -491,7 +491,7 @@ export const TopExercisesCard = ({
             />
           ) : null}
         </InsightLine>
-        <InsightText text="This highlights your staples. If one movement takes a very large share, you may be rotating too little. More variation can help manage overuse." />
+        <InsightText text="This highlights your most frequent exercise. The percentage shows its share of all sets in this window. If one movement dominates, consider adding more variety to avoid overuse." />
       </ChartDescription>
     </div>
   );
