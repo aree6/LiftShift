@@ -28,6 +28,7 @@ import {
   TrendBadge,
   TrendIcon,
 } from './ChartBits';
+import { getRechartsXAxisInterval, RECHARTS_XAXIS_PADDING } from '../../utils/chart/chartEnhancements';
 
 type MuscleGrouping = 'groups' | 'muscles';
 type MusclePeriod = 'daily' | 'weekly' | 'monthly' | 'yearly';
@@ -175,7 +176,15 @@ export const MuscleTrendCard = ({
                   margin={{ left: -20, right: 10, top: 10, bottom: 0 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
-                  <XAxis dataKey="dateFormatted" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
+                  <XAxis
+                    dataKey="dateFormatted"
+                    stroke="#94a3b8"
+                    fontSize={11}
+                    tickLine={false}
+                    axisLine={false}
+                    padding={RECHARTS_XAXIS_PADDING as any}
+                    interval={getRechartsXAxisInterval(trendData.length, 8)}
+                  />
                   <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
                   <Tooltip contentStyle={tooltipStyle as any} />
                   <Legend wrapperStyle={{ fontSize: '11px', left: '52%', transform: 'translateX(-50%)', position: 'absolute' }} />
@@ -213,7 +222,15 @@ export const MuscleTrendCard = ({
                   margin={{ left: -20, right: 10, top: 10, bottom: 0 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
-                  <XAxis dataKey="dateFormatted" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
+                  <XAxis
+                    dataKey="dateFormatted"
+                    stroke="#94a3b8"
+                    fontSize={11}
+                    tickLine={false}
+                    axisLine={false}
+                    padding={RECHARTS_XAXIS_PADDING as any}
+                    interval={getRechartsXAxisInterval(trendData.length, 8)}
+                  />
                   <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
                   <Tooltip contentStyle={tooltipStyle as any} cursor={{ fill: 'rgb(var(--overlay-rgb) / 0.12)' }} />
                   <Legend wrapperStyle={{ fontSize: '11px', left: '52%', transform: 'translateX(-50%)', position: 'absolute' }} />

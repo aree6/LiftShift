@@ -26,7 +26,7 @@ import {
 } from './ChartBits';
 import { LazyRender } from '../LazyRender';
 import { ChartSkeleton } from '../ChartSkeleton';
-import { ValueDot } from '../../utils/chart/chartEnhancements';
+import { getRechartsXAxisInterval, RECHARTS_XAXIS_PADDING, ValueDot } from '../../utils/chart/chartEnhancements';
 
 type PrTrendView = 'area' | 'bar';
 
@@ -138,7 +138,15 @@ export const PrTrendCard = ({
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
-              <XAxis dataKey="dateFormatted" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
+              <XAxis
+                dataKey="dateFormatted"
+                stroke="#94a3b8"
+                fontSize={11}
+                tickLine={false}
+                axisLine={false}
+                padding={RECHARTS_XAXIS_PADDING as any}
+                interval={getRechartsXAxisInterval(chartData.length, 8)}
+              />
               <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} allowDecimals={false} />
               <Tooltip
                 contentStyle={tooltipStyle as any}

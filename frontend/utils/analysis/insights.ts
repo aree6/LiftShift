@@ -1,7 +1,7 @@
 import { WorkoutSet, ExerciseStats, DailySummary } from '../../types';
 import { format, differenceInDays, differenceInCalendarWeeks, startOfDay, endOfDay, startOfWeek, subDays, subWeeks, isWithinInterval, isSameDay } from 'date-fns';
 import { analyzeExerciseTrendCore, summarizeExerciseHistory, WEIGHT_STATIC_EPSILON_KG } from './exerciseTrend';
-import { getSessionKey } from '../date/dateUtils';
+import { formatDayContraction, formatWeekContraction, getSessionKey } from '../date/dateUtils';
 import { isWarmupSet } from './setClassification';
 import { WeightUnit } from '../storage/localStorage';
 import { convertWeight, getStandardWeightIncrementKg } from '../format/units';
@@ -490,7 +490,7 @@ export const getVolumeSparkline = (dailyData: DailySummary[], points: number = 7
   
   return recent.map(d => ({
     value: d.totalVolume,
-    label: format(new Date(d.timestamp), 'MMM d'),
+    label: formatDayContraction(new Date(d.timestamp)),
   }));
 };
 
@@ -512,7 +512,7 @@ export const getWorkoutSparkline = (data: WorkoutSet[], weeks: number = 8, now: 
     
     result.push({
       value: sessions.size,
-      label: format(weekStart, 'MMM d'),
+      label: formatWeekContraction(weekStart),
     });
   }
   
@@ -535,7 +535,7 @@ export const getPRSparkline = (data: WorkoutSet[], weeks: number = 8, now: Date 
     
     result.push({
       value: prCount,
-      label: format(weekStart, 'MMM d'),
+      label: formatWeekContraction(weekStart),
     });
   }
   
@@ -557,7 +557,7 @@ export const getSetsSparkline = (data: WorkoutSet[], weeks: number = 8, now: Dat
     
     result.push({
       value: setsCount,
-      label: format(weekStart, 'MMM d'),
+      label: formatWeekContraction(weekStart),
     });
   }
   
@@ -582,7 +582,7 @@ export const getConsistencySparkline = (data: WorkoutSet[], weeks: number = 8, n
     
     result.push({
       value: sessions.size,
-      label: format(weekStart, 'MMM d'),
+      label: formatWeekContraction(weekStart),
     });
   }
   

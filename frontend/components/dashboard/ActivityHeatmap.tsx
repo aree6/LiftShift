@@ -3,7 +3,7 @@ import { format, startOfMonth, endOfMonth, addMonths, eachDayOfInterval } from '
 import { Target } from 'lucide-react';
 import type { DailySummary } from '../../types';
 import { computationCache } from '../../utils/storage/computationCache';
-import { formatHumanReadableDate } from '../../utils/date/dateUtils';
+import { formatHumanReadableDate, formatMonthYearContraction } from '../../utils/date/dateUtils';
 import { Tooltip as HoverTooltip, type TooltipData } from '../Tooltip';
 import { Sparkline, StreakBadge } from '../InsightCards';
 import type { SparklinePoint, StreakInfo } from '../../utils/analysis/insights';
@@ -88,11 +88,9 @@ export const ActivityHeatmap = memo(({
         cells[i] = byKey.get(format(day, 'yyyy-MM-dd')) || { date: day, count: 0, title: null };
       }
 
-      const monthInitial = format(monthStart, 'MMM').slice(0, 1);
-      const yearShort = format(monthStart, 'yy');
       blocks.push({
         key: format(monthStart, 'yyyy-MM'),
-        label: `${monthInitial} ${yearShort}`,
+        label: formatMonthYearContraction(monthStart),
         cells,
       });
 

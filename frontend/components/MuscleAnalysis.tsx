@@ -37,11 +37,12 @@ import { LazyRender } from './LazyRender';
 import { formatDeltaPercentage, getDeltaFormatPreset } from '../utils/format/deltaFormat';
 import { ChartSkeleton } from './ChartSkeleton';
 import { Tooltip as HoverTooltip, TooltipData } from './Tooltip';
-import { CHART_TOOLTIP_STYLE } from '../utils/ui/uiConstants';
+import { CHART_TOOLTIP_STYLE, FANCY_FONT } from '../utils/ui/uiConstants';
 import { addEmaSeries, DEFAULT_EMA_HALF_LIFE_DAYS } from '../utils/analysis/ema';
 import { formatNumber } from '../utils/format/formatters';
 import { computationCache } from '../utils/storage/computationCache';
 import { computeWindowedExerciseBreakdown } from '../utils/muscle/windowedExerciseBreakdown';
+import { getRechartsXAxisInterval, RECHARTS_XAXIS_PADDING } from '../utils/chart/chartEnhancements';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   SVG_TO_MUSCLE_GROUP,
@@ -965,7 +966,8 @@ return acc + sum;
                           tick={{ fill: '#64748b', fontSize: 9 }}
                           tickLine={false}
                           axisLine={false}
-                          interval="preserveStartEnd"
+                          padding={RECHARTS_XAXIS_PADDING as any}
+                          interval={getRechartsXAxisInterval(trendDataWithEma.length, 7)}
                         />
                         <YAxis hide />
                         <RechartsTooltip

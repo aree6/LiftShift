@@ -24,6 +24,7 @@ import {
   TrendBadge,
   TrendIcon,
 } from './ChartBits';
+import { getRechartsXAxisInterval, RECHARTS_XAXIS_PADDING } from '../../utils/chart/chartEnhancements';
 
 export type TopExerciseMode = 'all' | 'weekly' | 'monthly';
 export type TopExercisesView = 'barh' | 'area';
@@ -407,7 +408,15 @@ export const TopExercisesCard = ({
               <ResponsiveContainer width="100%" height={320}>
                 <AreaChart data={topExercisesOverTimeData} margin={{ top: 10, right: 20, left: -10, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
-                  <XAxis dataKey="date" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
+                  <XAxis
+                    dataKey="date"
+                    stroke="#94a3b8"
+                    fontSize={11}
+                    tickLine={false}
+                    axisLine={false}
+                    padding={RECHARTS_XAXIS_PADDING as any}
+                    interval={getRechartsXAxisInterval(topExercisesOverTimeData.length, 8)}
+                  />
                   <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
                   <Tooltip contentStyle={tooltipStyle as any} />
                   <Legend wrapperStyle={{ fontSize: '11px', left: '52%', transform: 'translateX(-50%)', position: 'absolute' }} />

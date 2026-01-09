@@ -290,9 +290,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
           const isCurrent = ts > 0 && ts === currentStart.getTime();
           const baseLabel =
             mode === 'weekly'
-              ? `wk of ${formatDayYearContraction(new Date(ts))}`
+              ? `${formatDayYearContraction(new Date(ts))}`
               : mode === 'monthly'
-                ? format(new Date(ts), 'MMMM yyyy')
+                ? formatMonthYearContraction(new Date(ts))
                 : formatDayYearContraction(new Date(ts));
 
           return {
@@ -435,7 +435,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
             return {
               timestamp: w.timestamp,
               dateFormatted: formatWeekContraction(new Date(w.timestamp)),
-              tooltipLabel: `wk of ${formatDayYearContraction(new Date(w.timestamp))}${isCurrent ? ' (to date)' : ''}`,
+              tooltipLabel: `${formatDayYearContraction(new Date(w.timestamp))}${isCurrent ? ' (to date)' : ''}`,
               totalVolume: getDisplayVolume(totalVol, weightUnit, { round: 'int' }),
               sets: totalSets,
               volumePerSet: getDisplayVolume(volumePerSetKg, weightUnit, { round: 'int' })
@@ -462,7 +462,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ dailyData, exerciseStats, 
             return {
               timestamp: m.timestamp,
               dateFormatted: formatMonthYearContraction(new Date(m.timestamp)),
-              tooltipLabel: `${format(new Date(m.timestamp), 'MMMM yyyy')}${isCurrent ? ' (to date)' : ''}`,
+              tooltipLabel: `${formatMonthYearContraction(new Date(m.timestamp))}${isCurrent ? ' (to date)' : ''}`,
               totalVolume: getDisplayVolume(totalVol, weightUnit, { round: 'int' }),
               sets: totalSets,
               volumePerSet: totalSets > 0 ? getDisplayVolume(totalVol / totalSets, weightUnit, { round: 'int' }) : 0

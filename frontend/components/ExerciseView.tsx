@@ -27,7 +27,7 @@ import { WeightUnit, getSmartFilterMode, TimeFilterMode } from '../utils/storage
 import { convertWeight, getStandardWeightIncrementKg } from '../utils/format/units';
 import { summarizeExerciseHistory, analyzeExerciseTrendCore, ExerciseSessionEntry, ExerciseTrendStatus, MIN_SESSIONS_FOR_TREND } from '../utils/analysis/exerciseTrend';
 import { formatNumber, formatSignedNumber } from '../utils/format/formatters';
-import { ValueDot } from '../utils/chart/chartEnhancements';
+import { getRechartsXAxisInterval, RECHARTS_XAXIS_PADDING, ValueDot } from '../utils/chart/chartEnhancements';
 import { pickDeterministic } from '../utils/analysis/messageVariations';
 import { addEmaSeries, DEFAULT_EMA_HALF_LIFE_DAYS } from '../utils/analysis/ema';
 
@@ -1410,6 +1410,8 @@ export const ExerciseView: React.FC<ExerciseViewProps> = ({ stats, filtersSlot, 
                     stroke="var(--text-muted)" 
                     fontSize={10} 
                     animationDuration={1000}
+                    padding={RECHARTS_XAXIS_PADDING as any}
+                    interval={getRechartsXAxisInterval(chartDataWithEma.length, 9)}
                   />
                   <YAxis
                     stroke="var(--text-muted)"

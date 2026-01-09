@@ -9,7 +9,7 @@ export interface DateKeyResult {
   label: string;
 }
 
-const MONTH_ABBR = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'] as const;
+const MONTH_ABBR = ['Ja', 'Fb', 'Mr', 'Ap', 'My', 'Jn', 'Jl', 'Ag', 'Sp', 'Oc', 'Nv', 'Dc'] as const;
 
 export const formatYearContraction = (d: Date): string => {
   const yy = String(d.getFullYear() % 100).padStart(2, '0');
@@ -33,7 +33,7 @@ export const formatMonthYearContraction = (d: Date): string => {
 };
 
 export const formatWeekContraction = (weekStart: Date): string => {
-  return `wk ${formatDayContraction(weekStart)}`;
+  return `${formatDayContraction(weekStart)}`;
 };
 
 export const formatRelativeDay = (d: Date, now: Date = new Date(0)): string => {

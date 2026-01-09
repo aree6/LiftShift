@@ -3,6 +3,16 @@ import { Area, Line } from 'recharts';
 import { formatNumber } from '../format/formatters';
 import type { WeightUnit } from '../storage/localStorage';
 
+export const getRechartsXAxisInterval = (pointCount: number, maxTicks: number = 8): number => {
+  const n = Number.isFinite(pointCount) ? pointCount : 0;
+  const m = Number.isFinite(maxTicks) ? maxTicks : 0;
+  if (n <= 0) return 0;
+  if (m <= 1) return n;
+  return Math.max(0, Math.ceil(n / m) - 1);
+};
+
+export const RECHARTS_XAXIS_PADDING = { left: 16, right: 16 } as const;
+
 // Custom dot component to show values above data points
 export const ValueDot = (props: any) => {
   const { cx, cy, payload, index, data, valueKey, unit, showEveryOther = true, color = "var(--text-muted)" } = props;

@@ -22,6 +22,7 @@ import {
   InsightText,
   TrendBadge,
 } from './ChartBits';
+import { RECHARTS_XAXIS_PADDING } from '../../utils/chart/chartEnhancements';
 
 type WeekShapeView = 'radar' | 'bar';
 
@@ -112,7 +113,7 @@ export const WeeklyRhythmCard = ({
           ) : (
             <BarChart key="bar" data={weekShapeData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
-              <XAxis dataKey="subject" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
+              <XAxis dataKey="subject" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} padding={RECHARTS_XAXIS_PADDING as any} />
               <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
               <Tooltip contentStyle={tooltipStyle as any} cursor={{ fill: 'rgb(var(--overlay-rgb) / 0.12)' }} />
               <Bar dataKey="A" name="Workouts" fill="#ec4899" radius={[8, 8, 0, 0]} animationDuration={1500} />

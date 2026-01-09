@@ -28,6 +28,7 @@ import { ChartSkeleton } from '../ChartSkeleton';
 import { formatNumber, formatSignedNumber } from '../../utils/format/formatters';
 import { formatDeltaPercentage, getDeltaFormatPreset } from '../../utils/format/deltaFormat';
 import { addEmaSeries, DEFAULT_EMA_HALF_LIFE_DAYS } from '../../utils/analysis/ema';
+import { getRechartsXAxisInterval, RECHARTS_XAXIS_PADDING } from '../../utils/chart/chartEnhancements';
 
 type IntensityView = 'area' | 'stackedBar';
 
@@ -176,7 +177,15 @@ export const IntensityEvolutionCard = ({
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
-                  <XAxis dataKey="dateFormatted" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
+                  <XAxis
+                    dataKey="dateFormatted"
+                    stroke="#94a3b8"
+                    fontSize={11}
+                    tickLine={false}
+                    axisLine={false}
+                    padding={RECHARTS_XAXIS_PADDING as any}
+                    interval={getRechartsXAxisInterval(chartData.length, 8)}
+                  />
                   <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
                   <Tooltip
                     contentStyle={tooltipStyle as any}

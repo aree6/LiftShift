@@ -1,6 +1,6 @@
 import { WorkoutSet } from '../../types';
 import { startOfWeek, endOfWeek, format, eachWeekOfInterval, subWeeks } from 'date-fns';
-import { getEffectiveNowFromWorkoutData } from '../date/dateUtils';
+import { getEffectiveNowFromWorkoutData, formatWeekContraction } from '../date/dateUtils';
 import {
   INTERACTIVE_MUSCLE_IDS,
   FULL_BODY_TARGET_GROUPS,
@@ -449,7 +449,7 @@ export const getWeeklyMuscleVolume = async (
   
   for (const weekStart of weeks) {
     const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
-    const weekLabel = format(weekStart, 'MMM d');
+    const weekLabel = formatWeekContraction(weekStart);
     
     // Filter data for this week
     const weekData = data.filter(set => {

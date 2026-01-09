@@ -28,6 +28,7 @@ import { isWarmupSet } from '../analysis/setClassification';
 import { createExerciseNameResolver, type ExerciseNameResolver } from '../exercise/exerciseNameResolver';
 import { normalizeMuscleGroup } from './muscleNormalization';
 import { MUSCLE_GROUP_TO_SVG_IDS } from './muscleMappingConstants';
+import { formatDayContraction, formatMonthYearContraction, formatYearContraction } from '../date/dateUtils';
 
 // ============================================================================
 // Constants
@@ -396,8 +397,8 @@ function getPeriodKey(date: Date, periodType: PeriodType): string {
  */
 function getPeriodLabel(date: Date, periodType: PeriodType): string {
   return periodType === 'monthly'
-    ? format(date, 'MMM yyyy')
-    : format(date, 'yyyy');
+    ? formatMonthYearContraction(date)
+    : formatYearContraction(date);
 }
 
 /**
@@ -541,7 +542,7 @@ export function buildRollingWeeklyTimeSeries(
     .map(rv => {
       const entry: Record<string, number | string> = {
         timestamp: rv.date.getTime(),
-        dateFormatted: format(rv.date, 'MMM d'),
+        dateFormatted: formatDayContraction(rv.date),
       };
       
       for (const k of keys) {
@@ -632,7 +633,7 @@ export function buildRollingWeeklySvgMuscleTimeSeries(
     .map(rv => {
       const entry: Record<string, number | string> = {
         timestamp: rv.date.getTime(),
-        dateFormatted: format(rv.date, 'MMM d'),
+        dateFormatted: formatDayContraction(rv.date),
       };
       
       for (const k of keys) {
