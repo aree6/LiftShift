@@ -190,7 +190,7 @@ export const IntensityEvolutionCard = ({
                   <Tooltip
                     contentStyle={tooltipStyle as any}
                     formatter={(val: number, name) => {
-                      if (name.includes('EMA')) return null; // Don't show EMA in tooltip
+                      if (name === 'EMA') return null; // Don't show EMA in tooltip
                       if (name === 'Strength (1-5)') return [formatNumber(Number(val), { maxDecimals: 1 }), 'Strength'];
                       if (name === 'Hypertrophy (6-12)') return [formatNumber(Number(val), { maxDecimals: 1 }), 'Hypertrophy'];
                       if (name === 'Endurance (13+)') return [formatNumber(Number(val), { maxDecimals: 1 }), 'Endurance'];

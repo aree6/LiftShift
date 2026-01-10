@@ -1085,32 +1085,28 @@ return acc + sum;
                               </div>
                             </div>
 
-                            <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2">
-                              <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-400">
-                                <span className="text-slate-400">
-                                  <span className="text-rose-400 font-semibold">{pct}%</span> of sets
-                                </span>
+                            <div className="mt-1.5 flex items-center justify-between gap-2">
+                              <div className="text-[11px] text-slate-400">
+                                {pct}% of sets
+                              </div>
+
+                              <div className="flex flex-wrap items-center justify-end gap-2 text-[11px]">
                                 {isPrimary && (
                                   <span
-                                    className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-black/60 text-slate-200 border border-slate-700/50"
-                                    title={`${primaryRounded} primary sets`}
+                                    className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/15 text-emerald-200 border border-emerald-500/30"
+                                    title={`${primaryRounded} direct set${primaryRounded === 1 ? '' : 's'}`}
                                   >
-                                    Primary
+                                    {primaryRounded} direct set{primaryRounded === 1 ? '' : 's'}
                                   </span>
                                 )}
                                 {isSecondary && (
                                   <span
-                                    className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-black/60 text-slate-200 border border-slate-700/50"
-                                    title={`${secondaryRounded} secondary sets`}
+                                    className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-sky-500/15 text-sky-200 border border-sky-500/30"
+                                    title={`${secondaryRounded} indirect set${secondaryRounded === 1 ? '' : 's'}`}
                                   >
-                                    Secondary
+                                    {secondaryRounded} indirect set{secondaryRounded === 1 ? '' : 's'}
                                   </span>
                                 )}
-                              </div>
-
-                              <div className="text-[11px] font-semibold text-slate-200">
-                                {setsRounded}{' '}
-                                <span className="text-slate-400 font-medium">sets</span>
                               </div>
                             </div>
                           </div>

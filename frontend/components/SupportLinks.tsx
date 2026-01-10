@@ -1,5 +1,5 @@
 import React from 'react';
-import { Github, Coffee, HeartHandshake, Mail, UserRound } from 'lucide-react';
+import { Coffee, Github, Mail } from 'lucide-react';
 import { UNIFORM_FOOTER_BUTTON_CLASS, UNIFORM_HEADER_BUTTON_CLASS } from '../utils/ui/uiConstants';
 
 type SupportLinksVariant = 'primary' | 'secondary' | 'all';
@@ -78,38 +78,6 @@ export const SupportLinks: React.FC<{
           {primaryMiddleSlot}
 
           <a
-            href="https://ko-fi.com/aree6"
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => {
-              if (e.button === 1 || e.metaKey || e.ctrlKey) {
-                return;
-              }
-              e.preventDefault();
-              window.open('https://ko-fi.com/aree6', '_blank', 'noopener,noreferrer');
-            }}
-            onMouseDown={(e) => {
-              if (e.button === 1) {
-                return;
-              }
-            }}
-            className={`${uniformButtonClass} gap-2`}
-          >
-            <HeartHandshake className="w-4 h-4" />
-            <span>Ko-fi</span>
-          </a>
-
-          {primaryRightSlot ? (
-            <div className="ml-10 pr-2 shrink-0">
-              {primaryRightSlot}
-            </div>
-          ) : null}
-        </div>
-      )}
-
-      {showSecondary && (
-        <div className={secondaryContainerClass}>
-          <a
             href="mailto:mohammadar336@gmail.com"
             onClick={(e) => {
               if (e.button === 1 || e.metaKey || e.ctrlKey) {
@@ -124,31 +92,20 @@ export const SupportLinks: React.FC<{
             }}
             className={`${uniformButtonClass} gap-2`}
           >
-            <Mail className="w-4 h-4 text-white" />
-            <span className="text-white">Email</span>
+            <Mail className="w-4 h-4" />
+            <span>Let's Talk</span>
           </a>
 
-          <a
-            href="https://github.com/aree6"
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => {
-              if (e.button === 1 || e.metaKey || e.ctrlKey) {
-                return;
-              }
-              e.preventDefault();
-              window.open('https://github.com/aree6', '_blank', 'noopener,noreferrer');
-            }}
-            onMouseDown={(e) => {
-              if (e.button === 1) {
-                return;
-              }
-            }}
-            className={`${uniformButtonClass} gap-2`}
-          >
-            <UserRound className="w-4 h-4 text-white" />
-            <span className="text-white">GitHub Profile</span>
-          </a>
+          {primaryRightSlot ? (
+            <div className="ml-10 pr-2 shrink-0">
+              {primaryRightSlot}
+            </div>
+          ) : null}
+        </div>
+      )}
+
+      {showSecondary && (
+        <div className={secondaryContainerClass}>
         </div>
       )}
     </>
