@@ -38,12 +38,6 @@ import { trackPageView } from './utils/integrations/ga';
 import { SupportLinks } from './components/SupportLinks';
 import { ThemedBackground } from './components/ThemedBackground';
 import { ThemeToggleButton } from './components/ThemeToggleButton';
-import { CsvLoadingAnimation } from './components/CsvLoadingAnimation';
-import { LandingPage } from './components/LandingPage';
-import { HevyLoginModal } from './components/HevyLoginModal';
-import { LyfataLoginModal } from './components/LyfataLoginModal';
-import { assetPath } from './constants';
-import type { DataSourceChoice } from './utils/dataSources/types';
 import {
   getDataSourceChoice,
   saveDataSourceChoice,
@@ -60,15 +54,23 @@ import {
   getLastCsvPlatform,
   saveLastCsvPlatform,
   clearLastCsvPlatform,
+  getLastLoginMethod,
+  saveLastLoginMethod,
+  clearLastLoginMethod,
   getSetupComplete,
   saveSetupComplete,
   clearSetupComplete,
 } from './utils/storage/dataSourceStorage';
-import { clearHevyCredentials, saveHevyPassword, saveHevyUsernameOrEmail } from './utils/storage/hevyCredentialsStorage';
+import { clearHevyCredentials, getHevyUsernameOrEmail, saveHevyPassword, saveHevyUsernameOrEmail } from './utils/storage/hevyCredentialsStorage';
 import { hevyBackendGetAccount, hevyBackendGetSets, hevyBackendGetSetsWithProApiKey, hevyBackendLogin, hevyBackendValidateProApiKey } from './utils/api/hevyBackend';
 import { lyfatBackendGetSets } from './utils/api/lyfataBackend';
 import { parseHevyDateString } from './utils/date/parseHevyDateString';
 import { useTheme } from './components/ThemeProvider';
+import { CsvLoadingAnimation } from './components/CsvLoadingAnimation';
+import { LandingPage } from './components/LandingPage';
+import { HevyLoginModal } from './components/HevyLoginModal';
+import { LyfataLoginModal } from './components/LyfataLoginModal';
+import { assetPath } from './constants';
 
 enum Tab {
   DASHBOARD = 'dashboard',
@@ -339,6 +341,7 @@ const App: React.FC = () => {
     clearLyfataApiKey();
     clearDataSourceChoice();
     clearLastCsvPlatform();
+    clearLastLoginMethod();
     clearSetupComplete();
     clearWeightUnit();
     clearBodyMapGender();
@@ -446,10 +449,15 @@ const App: React.FC = () => {
 
     setDataSource(storedChoice);
 
+    const hevyAccountKey = storedChoice === 'hevy' ? (getHevyUsernameOrEmail() ?? undefined) : undefined;
+    const lastMethod = getLastLoginMethod(storedChoice, hevyAccountKey);
+
+    const storedCSV = getCSVData();
+    const lastCsvPlatform = getLastCsvPlatform();
+    const shouldUseCsv = lastMethod === 'csv' || (!lastMethod && storedCSV && lastCsvPlatform === storedChoice);
+
     if (storedChoice === 'strong') {
-      const storedCSV = getCSVData();
-      const lastPlatform = getLastCsvPlatform();
-      if (!storedCSV || lastPlatform !== 'strong') {
+      if (!storedCSV || lastCsvPlatform !== 'strong') {
         saveSetupComplete(false);
         setOnboarding({ intent: 'initial', step: 'platform' });
         return;
@@ -483,9 +491,143 @@ const App: React.FC = () => {
     }
 
     if (storedChoice === 'lyfta') {
-      const storedCSV = getCSVData();
-      const lastPlatform = getLastCsvPlatform();
-      if (!storedCSV || lastPlatform !== 'lyfta') {
+      const lyfatApiKey = getLyfataApiKey();
+      if (lastMethod === 'apiKey' && lyfatApiKey) {
+        setLoadingKind('lyfta');
+        setIsAnalyzing(true);
+        setLoadingStep(0);
+        const startedAt = startProgress();
+        Promise.resolve()
+          .then(() => {
+            setLoadingStep(1);
+            return lyfatBackendGetSets<WorkoutSet>(lyfatApiKey);
+          })
+          .then((resp) => {
+            setLoadingStep(2);
+            const hydrated = (resp.sets ?? []).map((s) => ({
+              ...s,
+              parsedDate: parseHevyDateString(String(s.start_time ?? '')),
+            }));
+            const enriched = identifyPersonalRecords(hydrated);
+            setParsedData(enriched);
+            setLyfatLoginError(null);
+            setCsvImportError(null);
+          })
+          .catch((err) => {
+            clearLyfataApiKey();
+            saveSetupComplete(false);
+            setLyfatLoginError(getHevyErrorMessage(err));
+            setOnboarding({ intent: 'initial', step: 'platform' });
+          })
+          .finally(() => {
+            finishProgress(startedAt);
+          });
+        return;
+      }
+
+      if (shouldUseCsv) {
+        if (!storedCSV || lastCsvPlatform !== 'lyfta') {
+          saveSetupComplete(false);
+          setOnboarding({ intent: 'initial', step: 'platform' });
+          return;
+        }
+
+        setLoadingKind('csv');
+        setIsAnalyzing(true);
+        setLoadingStep(0);
+        const startedAt = startProgress();
+        setTimeout(() => {
+          setLoadingStep(1);
+          parseWorkoutCSVAsyncWithUnit(storedCSV, { unit: getWeightUnit() })
+            .then((result: ParseWorkoutCsvResult) => {
+              setLoadingStep(2);
+              const enriched = identifyPersonalRecords(result.sets);
+              setParsedData(enriched);
+              setLyfatLoginError(null);
+              setCsvImportError(null);
+            })
+            .catch((err) => {
+              clearCSVData();
+              saveSetupComplete(false);
+              setCsvImportError(getErrorMessage(err));
+              setOnboarding({ intent: 'initial', step: 'platform' });
+            })
+            .finally(() => {
+              finishProgress(startedAt);
+            });
+        }, 0);
+        return;
+      }
+
+      // Fallback for older setups: prefer API key, then CSV, otherwise restart.
+      if (lyfatApiKey) {
+        setLoadingKind('lyfta');
+        setIsAnalyzing(true);
+        setLoadingStep(0);
+        const startedAt = startProgress();
+        Promise.resolve()
+          .then(() => {
+            setLoadingStep(1);
+            return lyfatBackendGetSets<WorkoutSet>(lyfatApiKey);
+          })
+          .then((resp) => {
+            setLoadingStep(2);
+            const hydrated = (resp.sets ?? []).map((s) => ({
+              ...s,
+              parsedDate: parseHevyDateString(String(s.start_time ?? '')),
+            }));
+            const enriched = identifyPersonalRecords(hydrated);
+            setParsedData(enriched);
+            setLyfatLoginError(null);
+            setCsvImportError(null);
+          })
+          .catch((err) => {
+            clearLyfataApiKey();
+            saveSetupComplete(false);
+            setLyfatLoginError(getHevyErrorMessage(err));
+            setOnboarding({ intent: 'initial', step: 'platform' });
+          })
+          .finally(() => {
+            finishProgress(startedAt);
+          });
+        return;
+      }
+
+      if (storedCSV && lastCsvPlatform === 'lyfta') {
+        setLoadingKind('csv');
+        setIsAnalyzing(true);
+        setLoadingStep(0);
+        const startedAt = startProgress();
+        setTimeout(() => {
+          setLoadingStep(1);
+          parseWorkoutCSVAsyncWithUnit(storedCSV, { unit: getWeightUnit() })
+            .then((result: ParseWorkoutCsvResult) => {
+              setLoadingStep(2);
+              const enriched = identifyPersonalRecords(result.sets);
+              setParsedData(enriched);
+              setLyfatLoginError(null);
+              setCsvImportError(null);
+            })
+            .catch((err) => {
+              clearCSVData();
+              saveSetupComplete(false);
+              setCsvImportError(getErrorMessage(err));
+              setOnboarding({ intent: 'initial', step: 'platform' });
+            })
+            .finally(() => {
+              finishProgress(startedAt);
+            });
+        }, 0);
+        return;
+      }
+
+      saveSetupComplete(false);
+      setOnboarding({ intent: 'initial', step: 'platform' });
+      return;
+    }
+
+    if (storedChoice === 'hevy' && shouldUseCsv) {
+      if (!storedCSV || lastCsvPlatform !== 'hevy') {
         saveSetupComplete(false);
         setOnboarding({ intent: 'initial', step: 'platform' });
         return;
@@ -518,74 +660,9 @@ const App: React.FC = () => {
       return;
     }
 
-    const storedCSV = getCSVData();
-    const lastPlatform = getLastCsvPlatform();
-    if (storedCSV && lastPlatform === 'hevy') {
-      setLoadingKind('csv');
-      setIsAnalyzing(true);
-      setLoadingStep(0);
-      const startedAt = startProgress();
-      setTimeout(() => {
-        setLoadingStep(1);
-        parseWorkoutCSVAsyncWithUnit(storedCSV, { unit: getWeightUnit() })
-          .then((result: ParseWorkoutCsvResult) => {
-            setLoadingStep(2);
-            const enriched = identifyPersonalRecords(result.sets);
-            setParsedData(enriched);
-            setHevyLoginError(null);
-            setCsvImportError(null);
-          })
-          .catch((err) => {
-            clearCSVData();
-            saveSetupComplete(false);
-            setCsvImportError(getErrorMessage(err));
-            setOnboarding({ intent: 'initial', step: 'platform' });
-          })
-          .finally(() => {
-            finishProgress(startedAt);
-          });
-      }, 0);
-      return;
-    }
-
-    // Check for Lyfta API key
-    const lyfatApiKey = getLyfataApiKey();
-    if (lyfatApiKey) {
-      setLoadingKind('lyfta');
-      setIsAnalyzing(true);
-      setLoadingStep(0);
-      const startedAt = startProgress();
-      Promise.resolve()
-        .then(() => {
-          setLoadingStep(1);
-          return lyfatBackendGetSets<WorkoutSet>(lyfatApiKey);
-        })
-        .then((resp) => {
-          setLoadingStep(2);
-          const hydrated = (resp.sets ?? []).map((s) => ({
-            ...s,
-            parsedDate: parseHevyDateString(String(s.start_time ?? '')),
-          }));
-          const enriched = identifyPersonalRecords(hydrated);
-          setParsedData(enriched);
-          setLyfatLoginError(null);
-          setCsvImportError(null);
-        })
-        .catch((err) => {
-          clearLyfataApiKey();
-          saveSetupComplete(false);
-          setLyfatLoginError(getHevyErrorMessage(err));
-          setOnboarding({ intent: 'initial', step: 'platform' });
-        })
-        .finally(() => {
-          finishProgress(startedAt);
-        });
-      return;
-    }
-
     // Check for Hevy Pro API key
     const hevyProApiKey = getHevyProApiKey();
-    if (storedChoice === 'hevy' && hevyProApiKey) {
+    if (storedChoice === 'hevy' && lastMethod === 'apiKey' && hevyProApiKey) {
       setLoadingKind('hevy');
       setIsAnalyzing(true);
       setLoadingStep(0);
@@ -619,6 +696,124 @@ const App: React.FC = () => {
     }
 
     const token = getHevyAuthToken();
+    if (storedChoice === 'hevy' && lastMethod === 'credentials' && !token) {
+      saveSetupComplete(false);
+      setOnboarding({ intent: 'initial', step: 'platform' });
+      return;
+    }
+
+    // Backwards-compatible fallback for existing users: prefer API key or credentials,
+    // only using CSV when the last method indicates CSV.
+    if (storedChoice === 'hevy' && !lastMethod) {
+      if (hevyProApiKey) {
+        setLoadingKind('hevy');
+        setIsAnalyzing(true);
+        setLoadingStep(0);
+        const startedAt = startProgress();
+        Promise.resolve()
+          .then(() => {
+            setLoadingStep(1);
+            return hevyBackendGetSetsWithProApiKey<WorkoutSet>(hevyProApiKey);
+          })
+          .then((resp) => {
+            setLoadingStep(2);
+            const hydrated = (resp.sets ?? []).map((s) => ({
+              ...s,
+              parsedDate: parseHevyDateString(String(s.start_time ?? '')),
+            }));
+            const enriched = identifyPersonalRecords(hydrated);
+            setParsedData(enriched);
+            setHevyLoginError(null);
+            setCsvImportError(null);
+          })
+          .catch((err) => {
+            clearHevyProApiKey();
+            saveSetupComplete(false);
+            setHevyLoginError(getHevyErrorMessage(err));
+            setOnboarding({ intent: 'initial', step: 'platform' });
+          })
+          .finally(() => {
+            finishProgress(startedAt);
+          });
+        return;
+      }
+      if (token) {
+        setLoadingKind('hevy');
+        setIsAnalyzing(true);
+        setLoadingStep(0);
+        const startedAt = startProgress();
+        Promise.resolve()
+          .then(() => hevyBackendGetAccount(token))
+          .then(({ username }) => {
+            setLoadingStep(1);
+            return hevyBackendGetSets<WorkoutSet>(token, username);
+          })
+          .then((resp) => {
+            setLoadingStep(2);
+            const hydrated = (resp.sets ?? []).map((s) => ({
+              ...s,
+              parsedDate: parseHevyDateString(String(s.start_time ?? '')),
+            }));
+            const enriched = identifyPersonalRecords(hydrated);
+            setParsedData(enriched);
+            setHevyLoginError(null);
+            setCsvImportError(null);
+          })
+          .catch((err) => {
+            clearHevyAuthToken();
+            saveSetupComplete(false);
+            setHevyLoginError(getHevyErrorMessage(err));
+            setOnboarding({ intent: 'initial', step: 'platform' });
+          })
+          .finally(() => {
+            finishProgress(startedAt);
+          });
+        return;
+      }
+      if (storedCSV && lastCsvPlatform === 'hevy') {
+        setLoadingKind('csv');
+        setIsAnalyzing(true);
+        setLoadingStep(0);
+        const startedAt = startProgress();
+        setTimeout(() => {
+          setLoadingStep(1);
+          parseWorkoutCSVAsyncWithUnit(storedCSV, { unit: getWeightUnit() })
+            .then((result: ParseWorkoutCsvResult) => {
+              setLoadingStep(2);
+              const enriched = identifyPersonalRecords(result.sets);
+              setParsedData(enriched);
+              setHevyLoginError(null);
+              setCsvImportError(null);
+            })
+            .catch((err) => {
+              clearCSVData();
+              saveSetupComplete(false);
+              setCsvImportError(getErrorMessage(err));
+              setOnboarding({ intent: 'initial', step: 'platform' });
+            })
+            .finally(() => {
+              finishProgress(startedAt);
+            });
+        }, 0);
+        return;
+      }
+      saveSetupComplete(false);
+      setOnboarding({ intent: 'initial', step: 'platform' });
+      return;
+    }
+
+    if (storedChoice === 'hevy' && lastMethod === 'apiKey' && !hevyProApiKey) {
+      saveSetupComplete(false);
+      setOnboarding({ intent: 'initial', step: 'platform' });
+      return;
+    }
+
+    if (storedChoice !== 'hevy') {
+      saveSetupComplete(false);
+      setOnboarding({ intent: 'initial', step: 'platform' });
+      return;
+    }
+
     if (!token) {
       saveSetupComplete(false);
       setOnboarding({ intent: 'initial', step: 'platform' });
@@ -919,6 +1114,7 @@ const App: React.FC = () => {
           }));
           const enriched = identifyPersonalRecords(hydrated);
           setParsedData(enriched);
+          saveLastLoginMethod('hevy', 'apiKey', getHevyUsernameOrEmail() ?? undefined);
           setDataSource('hevy');
           saveSetupComplete(true);
           setOnboarding(null);
@@ -955,6 +1151,7 @@ const App: React.FC = () => {
         }));
         const enriched = identifyPersonalRecords(hydrated);
         setParsedData(enriched);
+        saveLastLoginMethod('hevy', 'credentials', getHevyUsernameOrEmail() ?? undefined);
         setDataSource('hevy');
         saveSetupComplete(true);
         setOnboarding(null);
@@ -986,6 +1183,7 @@ const App: React.FC = () => {
       .then((valid) => {
         if (!valid) throw new Error('Invalid API key. Please check your Hevy Pro API key and try again.');
         saveHevyProApiKey(trimmed);
+        saveLastLoginMethod('hevy', 'apiKey', getHevyUsernameOrEmail() ?? undefined);
         setLoadingStep(1);
         return hevyBackendGetSetsWithProApiKey<WorkoutSet>(trimmed);
       })
@@ -1023,6 +1221,7 @@ const App: React.FC = () => {
         saveHevyAuthToken(r.auth_token);
         const trimmed = emailOrUsername.trim();
         saveHevyUsernameOrEmail(trimmed);
+        saveLastLoginMethod('hevy', 'credentials', trimmed);
         return Promise.all([
           saveHevyPassword(password).catch(() => {
           }),
@@ -1096,6 +1295,7 @@ const App: React.FC = () => {
       .then((resp) => {
         setLoadingStep(2);
         saveLyfataApiKey(apiKey);
+        saveLastLoginMethod('lyfta', 'apiKey');
         const hydrated = (resp.sets ?? []).map((s) => ({
           ...s,
           parsedDate: parseHevyDateString(String(s.start_time ?? '')),
@@ -1134,6 +1334,7 @@ const App: React.FC = () => {
             setParsedData(enriched);
             saveCSVData(text);
             saveLastCsvPlatform(platform);
+            saveLastLoginMethod(platform, 'csv', platform === 'hevy' ? (getHevyUsernameOrEmail() ?? undefined) : undefined);
             setDataSource(platform);
             saveSetupComplete(true);
             setOnboarding(null);
