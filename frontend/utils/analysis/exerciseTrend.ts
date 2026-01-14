@@ -1,7 +1,7 @@
 import { format } from 'date-fns';
 import { ExerciseHistoryEntry, ExerciseStats } from '../../types';
 
-export type ExerciseTrendStatus = 'overload' | 'stagnant' | 'regression' | 'neutral' | 'new';
+export type ExerciseTrendStatus = 'overload' | 'stagnant' | 'regression' | 'neutral' | 'new' | 'fake_pr';
 
 export const MIN_SESSIONS_FOR_TREND = 4;
 
@@ -32,9 +32,14 @@ export interface ExerciseTrendCoreResult {
 export const WEIGHT_STATIC_EPSILON_KG = 0.5;
 const MIN_SIGNAL_REPS = 2;
 const REP_STATIC_EPSILON = 1;
-const TREND_PCT_THRESHOLD = 2.5;
+const TREND_PCT_THRESHOLD = 1.0; // Reduced from 2.5% to 1.0% for more granular detection
 const TREND_MIN_ABS_1RM_KG = 0.25;
 const TREND_MIN_ABS_REPS = 1;
+
+// Fake PR detection constants
+const FAKE_PR_SPIKE_THRESHOLD = 5.0; // Reduced from 8% to 5% - more lenient spike detection
+const FAKE_PR_FOLLOWUP_REGRESSION = -2.0; // Reduced from 3% to 2% - easier to trigger follow-up regression
+const FAKE_PR_POST_PR_DROP_THRESHOLD = -2.5; // Reduced from 4% to 2.5% - more lenient post-PR drop detection
 
 const avg = (xs: number[]): number => (xs.length > 0 ? xs.reduce((a, b) => a + b, 0) / xs.length : 0);
 
@@ -234,6 +239,49 @@ export const analyzeExerciseTrendCore = (stats: ExerciseStats): ExerciseTrendCor
         isBodyweightLike ? `Reps: ${fmtSignedPct(diffPct)}` : `Strength: ${fmtSignedPct(diffPct)}`,
       ])),
     };
+  }
+
+  // Fake PR detection: check for unsustainable spikes followed by regression
+  if (history.length >= 3) {
+    const latestSession = history[0];
+    const previousSession = history[1];
+    
+    // Check if latest session was a big spike
+    const latestMetric = isBodyweightLike ? latestSession.maxReps : latestSession.oneRepMax;
+    const previousMetric = isBodyweightLike ? previousSession.maxReps : previousSession.oneRepMax;
+    const spikePct = previousMetric > 0 ? ((latestMetric - previousMetric) / previousMetric) * 100 : 0;
+    
+    // Check if the session after the spike shows regression
+    const hasFollowupRegression = diffPct <= FAKE_PR_FOLLOWUP_REGRESSION;
+    
+    // Check for post-PR drop pattern (PR followed by significant drop)
+    let hasPostPRDrop = false;
+    let postPRDropPct = 0;
+    
+    if (history.length >= 4 && spikePct >= 2.0) { // Reduced from 3% to 2% - catch smaller PRs
+      const sessionAfterPR = history[1]; // Session right after the PR
+      const sessionAfterPRMetric = isBodyweightLike ? sessionAfterPR.maxReps : sessionAfterPR.oneRepMax;
+      postPRDropPct = latestMetric > 0 ? ((sessionAfterPRMetric - latestMetric) / latestMetric) * 100 : 0;
+      hasPostPRDrop = postPRDropPct <= FAKE_PR_POST_PR_DROP_THRESHOLD;
+    }
+    
+    const isFakePR = (spikePct >= FAKE_PR_SPIKE_THRESHOLD && hasFollowupRegression) ||
+                     (spikePct >= 2.0 && hasPostPRDrop); // Focus on unsustainable PRs only
+    
+    if (isFakePR) {
+      const confidence = getConfidence(history.length, windowSize);
+      return {
+        status: 'fake_pr',
+        isBodyweightLike,
+        diffPct: spikePct,
+        confidence,
+        evidence: keepDynamicEvidence(clampEvidence([
+          `Spike: +${spikePct.toFixed(1)}%`,
+          hasFollowupRegression ? `Follow-up: ${fmtSignedPct(diffPct)}` : undefined,
+          hasPostPRDrop ? `Post-PR drop: ${fmtSignedPct(postPRDropPct)}` : undefined,
+        ])),
+      };
+    }
   }
 
   const confidence = getConfidence(history.length, windowSize);

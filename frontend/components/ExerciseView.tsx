@@ -139,21 +139,43 @@ const analyzeExerciseTrend = (stats: ExerciseStats, weightUnit: WeightUnit): Sta
   const core = analyzeExerciseTrendCore(stats);
   const seedBase = `${stats.name}|${core.status}|${getLatestHistoryKey(stats.history)}`;
 
+  // Contextual variables based on updated system thresholds (1.0% baseline)
+  const progressRate = core.diffPct ? Math.abs(core.diffPct) : 0;
+  const isRapidProgress = progressRate >= 3.0; // Well above new 1.0% threshold
+  const isModestProgress = progressRate >= 1.0 && progressRate < 3.0; // At new threshold but not exceptional
+  const isSevereRegression = progressRate >= 5.0; // Well below new 1.0% threshold  
+  const isModestRegression = progressRate >= 1.0 && progressRate < 5.0; // At new threshold
+
   if (core.status === 'new') {
+    const sessionsCount = stats.history.length;
     const title = pickDeterministic(`${seedBase}|title`, [
-      'Building baseline',
-      'Learning your pattern',
-      'Collecting reps & load',
+      'Just getting started', 'First timer', 'Rookie numbers', 'Building your base', 'Day one energy'
     ] as const);
     const description = pickDeterministic(`${seedBase}|desc`, [
-      'Log a few more sessions and we’ll summarize your trend.',
-      'A few more exposures and we can confidently call your trend.',
-      'Keep logging this lift—trend insights unlock after a few sessions.',
+      'First session in the books! We\'re figuring out what you\'ve got.',
+      'Welcome to the party! Let\'s see what these muscles can do.',
+      'Two sessions down! Starting to see your patterns emerge.',
+      'Look at you, all consistent! The data gods are pleased.',
+      `Building your profile. ${MIN_SESSIONS_FOR_TREND - sessionsCount} more sessions until we can read your mind.`,
+      `Crunching the numbers. ${MIN_SESSIONS_FOR_TREND - sessionsCount} sessions to unlock the good stuff.`,
+      'Early signs are promising! Keep showing up and we\'ll make magic happen.',
+      'Ooh, I like what I\'m seeing! Don\'t get weird on me now.',
+      `So close! ${MIN_SESSIONS_FOR_TREND - sessionsCount} session${MIN_SESSIONS_FOR_TREND - sessionsCount === 1 ? '' : 's'} to go before the real fun begins.`,
+      `Almost there! ${MIN_SESSIONS_FOR_TREND - sessionsCount} session${MIN_SESSIONS_FOR_TREND - sessionsCount === 1 ? '' : 's'} left to impress me.`,
+      `Keep logging - the algorithm gets hungry after ${MIN_SESSIONS_FOR_TREND}+ snacks.`,
+      `Don\'t ghost me now! ${MIN_SESSIONS_FOR_TREND}+ sessions and I\'ll reveal your secrets.`,
     ] as const);
     const subtext = pickDeterministic(`${seedBase}|sub`, [
-      'Aim for similar setup and rep range for 2-3 sessions.',
-      'Consistency beats randomness here—keep variables steady.',
-      'Use a repeatable rep target so the signal is clean.',
+      'Perfect form first, champ. Pick something you can actually finish without crying.',
+      'Form over ego, my friend. Choose a weight that won\'t make you question your life choices.',
+      'Same setup, same reps, same greatness. Consistency is sexier than variety right now.',
+      'Don\'t get creative yet. Stick to the script and we\'ll both be happier.',
+      'Grip, stance, depth - make it your signature move. Film it for the highlights reel.',
+      'Same setup every time. Your future self will thank present you for not being chaotic.',
+      'Once we know your baseline, we can start the real training. Patience, young padawan.',
+      'Master the basics first, then we can play with the fancy toys.',
+      'No rush to be a hero. Learn the movement before you try to be Instagram famous.',
+      'Walk before you run, lift before you ego-lift. The basics are boring for a reason.',
     ] as const);
     return {
       status: 'new',
@@ -177,36 +199,40 @@ const analyzeExerciseTrend = (stats: ExerciseStats, weightUnit: WeightUnit): Sta
     const w = core.plateau?.weight ?? 0;
     const plateauWeight = convertWeight(w, weightUnit);
     const suggestedNext = convertWeight(w + getStandardWeightIncrementKg(weightUnit), weightUnit);
+    const repRange = maxReps - minReps;
+    const isWideRepRange = repRange >= 4;
+    const isNarrowRepRange = repRange <= 1;
+    const sessionsAtPlateau = Math.min(6, Math.max(1, stats.history.length));
 
     const title = pickDeterministic(`${seedBase}|title`, [
-      'Plateauing',
-      'Holding steady',
-      'Stalled (for now)',
+      'Stuck in neutral', 'Holding steady', 'Plateau city', 'Flatlined', 'Time for a shakeup'
     ] as const);
 
     const description = pickDeterministic(`${seedBase}|desc`, [
-      () => (core.isBodyweightLike
-        ? `You've been circling ${minReps}-${maxReps} reps for a few sessions.`
-        : `Your top set has hovered at ${plateauWeight}${weightUnit} for ${minReps}-${maxReps} reps.`),
-      () => (core.isBodyweightLike
-        ? `Recent sessions repeat the same rep ceiling: ${minReps}-${maxReps}.`
-        : `Recent sessions repeat: ${plateauWeight}${weightUnit} × ${minReps}-${maxReps}.`),
-      () => (core.isBodyweightLike
-        ? `Progress is flat—reps are consistently ${minReps}-${maxReps}.`
-        : `Progress is flat—load and reps are consistently ${plateauWeight}${weightUnit} × ${minReps}-${maxReps}.`),
-    ] as const)();
+      `You\'ve been hovering between ${minReps}-${maxReps} reps for ${sessionsAtPlateau}+ sessions. Time to shake things up!`,
+      `Stuck at ${minReps}-${maxReps} reps for ${sessionsAtPlateau}+ sessions. Your muscles need a new challenge.`,
+      `Load is static at ${plateauWeight}${weightUnit} while reps vary. Let\'s break this pattern!`,
+      `Both load (${plateauWeight}${weightUnit}) and reps (${minReps}-${maxReps}) are consistent. Your comfort zone is showing.`,
+      `Rep performance is steady at ${maxReps}. Your body adapted and got comfortable.`,
+      `Same old: ${minReps}-${maxReps} reps. Progress is taking a coffee break.`,
+      `Strength is stable at ${plateauWeight}${weightUnit}. Time to introduce a new stimulus!`,
+      `Consistent pattern: ${plateauWeight}${weightUnit} × ${minReps}-${maxReps}. Your muscles need variety.`,
+      `Progress is steady but not growing. Time to spice things up!`,
+      `Everything\'s consistent: ${plateauWeight}${weightUnit} × ${minReps}-${maxReps}. Let\'s mix it up!`,
+    ] as const);
 
     const subtext = pickDeterministic(`${seedBase}|sub`, [
-      () => (core.isBodyweightLike
-        ? 'Next session: add 1 rep on your first working set, then match the rest.'
-        : `Next session: try ${suggestedNext}${weightUnit} for a small single-step overload.`),
-      () => (core.isBodyweightLike
-        ? 'Try adding one extra set (same reps) to force adaptation.'
-        : `If jumps feel big, repeat the same weight and chase +1 rep instead.`),
-      () => (core.isBodyweightLike
-        ? 'Keep reps the same, slow the tempo, and aim for cleaner reps.'
-        : 'Keep weight the same, add a rep or two across sets, then increase load.'),
-    ] as const)();
+      `Pick ${maxReps} reps and chase ${maxReps + 1} on ALL sets. No playing favorites with the first set only.`,
+      `Next session: add 1 rep to your first set, then make the others match. Quality over speed, speed racer.`,
+      `Standardize at ${maxReps} reps. Master it across all sets, then level up to ${suggestedNext}${weightUnit}.`,
+      `Try ${suggestedNext}${weightUnit} next session. If form gets ugly, repeat current weight like a grown-up and add a rep.`,
+      `Get fancy: pause reps, painfully slow eccentrics (3-4 seconds), or cut your rest periods in half.`,
+      `Add an extra set (same reps) or channel your inner superhero with a weighted vest.`,
+      `Double progression: repeat ${plateauWeight}${weightUnit} but add 1-2 reps across sets, then increase the weight.`,
+      `If weight jumps feel scary, repeat ${plateauWeight}${weightUnit} and hunt for +1 rep like it\'s the last donut.`,
+      `Mix it up! If doing push-ups, try incline/decline or resistance bands. Keep it tight and controlled.`,
+      `Same weight, add reps, then increase load. If bar speed is slower than a turtle, deload 10% for 2 weeks.`,
+    ] as const);
 
     return {
       status: 'stagnant',
@@ -226,20 +252,37 @@ const analyzeExerciseTrend = (stats: ExerciseStats, weightUnit: WeightUnit): Sta
 
   if (core.status === 'overload') {
     const title = pickDeterministic(`${seedBase}|title`, [
-      'Gaining',
-      'Momentum',
-      'Progressing',
+      'Getting stronger', 'Beast mode', 'On fire', 'Making gains', 'Leveling up'
     ] as const);
+    
     const description = pickDeterministic(`${seedBase}|desc`, [
-      () => (core.isBodyweightLike ? 'Nice. Your reps are trending up.' : 'Nice. Your estimated strength is trending up.'),
-      () => (core.isBodyweightLike ? 'Reps are moving in the right direction.' : 'Strength trend is positive—keep steering it.'),
-      () => (core.isBodyweightLike ? 'You’re building capacity—rep ceiling is rising.' : 'You’re building strength—your top end is climbing.'),
-    ] as const)();
+      'Nice! Your rep capacity is climbing. Every little bit counts!',
+      'Solid work! Strength is trending upward. Keep that momentum.',
+      'Good progress! Those reps are adding up nicely.',
+      'Looking good! The strength train is chugging along.',
+      'Gains are happening - keep doing what you\'re doing.',
+      'Strength is building! Don\'t mess with success.',
+      'You\'re making progress! The trend is your friend.',
+      'Hello, improvement! Nice to see you moving forward.',
+      'Rep performance is improving! Keep that energy.',
+      'Strength is looking good! The consistency is paying off.',
+    ] as const);
+    
     const subtext = pickDeterministic(`${seedBase}|sub`, [
-      () => (core.isBodyweightLike ? 'Keep one rep in reserve and add reps week-to-week.' : 'Keep jumps small and repeatable (microload works).'),
-      () => (core.isBodyweightLike ? 'If reps feel easy, add load or add a set.' : 'If bar speed is good, consider a small load bump.'),
-      () => (core.isBodyweightLike ? 'Stay consistent with setup so the signal stays clean.' : 'Repeat the same setup/tempo to keep progress comparable.'),
-    ] as const)();
+      'Technique still matters, champ. Control those reps and show off your form.',
+      'Progress is progress! Don\'t get sloppy - small beats big every time.',
+      'Keep this momentum. Add reps slowly or make those eccentrics count.',
+      'Nice work! If the bar feels light, maybe it\'s time for the next jump.',
+      'Stay consistent! Master this range before getting too ambitious.',
+      'Current approach is working! Maybe add a back-off set for extra credit.',
+      'Once you own this, we can play with harder variations. Don\'t rush the process.',
+      'Spread the love! Add reps across all sets, not just the hero first set.',
+      'Small gains need big recovery. Sleep well and eat like you mean it.',
+      'Small jumps, big results. Don\'t let ego get ahead of reality.',
+      'If this feels too easy, either you\'re holding back or it\'s time to level up.',
+      'Recovery is your secret weapon. Don\'t sabotage with poor sleep.',
+      'Film yourself improving. Future you will appreciate the journey.',
+    ] as const);
     return {
       status: 'overload',
       color: 'text-emerald-400',
@@ -258,26 +301,30 @@ const analyzeExerciseTrend = (stats: ExerciseStats, weightUnit: WeightUnit): Sta
 
   if (core.status === 'regression') {
     const title = pickDeterministic(`${seedBase}|title`, [
-      'Losing',
-      'Downtrend',
-      'Fatigue showing',
+      'Taking a break', 'Fatigue showing', 'Recovery mode', 'Backing off', 'Time to reset'
     ] as const);
+    
     const description = pickDeterministic(`${seedBase}|desc`, [
-      () => (core.isBodyweightLike
-        ? 'Reps are trending down (often fatigue, stress, or form changes).'
-        : 'Strength is trending down (often fatigue, stress, or form changes).'),
-      () => (core.isBodyweightLike
-        ? 'Performance is slipping a bit—don’t panic, adjust variables.'
-        : 'Performance is slipping a bit—don’t panic, adjust variables.'),
-      () => (core.isBodyweightLike
-        ? 'Short-term dips are common—recover and rebuild the trend.'
-        : 'Short-term dips are common—recover and rebuild the trend.'),
-    ] as const)();
+      'Whoa! Rep capacity dropped. Your body\'s sending you a message.',
+      'Strength took a dip. This is your body\'s way of saying "take it easy".',
+      'Reps are trending down. Could be fatigue, stress, or just an off day.',
+      'Strength is slipping. Common causes include life, stress, or needing rest.',
+      'Performance is down. Don\'t panic - this is your body asking for a break.',
+      'Things are dipping a bit. Time to adjust before it becomes a problem.',
+      'Small regression happens. Use it as an excuse to perfect your form.',
+    ] as const);
+    
     const subtext = pickDeterministic(`${seedBase}|sub`, [
-      () => 'Consider a deload or a lighter week, then rebuild.',
-      () => 'If effort is high but output is low, take an easier week and rebuild.',
-      () => 'Short-term dips happen—prioritize sleep, food, and consistent technique.',
-    ] as const)();
+      'Take 2-3 days completely off. Then return at 80% intensity like a smart athlete.',
+      'Deload 15-20% for 1 week. Focus on technique, then rebuild gradually.',
+      'Cut volume by 20% or switch to easier variations. Your muscles need recovery.',
+      'Light week: 60% volume, 90% intensity. Or drop weight 5-10% for 2 sessions.',
+      'Add rest days and reduce training density. Quality over quantity right now.',
+      'Check your life: sleep, stress, nutrition. Sometimes the fix isn\'t in the gym.',
+      'Film yourself. Maybe your form slipped without you noticing.',
+      'Stop training so close to failure! Leave 2-3 reps in reserve. This is marathon, not sprint.',
+      'Small dips happen. Sleep 7-9 hours and don\'t overthink it.',
+    ] as const);
     return {
       status: 'regression',
       color: 'text-rose-400',
@@ -294,44 +341,87 @@ const analyzeExerciseTrend = (stats: ExerciseStats, weightUnit: WeightUnit): Sta
     };
   }
 
-  const title = pickDeterministic(`${seedBase}|title`, [
-    'Maintaining',
-    'Stable',
-    'Holding pattern',
-  ] as const);
-  const description = pickDeterministic(`${seedBase}|desc`, [
-    () => (core.isBodyweightLike
-      ? 'Performance is stable. Keep building reps with good control.'
-      : 'Strength is stable. Keep consistency and small progressions.'),
-    () => (core.isBodyweightLike
-      ? 'Reps are steady—this is a good place to tighten technique and add volume.'
-      : 'Strength is steady—this is a good place to tighten technique and add volume.'),
-    () => (core.isBodyweightLike
-      ? 'Not a setback—just steady. Pick one lever to progress next.'
-      : 'Not a setback—just steady. Pick one lever to progress next.'),
-  ] as const)();
-  const subtext = pickDeterministic(`${seedBase}|sub`, [
-    () => (core.isBodyweightLike
-      ? 'Try progressing reps, tempo, or adding external load.'
-      : 'Try a small rep increase, then a small load increase.'),
-    () => 'Choose one: add a rep, add a set, or add a tiny load jump.',
-    () => 'If this feels easy, slightly increase effort (closer to failure) for a week.',
-  ] as const)();
+  if (core.status === 'fake_pr') {
+    const title = pickDeterministic(`${seedBase}|title`, [
+      'Unsustainable PR', 'Premature jump', 'PR too soon', 'Jumped too fast', 'Not ready yet'
+    ] as const);
+    
+    const description = pickDeterministic(`${seedBase}|desc`, [
+      'That PR jump was too ambitious. Your body wasn\'t ready for that weight.',
+      'Nice PR attempt, but the follow-up performance tells the real story.',
+      'That performance jump looks premature. Your body needs more foundation work.',
+      'Big spike detected! But the subsequent drop shows it was too much, too soon.',
+      'That PR was followed by reality. Your body needs more time at this level.',
+      'Massive jump! But the follow-up performance shows it wasn\'t sustainable.',
+      'That PR looks premature. The data suggests you jumped ahead of your capabilities.',
+    ] as const);
+    
+    const subtext = pickDeterministic(`${seedBase}|sub`, [
+      'Build foundation first. PRs should come from consistent work, not desperate jumps.',
+      'That PR was followed by regression. Focus on sustainable progress, not peak performances.',
+      'Build a solid base first. PRs should be the result of accumulated work, not big jumps.',
+      'Focus on volume and consistency. Real PRs come from gradual progression, not max attempts.',
+      'That PR might have been too ambitious. Don\'t chase numbers - build strength gradually.',
+      'Next session: aim for 90% of that PR with perfect form. Build sustainable strength.',
+      'Train consistently, not for PR moments. The trend matters more than the peak.',
+      'Focus on the process, not the outcome. Strength builds through consistent work.',
+      'That PR was premature. Spend more time at current weights before jumping up.',
+      'Build work capacity first. Your body needs more volume before handling that weight.',
+    ] as const);
+    return {
+      status: 'fake_pr',
+      color: 'text-orange-400',
+      bgColor: 'bg-orange-500/10',
+      borderColor: 'border-orange-500/20',
+      icon: AlertTriangle,
+      title,
+      description,
+      subtext,
+      confidence: core.confidence,
+      evidence: core.evidence,
+      label: 'Premature PR',
+      isBodyweightLike: core.isBodyweightLike,
+    };
+  }
 
-  return {
-    status: 'neutral',
-    color: 'text-indigo-400',
-    bgColor: 'bg-indigo-500/10',
-    borderColor: 'border-indigo-500/20',
-    icon: Minus,
-    title,
-    description,
-    subtext,
-    confidence: core.confidence,
-    evidence: core.evidence,
-    label: 'maintaining',
-    isBodyweightLike: core.isBodyweightLike,
+  if (core.status === 'neutral') {
+    const title = pickDeterministic(`${seedBase}|title`, [
+      'Cruising along', 'Holding steady', 'Maintenance mode', 'Stable vibes', 'Chill but building'
+    ] as const);
+    const description = pickDeterministic(`${seedBase}|desc`, [
+      'Performance is stable. This is your launch pad for the next breakthrough.',
+      'Strength is steady. This consistency is setting you up for something big.',
+      'Reps are consistent - perfect time to get fancy with technique and work capacity.',
+      'Strength is holding steady - time to polish your form before the next climb.',
+      'Not a setback, just strategic patience. Choose your next move wisely, grasshopper.',
+      'You\'ve found your current level. Now optimize it before you level up again.',
+      'Current strength level achieved. Time to master this before chasing more.',
+    ] as const);
+    const subtext = pickDeterministic(`${seedBase}|sub`, [
+      'Play with tempo: add 2-second pauses or painfully slow eccentrics (3-4 seconds). Feel the burn!',
+      'Focus on bar speed and control. Explosive up, controlled down. Like a boss.',
+      'Add volume strategically: extra set, shorter rest (60-90 seconds), or train more often.',
+      'Volume hack: extra back-off set, shorter rest (90-120 seconds), or increase frequency.',
+      'If this feels too easy, level up: weighted vest, harder variations, or reduce leverage.',
+      'If weight feels manageable, increase intensity: train closer to failure or add partial movements.',
+      'Perfect your technique: film yourself, connect mind to muscle, own your range of motion.',
+      'Technique check: film yourself, nail your bracing, make every rep identical.',
+    ] as const);
+    return {
+      status: 'neutral',
+      color: 'text-indigo-400',
+      bgColor: 'bg-indigo-500/10',
+      borderColor: 'border-indigo-500/20',
+      icon: Minus,
+      title,
+      description,
+      subtext,
+      confidence: core.confidence,
+      evidence: core.evidence,
+      label: 'maintaining',
+      isBodyweightLike: core.isBodyweightLike,
   };
+  }
 };
 
 // --- SUB-COMPONENTS ---
@@ -496,8 +586,34 @@ interface ExerciseViewProps {
 }
 
 export const ExerciseView: React.FC<ExerciseViewProps> = ({ stats, filtersSlot, highlightedExercise, onHighlightApplied, onExerciseClick, weightUnit = 'kg' as WeightUnit, bodyMapGender = 'male', stickyHeader = false }) => {
-  const [selectedExerciseName, setSelectedExerciseName] = useState<string>(highlightedExercise || stats[0]?.name || "");
+  // Find the most recent exercise for auto-selection
+  const mostRecentExerciseName = useMemo(() => {
+    if (stats.length === 0) return "";
+    
+    // Find exercise with most recent session
+    let mostRecentName = stats[0].name;
+    let mostRecentDate: Date | null = null;
+    
+    for (const stat of stats) {
+      const lastSession = stat.history[0]?.date || null;
+      if (lastSession && (!mostRecentDate || lastSession > mostRecentDate)) {
+        mostRecentDate = lastSession;
+        mostRecentName = stat.name;
+      }
+    }
+    
+    return mostRecentName;
+  }, [stats]);
+
+  const [selectedExerciseName, setSelectedExerciseName] = useState<string>(highlightedExercise || mostRecentExerciseName || "");
   const [trendFilter, setTrendFilter] = useState<ExerciseTrendStatus | null>(null);
+
+  // Auto-select most recent exercise when component loads or when no exercise is selected
+  useEffect(() => {
+    if (!selectedExerciseName && mostRecentExerciseName) {
+      setSelectedExerciseName(mostRecentExerciseName);
+    }
+  }, [selectedExerciseName, mostRecentExerciseName]);
 
   const exerciseButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
 
@@ -516,6 +632,13 @@ export const ExerciseView: React.FC<ExerciseViewProps> = ({ stats, filtersSlot, 
             ? 'bg-rose-500/5 border-rose-400/40 ring-1 ring-rose-500/15'
             : 'bg-rose-500/10 border-rose-400/70 ring-2 ring-rose-500/25 shadow-[0_0_0_1px_rgba(251,113,133,0.25),0_0_18px_rgba(244,63,94,0.12)]',
           thumbBorder: intensity === 'soft' ? 'border-rose-400/40' : 'border-rose-400/70',
+        };
+      case 'fake_pr':
+        return {
+          button: intensity === 'soft'
+            ? 'bg-orange-500/5 border-orange-400/40 ring-1 ring-orange-500/15'
+            : 'bg-orange-500/10 border-orange-400/70 ring-2 ring-orange-500/25 shadow-[0_0_0_1px_rgba(251,146,60,0.25),0_0_18px_rgba(249,115,22,0.12)]',
+          thumbBorder: intensity === 'soft' ? 'border-orange-400/40' : 'border-orange-400/70',
         };
       case 'stagnant':
         return {
@@ -708,6 +831,7 @@ export const ExerciseView: React.FC<ExerciseViewProps> = ({ stats, filtersSlot, 
     let overloadCount = 0;
     let plateauCount = 0;
     let regressionCount = 0;
+    let fakePrCount = 0;
     let neutralCount = 0;
     let newCount = 0;
 
@@ -736,6 +860,7 @@ export const ExerciseView: React.FC<ExerciseViewProps> = ({ stats, filtersSlot, 
       if (core.status === 'overload') overloadCount += 1;
       else if (core.status === 'stagnant') plateauCount += 1;
       else if (core.status === 'regression') regressionCount += 1;
+      else if (core.status === 'fake_pr') fakePrCount += 1;
       else if (core.status === 'neutral') neutralCount += 1;
       else newCount += 1;
     }
@@ -745,6 +870,7 @@ export const ExerciseView: React.FC<ExerciseViewProps> = ({ stats, filtersSlot, 
       overloadCount,
       plateauCount,
       regressionCount,
+      fakePrCount,
       neutralCount,
       newCount,
       statusByName,
@@ -829,6 +955,9 @@ export const ExerciseView: React.FC<ExerciseViewProps> = ({ stats, filtersSlot, 
           <button type="button" onClick={() => toggle('regression')} className={chipCls('regression', 'bad')}>
             {trainingStructure.regressionCount} Losing
           </button>
+          <button type="button" onClick={() => toggle('fake_pr')} className={chipCls('fake_pr', 'warn')}>
+            {trainingStructure.fakePrCount} Premature PR
+          </button>
           <button type="button" onClick={() => toggle('neutral')} className={chipCls('neutral', 'neutral')}>
             {trainingStructure.neutralCount} Maintaining
           </button>
@@ -838,7 +967,7 @@ export const ExerciseView: React.FC<ExerciseViewProps> = ({ stats, filtersSlot, 
         </div>
       </div>
     );
-  }, [filtersSlot, trainingStructure.activeCount, trainingStructure.neutralCount, trainingStructure.newCount, trainingStructure.overloadCount, trainingStructure.plateauCount, trainingStructure.regressionCount, trendFilter]);
+  }, [filtersSlot, trainingStructure.activeCount, trainingStructure.neutralCount, trainingStructure.newCount, trainingStructure.overloadCount, trainingStructure.plateauCount, trainingStructure.regressionCount, trainingStructure.fakePrCount, trendFilter]);
 
   const chartData = useMemo(() => {
     if (!selectedStats || selectedSessions.length === 0) return [];
@@ -951,6 +1080,9 @@ export const ExerciseView: React.FC<ExerciseViewProps> = ({ stats, filtersSlot, 
               <button type="button" onClick={() => setTrendFilter(prev => (prev === 'regression' ? null : 'regression'))} className={`text-[9px] px-2 py-1 rounded font-bold border whitespace-nowrap transition-colors bg-rose-500/10 text-rose-300 border-rose-500/20 ${trendFilter === 'regression' ? 'ring-2 ring-white/25 border-white/30 shadow-sm' : ''}`}>
                 {trainingStructure.regressionCount} Losing
               </button>
+              <button type="button" onClick={() => setTrendFilter(prev => (prev === 'fake_pr' ? null : 'fake_pr'))} className={`text-[9px] px-2 py-1 rounded font-bold border whitespace-nowrap transition-colors bg-orange-500/10 text-orange-300 border-orange-500/20 ${trendFilter === 'fake_pr' ? 'ring-2 ring-white/25 border-white/30 shadow-sm' : ''}`}>
+                {trainingStructure.fakePrCount} Premature PR
+              </button>
               <button type="button" onClick={() => setTrendFilter(prev => (prev === 'neutral' ? null : 'neutral'))} className={`text-[9px] px-2 py-1 rounded font-bold border whitespace-nowrap transition-colors bg-indigo-500/10 text-indigo-300 border-indigo-500/20 ${trendFilter === 'neutral' ? 'ring-2 ring-white/25 border-white/30 shadow-sm' : ''}`}>
                 {trainingStructure.neutralCount} Maintaining
               </button>
@@ -988,7 +1120,7 @@ export const ExerciseView: React.FC<ExerciseViewProps> = ({ stats, filtersSlot, 
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
             <input
               type="text"
-              placeholder="Filter..."
+              placeholder="Search for exercises..."
               className="w-full bg-black/70 border border-slate-700/50 rounded-lg pl-9 pr-3 py-1 sm:py-2 text-[11px] sm:text-xs text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent transition-all"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
