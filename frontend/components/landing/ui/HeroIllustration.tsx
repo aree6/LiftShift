@@ -64,6 +64,20 @@ function shuffle<T>(a: T[]): T[] {
   return b;
 }
 
+// Shuffled once per page load (not per mount): the illustration remounts on the
+// mobile/desktop breakpoint cross (key={isMobile}), and re-dealing icons there
+// would visibly reshuffle travelers mid-session.
+let cachedInputIcons: string[] | null = null;
+let cachedOutputIcons: string[] | null = null;
+function getInputIcons(): string[] {
+  if (!cachedInputIcons) cachedInputIcons = shuffle(iconSet);
+  return cachedInputIcons;
+}
+function getOutputIcons(): string[] {
+  if (!cachedOutputIcons) cachedOutputIcons = shuffle(metricSet);
+  return cachedOutputIcons;
+}
+
 const iconSet = [
   `${SVG_DIR}/barbell.svg`,
   `${SVG_DIR}/deadlift-emblem.svg`,
@@ -115,16 +129,25 @@ function AnimatedSVG({
   const lineStroke = isLight ? '#cbd5e1' : '#475569';
   // Perpetual SMIL timelines are paused entirely for reduced-motion users.
   const reduceMotion = useReducedMotion();
+  // Namespace every SVG id per mount: ids live in the global document scope,
+  // so two mounts (StrictMode double-effects, resize remount overlap, future
+  // reuse) would otherwise collide and travelers would jump to the wrong path.
+  const uid = React.useId().replace(/[^a-zA-Z0-9]/g, '');
+  const pathId = (i: number) => `p-in-${uid}-${i}`;
+  const outId = `p-out-${uid}`;
+  const filterInId = `input-dark-${uid}`;
+  const filterGoldLightId = `golden-light-${uid}`;
+  const filterGoldDarkId = `golden-dark-${uid}`;
 
   // ── SVG filters (CSS filter= broken on iOS Safari <image>) ──
   // Dark‑mode input: invert + brighten  (black→white, white→gray)
   // Golden output: replace colour with gold; alpha preserved so strokes stay intact
-  const inputFilter = isLight ? undefined : 'url(#input-dark)';
-  const outputFilter = isLight ? 'url(#golden-light)' : 'url(#golden-dark)';
+  const inputFilter = isLight ? undefined : `url(#${filterInId})`;
+  const outputFilter = isLight ? `url(#${filterGoldLightId})` : `url(#${filterGoldDarkId})`;
 
-  // ── shuffled icon arrays: one‑time random assignment at mount ──
-  const inputIcons = React.useMemo(() => shuffle(iconSet), []);
-  const outputIcons = React.useMemo(() => shuffle(metricSet), []);
+  // ── shuffled icon arrays: dealt once per page load (see module cache) ──
+  const inputIcons = React.useMemo(getInputIcons, []);
+  const outputIcons = React.useMemo(getOutputIcons, []);
 
   // ── staggered per‑path phases: each path offset by ½ the icon‑to‑icon gap ──
   // Round‑robin assigns icons to P paths, so gap on same path = P × spacing.
@@ -136,8 +159,39 @@ function AnimatedSVG({
   }, [inputPaths.length]);
   const outputPhase = React.useMemo(() => Math.random() * OUTPUT_DURATION, []);
 
+  // Freeze the 31 SMIL timelines when scrolled out of view (same IntersectionObserver
+  // pattern as LightRays). pauseAnimations() keeps timelines mounted so returning
+  // is seamless — no remount jump. The cheap CSS dash is gated by class below.
+  const svgRef = React.useRef<SVGSVGElement>(null);
+  const [isVisible, setIsVisible] = React.useState(true);
+  React.useEffect(() => {
+    const el = svgRef.current;
+    if (!el || typeof IntersectionObserver === 'undefined') return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (entry) setIsVisible(entry.isIntersecting);
+      },
+      { threshold: 0 },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+  React.useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    try {
+      if (isVisible) svg.unpauseAnimations();
+      else svg.pauseAnimations();
+    } catch {
+      /* non-SMIL SVG implementations */
+    }
+  }, [isVisible]);
+  const flowPaused = reduceMotion || !isVisible;
+
   return (
     <svg
+      ref={svgRef}
       viewBox="0 0 860 300"
       className="absolute inset-0 w-full h-full pointer-events-none"
       fill="none"
@@ -145,12 +199,12 @@ function AnimatedSVG({
     >
       <defs>
         {inputPaths.map((d, i) => (
-          <path key={`ip${i}`} id={`p-in-${i}`} d={d} />
+          <path key={`ip${i}`} id={pathId(i)} d={d} />
         ))}
-        <path id="p-out" d={outputPath} />
+        <path id={outId} d={outputPath} />
 
         {/* Dark‑mode input icons: invert + brighten (works on iOS Safari) */}
-        <filter id="input-dark" color-interpolation-filters="sRGB">
+        <filter id={filterInId} color-interpolation-filters="sRGB">
           <feColorMatrix
             type="matrix"
             values="-1 0 0 0 1.5
@@ -161,7 +215,7 @@ function AnimatedSVG({
         </filter>
 
         {/* Golden output — light mode: rich golden amber */}
-        <filter id="golden-light" color-interpolation-filters="sRGB">
+        <filter id={filterGoldLightId} color-interpolation-filters="sRGB">
           <feColorMatrix
             type="matrix"
             values="0 0 0 0 0.90
@@ -172,7 +226,7 @@ function AnimatedSVG({
         </filter>
 
         {/* Golden output — dark mode: invert + golden */}
-        <filter id="golden-dark" color-interpolation-filters="sRGB">
+        <filter id={filterGoldDarkId} color-interpolation-filters="sRGB">
           <feColorMatrix
             type="matrix"
             result="inv"
@@ -193,18 +247,25 @@ function AnimatedSVG({
       </defs>
 
       <style>{reduceMotion ? '' : `
-        @keyframes dash { to { stroke-dashoffset: -40; } }
-        .flow-line { stroke-dasharray: 4 6; animation: dash 1.5s linear infinite; }
-        .flow-line-slow { stroke-dasharray: 4 6; animation: dash 2.4s linear infinite; }
+        @keyframes dash-${uid} { to { stroke-dashoffset: -40; } }
+        .flow-line-${uid} { stroke-dasharray: 4 6; animation: dash-${uid} 1.5s linear infinite; }
+        .flow-line-slow-${uid} { stroke-dasharray: 4 6; animation: dash-${uid} 2.4s linear infinite; }
       `}</style>
 
-      {/* Dashed connector lines */}
-      <g stroke={lineStroke} strokeWidth="1.5" strokeLinecap="round" opacity="0.5">
+      {/* Dashed connector lines — gentle fade-in so they don't pop under the icons */}
+      <motion.g
+        stroke={lineStroke}
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        initial={reduceMotion ? false : { opacity: 0 }}
+        animate={{ opacity: 0.5 }}
+        transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1], delay: 0.4 }}
+      >
         {inputPaths.map((_, i) => (
-          <use key={`u${i}`} href={`#p-in-${i}`} className={reduceMotion ? undefined : (i % 2 === 0 ? 'flow-line' : 'flow-line-slow')} />
+          <use key={`u${i}`} href={`#${pathId(i)}`} className={flowPaused ? undefined : (i % 2 === 0 ? `flow-line-${uid}` : `flow-line-slow-${uid}`)} />
         ))}
-        <use href="#p-out" className={reduceMotion ? undefined : 'flow-line'} />
-      </g>
+        <use href={`#${outId}`} className={flowPaused ? undefined : `flow-line-${uid}`} />
+      </motion.g>
 
       {/* Traveling input icons — each path has its own phase offset */}
       {!reduceMotion && inputIcons.map((src, i) => {
@@ -228,7 +289,7 @@ function AnimatedSVG({
                 repeatCount="indefinite"
                 begin={`${begin.toFixed(2)}s`}
               >
-                <mpath href={`#p-in-${pathIdx}`} />
+                <mpath href={`#${pathId(pathIdx)}`} />
               </animateMotion>
             </image>
           </g>
@@ -256,7 +317,7 @@ function AnimatedSVG({
                 repeatCount="indefinite"
                 begin={`${begin.toFixed(2)}s`}
               >
-                <mpath href="#p-out" />
+                <mpath href={`#${outId}`} />
               </animateMotion>
             </image>
           </g>
@@ -447,7 +508,9 @@ export const HeroIllustration: React.FC<{ className?: string }> = ({ className =
                 <img
                   src={assetPath(p.img)}
                   alt={p.name}
-                  className="w-5 h-5 sm:w-7 sm:h-7 md:w-9 md:h-9 object-contain rounded-lg"
+                  // csv.svg is currentColor (black) with no dark variant — invert it
+                  // in dark mode so it doesn't vanish on the dark background.
+                  className={`w-5 h-5 sm:w-7 sm:h-7 md:w-9 md:h-9 object-contain rounded-lg ${!isLight && p.name === 'CSV' ? 'invert' : ''}`}
                 />
               </motion.div>
             ))}

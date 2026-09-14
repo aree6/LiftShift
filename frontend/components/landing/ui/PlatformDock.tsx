@@ -105,7 +105,7 @@ function DockItem({ item, mouseX, onHoverStart, onHoverEnd, index = 0, totalItem
         onTouchEnd={() => { if (!item.disabled) onHoverEnd?.(); }}
         onFocus={() => { if (!item.disabled) { setIsHovered(true); onHoverStart?.(item.name); } }}
         onBlur={() => { if (!item.disabled) { setIsHovered(false); onHoverEnd?.(); } }}
-        className={`relative inline-flex items-center justify-center rounded-2xl overflow-hidden transition-all duration-200 ${
+        className={`relative inline-flex items-center justify-center rounded-2xl overflow-hidden transition-[border-color,box-shadow,background-color] duration-200 ${
           item.disabled 
             ? 'opacity-40 cursor-not-allowed border border-slate-700/30 bg-slate-900/50' 
             : `cursor-pointer shadow-lg ${isLight ? 'bg-white/75' : 'bg-slate-950/75'} ${isHovered ? 'border-2 border-emerald-400 shadow-emerald-400/40' : 'border border-emerald-500/40 shadow-emerald-500/20'}`
@@ -163,14 +163,14 @@ export default function PlatformDock({ items, className = '' }: PlatformDockProp
           {/* Choose your platform text (crossfades to hovered platform name) */}
           <div className="relative h-5 w-full select-none">
             <span
-              className={`absolute inset-0 flex items-center justify-center text-xs ${FANCY_FONT} text-emerald-400/80 transition-all duration-300 drop-shadow-lg ${activeName ? 'opacity-0 translate-y-1' : 'opacity-100 translate-y-0'}`}
+              className={`absolute inset-0 flex items-center justify-center text-xs ${FANCY_FONT} text-emerald-400/80 transition-[opacity,translate] duration-300 drop-shadow-lg ${activeName ? 'opacity-0 translate-y-1' : 'opacity-100 translate-y-0'}`}
               aria-hidden={!!activeName}
             >
               Choose your platform
             </span>
 
             <span
-              className={`absolute inset-0 flex items-center justify-center text-xs ${FANCY_FONT} text-emerald-400/80 transition-all duration-300 delay-75 drop-shadow-lg ${activeName ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-1'}`}
+              className={`absolute inset-0 flex items-center justify-center text-xs ${FANCY_FONT} text-emerald-400/80 transition-[opacity,translate] duration-300 delay-75 drop-shadow-lg ${activeName ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-1'}`}
               aria-live="polite"
             >
               {activeName ?? ''}

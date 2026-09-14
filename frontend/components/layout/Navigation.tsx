@@ -40,13 +40,13 @@ export const Navigation: React.FC<NavigationProps> = ({
       {onLogoClick ? (
         <button
           onClick={onLogoClick}
-          className={`flex items-center gap-2 sm:gap-3 rounded-xl px-1.5 sm:px-2 py-1 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] cursor-pointer ${isLight ? 'hover:bg-black/5' : 'hover:bg-white/5'}`}
+          className={`flex items-center gap-2 sm:gap-3 rounded-xl px-1.5 sm:px-2 py-1 transition-[background-color,scale] duration-200 hover:scale-[1.02] active:scale-[0.98] cursor-pointer ${isLight ? 'hover:bg-black/5' : 'hover:bg-white/5'}`}
         >
           <img src={assetPath('/UI/logo.png')} alt="LiftShift Logo" className="w-6 h-6 sm:w-8 sm:h-8" />
           <span className={`font-semibold text-sm sm:text-xl ${isLight ? 'text-slate-900' : 'text-white'}`} style={SEMI_FANCY_FONT}>LiftShift</span>
         </button>
       ) : (
-        <a href={assetPath('/')} className={`flex items-center gap-2 sm:gap-3 rounded-xl px-1.5 sm:px-2 py-1 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] ${isLight ? 'hover:bg-black/5' : 'hover:bg-white/5'}`}>
+        <a href={assetPath('/')} className={`flex items-center gap-2 sm:gap-3 rounded-xl px-1.5 sm:px-2 py-1 transition-[background-color,scale] duration-200 hover:scale-[1.02] active:scale-[0.98] ${isLight ? 'hover:bg-black/5' : 'hover:bg-white/5'}`}>
           <img src={assetPath('/UI/logo.png')} alt="LiftShift Logo" className="w-6 h-6 sm:w-8 sm:h-8" />
           <span className={`font-semibold text-sm sm:text-xl ${isLight ? 'text-slate-900' : 'text-white'}`} style={SEMI_FANCY_FONT}>LiftShift</span>
         </a>
@@ -57,7 +57,7 @@ export const Navigation: React.FC<NavigationProps> = ({
         {onNavClick ? (
           <button
             onClick={() => onNavClick('how-it-works')}
-            className={`inline-flex items-center gap-1.5 transition-all duration-200 hover:-translate-y-[1px] active:scale-[0.97] text-sm font-medium cursor-pointer ${activeNav === 'how-it-works'
+            className={`inline-flex items-center gap-1.5 transition-[color,translate,scale] duration-200 hover:-translate-y-[1px] active:scale-[0.97] text-sm font-medium cursor-pointer ${activeNav === 'how-it-works'
                 ? 'text-emerald-300'
                 : `${isLight ? 'text-slate-600 hover:text-emerald-600' : 'text-slate-300 hover:text-emerald-300'}`
               }`}
@@ -68,7 +68,7 @@ export const Navigation: React.FC<NavigationProps> = ({
         ) : (
           <a
             href={assetPath('how-it-works/')}
-            className={`inline-flex items-center gap-1.5 transition-all duration-200 hover:-translate-y-[1px] active:scale-[0.97] text-sm font-medium ${variant === 'info' && activeNav === 'how-it-works'
+            className={`inline-flex items-center gap-1.5 transition-[color,translate,scale] duration-200 hover:-translate-y-[1px] active:scale-[0.97] text-sm font-medium ${variant === 'info' && activeNav === 'how-it-works'
                 ? 'text-emerald-300'
                 : `${isLight ? 'text-slate-600 hover:text-emerald-600' : 'text-slate-300 hover:text-emerald-300'}`
               }`}
@@ -80,7 +80,7 @@ export const Navigation: React.FC<NavigationProps> = ({
         {onNavClick ? (
           <button
             onClick={() => onNavClick('features')}
-            className={`inline-flex items-center gap-1.5 transition-all duration-200 hover:-translate-y-[1px] active:scale-[0.97] text-sm font-medium cursor-pointer ${activeNav === 'features'
+            className={`inline-flex items-center gap-1.5 transition-[color,translate,scale] duration-200 hover:-translate-y-[1px] active:scale-[0.97] text-sm font-medium cursor-pointer ${activeNav === 'features'
                 ? 'text-emerald-300'
                 : `${isLight ? 'text-slate-600 hover:text-emerald-600' : 'text-slate-300 hover:text-emerald-300'}`
               }`}
@@ -91,7 +91,7 @@ export const Navigation: React.FC<NavigationProps> = ({
         ) : (
           <a
             href={assetPath('features/')}
-            className={`inline-flex items-center gap-1.5 transition-all duration-200 hover:-translate-y-[1px] active:scale-[0.97] text-sm font-medium ${variant === 'info' && activeNav === 'features'
+            className={`inline-flex items-center gap-1.5 transition-[color,translate,scale] duration-200 hover:-translate-y-[1px] active:scale-[0.97] text-sm font-medium ${variant === 'info' && activeNav === 'features'
                 ? 'text-emerald-300'
                 : `${isLight ? 'text-slate-600 hover:text-emerald-600' : 'text-slate-300 hover:text-emerald-300'}`
               }`}
@@ -104,7 +104,7 @@ export const Navigation: React.FC<NavigationProps> = ({
           href="https://github.com/aree6/LiftShift"
           target="_blank"
           rel="noopener noreferrer"
-          className={`inline-flex items-center gap-1.5 transition-all duration-200 hover:-translate-y-[1px] active:scale-[0.97] text-sm font-medium ${isLight ? 'text-slate-600 hover:text-emerald-600' : 'text-slate-300 hover:text-emerald-300'}`}
+          className={`inline-flex items-center gap-1.5 transition-[color,translate,scale] duration-200 hover:-translate-y-[1px] active:scale-[0.97] text-sm font-medium ${isLight ? 'text-slate-600 hover:text-emerald-600' : 'text-slate-300 hover:text-emerald-300'}`}
         >
           <GithubIcon className="w-3.5 h-3.5" />
           <span>GitHub</span>
@@ -116,7 +116,7 @@ export const Navigation: React.FC<NavigationProps> = ({
         {onNavClick ? (
           <button
             onClick={() => onNavClick('how-it-works')}
-            className={`inline-flex items-center gap-1 text-xs px-1.5 py-1 transition-all duration-200 hover:-translate-y-[1px] active:scale-[0.97] cursor-pointer ${activeNav === 'how-it-works'
+            className={`inline-flex items-center gap-1 text-xs px-1.5 py-1 transition-[color,translate,scale] duration-200 hover:-translate-y-[1px] active:scale-[0.97] cursor-pointer ${activeNav === 'how-it-works'
               ? 'text-emerald-200'
               : `${isLight ? 'text-slate-600 hover:text-emerald-600' : 'text-slate-300 hover:text-emerald-200'}`
               }`}
@@ -127,7 +127,7 @@ export const Navigation: React.FC<NavigationProps> = ({
         ) : (
           <a
             href={assetPath('how-it-works/')}
-            className={`inline-flex items-center gap-1 text-xs px-1.5 py-1 transition-all duration-200 hover:-translate-y-[1px] active:scale-[0.97] ${variant === 'info' && activeNav === 'how-it-works'
+            className={`inline-flex items-center gap-1 text-xs px-1.5 py-1 transition-[color,translate,scale] duration-200 hover:-translate-y-[1px] active:scale-[0.97] ${variant === 'info' && activeNav === 'how-it-works'
               ? 'text-emerald-200'
               : `${isLight ? 'text-slate-600 hover:text-emerald-600' : 'text-slate-300 hover:text-emerald-200'}`
               }`}
@@ -139,7 +139,7 @@ export const Navigation: React.FC<NavigationProps> = ({
         {onNavClick ? (
           <button
             onClick={() => onNavClick('features')}
-            className={`inline-flex items-center gap-1 text-xs px-1.5 py-1 transition-all duration-200 hover:-translate-y-[1px] active:scale-[0.97] cursor-pointer ${activeNav === 'features'
+            className={`inline-flex items-center gap-1 text-xs px-1.5 py-1 transition-[color,translate,scale] duration-200 hover:-translate-y-[1px] active:scale-[0.97] cursor-pointer ${activeNav === 'features'
               ? 'text-emerald-200'
               : `${isLight ? 'text-slate-600 hover:text-emerald-600' : 'text-slate-300 hover:text-emerald-200'}`
               }`}
@@ -150,7 +150,7 @@ export const Navigation: React.FC<NavigationProps> = ({
         ) : (
           <a
             href={assetPath('features/')}
-            className={`inline-flex items-center gap-1 text-xs px-1.5 py-1 transition-all duration-200 hover:-translate-y-[1px] active:scale-[0.97] ${variant === 'info' && activeNav === 'features'
+            className={`inline-flex items-center gap-1 text-xs px-1.5 py-1 transition-[color,translate,scale] duration-200 hover:-translate-y-[1px] active:scale-[0.97] ${variant === 'info' && activeNav === 'features'
               ? 'text-emerald-200'
               : `${isLight ? 'text-slate-600 hover:text-emerald-600' : 'text-slate-300 hover:text-emerald-200'}`
               }`}
@@ -159,7 +159,7 @@ export const Navigation: React.FC<NavigationProps> = ({
             <span>Features</span>
           </a>
         )}
-        <a href="https://github.com/aree6/LiftShift" target="_blank" rel="noopener noreferrer" className={`inline-flex items-center gap-1 text-xs px-1.5 py-1 transition-all duration-200 hover:-translate-y-[1px] active:scale-[0.97] ${isLight ? 'text-slate-600 hover:text-emerald-600' : 'text-slate-300 hover:text-emerald-200'}`}>
+        <a href="https://github.com/aree6/LiftShift" target="_blank" rel="noopener noreferrer" className={`inline-flex items-center gap-1 text-xs px-1.5 py-1 transition-[color,translate,scale] duration-200 hover:-translate-y-[1px] active:scale-[0.97] ${isLight ? 'text-slate-600 hover:text-emerald-600' : 'text-slate-300 hover:text-emerald-200'}`}>
           <GithubIcon className="w-2.5 h-2.5" />
           <span>GitHub</span>
         </a>

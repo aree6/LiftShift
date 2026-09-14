@@ -1,4 +1,4 @@
-import React, { useMemo, useEffect, useRef } from 'react';
+import React, { useCallback, useMemo, useEffect, useRef } from 'react';
 import { ArrowBigUp, Reply, Share2, Award } from 'lucide-react';
 
 const AVATAR_COLORS = [
@@ -66,54 +66,50 @@ interface RedditCardProps {
   isLight: boolean;
   cardId: string;
   isFlipped: boolean;
-  onFlip: () => void;
+  onFlip: (cardId: string) => void;
+  /**
+   * false → pure content (desktop: the outer marquee wrapper owns the
+   * button semantics; this avoids nested interactive elements).
+   */
+  interactive?: boolean;
+  /**
+   * false → removed from tab order + hidden from AT (marquee clones, so
+   * screen readers and keyboard users meet each review once).
+   */
+  focusable?: boolean;
 }
 
-export const RedditCard: React.FC<RedditCardProps> = React.memo(({ username, quote, src, isLight, cardId, isFlipped, onFlip }) => {
+export const RedditCard: React.FC<RedditCardProps> = React.memo(({ username, quote, src, isLight, cardId, isFlipped, onFlip, interactive = true, focusable = true }) => {
   const upvotes = useMemo(() => getUpvotes(username), [username]);
   const subreddit = useMemo(() => getSubreddit(username, quote), [username, quote]);
   const color = useMemo(() => getColor(username), [username]);
   const timeAgo = useMemo(() => getTimeAgo(username), [username]);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const startFlipTimer = () => {
-    if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => onFlip(), 1000);
-  };
+  const fireFlip = useCallback(() => onFlip(cardId), [onFlip, cardId]);
 
-  const clearFlipTimer = () => {
+  const startFlipTimer = useCallback(() => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(fireFlip, 1000);
+  }, [fireFlip]);
+
+  const clearFlipTimer = useCallback(() => {
     if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
-  };
+  }, []);
 
   useEffect(() => {
     if (!isFlipped) clearFlipTimer();
     return clearFlipTimer;
-  }, [isFlipped]);
+  }, [isFlipped, clearFlipTimer]);
 
-  return (
-    <div
-      role="button"
-      tabIndex={0}
-      aria-label="Flip review card"
-      className="w-[300px] sm:w-[340px] h-[160px] sm:h-[140px] cursor-pointer select-none"
-      style={{ perspective: '800px' }}
-      onClick={onFlip}
-      onKeyDown={(e) => {
-        if (e.key !== 'Enter' && e.key !== ' ') return;
-        e.preventDefault();
-        onFlip();
-      }}
-      onMouseEnter={() => { if (isFlipped) clearFlipTimer(); }}
-      onMouseLeave={() => { if (isFlipped) startFlipTimer(); }}
-    >
-      <div
-        className="relative w-full h-full"
-        style={{
-          transformStyle: 'preserve-3d',
-          transition: 'transform 0.5s ease',
-          transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
-        }}
-      >
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    e.preventDefault();
+    fireFlip();
+  }, [fireFlip]);
+
+  const faces = (
+    <>
         {/* ── Front face: Reddit comment card ── */}
         <div
           className={`absolute inset-0 rounded-xl overflow-hidden flex flex-col px-3.5 py-3 gap-2 ${cardFaceClass(isLight)}`}
@@ -173,6 +169,51 @@ export const RedditCard: React.FC<RedditCardProps> = React.memo(({ username, quo
             decoding="async"
           />
         </div>
+    </>
+  );
+
+  if (!interactive) {
+    return (
+      <div
+        className="w-[300px] sm:w-[340px] h-[160px] sm:h-[140px] select-none"
+        style={{ perspective: '800px' }}
+      >
+        <div
+          className="relative w-full h-full"
+          style={{
+            transformStyle: 'preserve-3d',
+            transition: 'transform 0.5s ease',
+            transform: 'rotateY(0deg)',
+          }}
+        >
+          {faces}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      role="button"
+      tabIndex={focusable ? 0 : -1}
+      aria-hidden={focusable ? undefined : true}
+      aria-label={`Flip review card from ${username}`}
+      className="w-[300px] sm:w-[340px] h-[160px] sm:h-[140px] cursor-pointer select-none"
+      style={{ perspective: '800px' }}
+      onClick={fireFlip}
+      onKeyDown={handleKeyDown}
+      onMouseEnter={() => { if (isFlipped) clearFlipTimer(); }}
+      onMouseLeave={() => { if (isFlipped) startFlipTimer(); }}
+    >
+      <div
+        className="relative w-full h-full"
+        style={{
+          transformStyle: 'preserve-3d',
+          transition: 'transform 0.5s ease',
+          transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
+        }}
+      >
+        {faces}
       </div>
     </div>
   );

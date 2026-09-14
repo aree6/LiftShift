@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { ArrowBigUp, Reply, Share2, Award } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { useTheme } from '../../theme/ThemeProvider';
 import { FANCY_FONT } from '../../../utils/ui/uiConstants';
 import { assetPath } from '../../../constants';
@@ -51,6 +51,10 @@ const REVIEWS: ReviewData[] = [
 const ROWS_DESKTOP = [REVIEWS.slice(0, 6), REVIEWS.slice(6, 11), REVIEWS.slice(11)];
 const ROWS_MOBILE = [REVIEWS.slice(0, 8), REVIEWS.slice(8)];
 
+// Stable no-op: desktop inner cards aren't interactive (the outer wrapper owns
+// the button semantics), and a module-level fn keeps RedditCard's memo intact.
+const noopFlip = (_id: string) => {};
+
 // ── Types ──
 interface ExpandedCardState {
   review: ReviewData;
@@ -89,6 +93,24 @@ function MarqueeRow({
   const from = direction === 'left' ? '0' : '-50';
   const to = direction === 'left' ? '-50' : '0';
   const duration = `${Math.max(30, 110 - speed)}s`;
+  const reduceMotion = useReducedMotion();
+
+  // Pause everything when the row scrolls out of view (rAF loop + CSS below).
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [rowVisible, setRowVisible] = useState(true);
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!el || typeof IntersectionObserver === 'undefined') return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (entry) setRowVisible(entry.isIntersecting);
+      },
+      { threshold: 0 },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
 
   // Mobile auto-scroll state
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -145,8 +167,26 @@ function MarqueeRow({
     };
   }, []);
 
+  // Cache half the track width (measure once + on resize) — reading
+  // scrollWidth inside the rAF tick forced layout 60×/s per row.
+  const halfWidthRef = useRef(0);
   useEffect(() => {
     if (!isMobile) return;
+    const el = scrollRef.current;
+    if (!el) return;
+    const measure = () => {
+      const hw = el.scrollWidth / 2;
+      if (hw > 0) halfWidthRef.current = hw;
+    };
+    measure();
+    if (typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [isMobile, items.length]);
+
+  useEffect(() => {
+    if (!isMobile || reduceMotion || !rowVisible) return;
     const el = scrollRef.current;
     if (!el) return;
     let rafId = 0;
@@ -154,7 +194,7 @@ function MarqueeRow({
     const pxPerSec = 30;
     const dir = direction === 'left' ? 1 : -1;
 
-    const halfWidth = el.scrollWidth / 2;
+    const halfWidth = halfWidthRef.current || el.scrollWidth / 2;
     if (halfWidth > 0 && dir === -1) {
       accumulatedRef.current = halfWidth;
     }
@@ -162,7 +202,7 @@ function MarqueeRow({
 
     const tick = (ts: number) => {
       if (!isInteractingRef.current) {
-        const hw = el.scrollWidth / 2;
+        const hw = halfWidthRef.current;
         if (hw > 0) {
           const dt = (ts - lastTsRef.current) / 1000;
           lastTsRef.current = ts;
@@ -179,9 +219,14 @@ function MarqueeRow({
     };
     rafId = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(rafId);
-  }, [isMobile, direction]);
+  }, [isMobile, direction, rowVisible, reduceMotion]);
 
-  const card = (review: ReviewData, key: string) => {
+  const expandFromTarget = (target: HTMLElement, review: ReviewData) => {
+    const rect = target.getBoundingClientRect();
+    onExpand(review.src, review, rect);
+  };
+
+  const card = (review: ReviewData, key: string, isClone = false) => {
     if (isMobile) {
       return (
         <div key={key} className="mx-2 sm:mx-3 shrink-0">
@@ -192,7 +237,8 @@ function MarqueeRow({
             isLight={isLight}
             cardId={key}
             isFlipped={flippedId === key}
-            onFlip={() => onFlip(key)}
+            onFlip={onFlip}
+            focusable={!isClone}
           />
         </div>
       );
@@ -208,15 +254,28 @@ function MarqueeRow({
         ? { opacity: 1, transition: 'opacity 100ms ease 200ms' }
         : { opacity: 1 };
 
+    // Clones are duplicates: hidden from AT + out of tab order so each review
+    // is met once. The expanded (invisible) card leaves tab order too.
+    const untabbable = isClone || isHidden;
+
     return (
       <div
         key={key}
         className="mx-2 sm:mx-3 shrink-0"
         style={cardStyle}
+        role="button"
+        tabIndex={untabbable ? -1 : 0}
+        aria-hidden={isClone || undefined}
+        aria-label={`Expand review from ${review.username}`}
         onClickCapture={(e) => {
           e.stopPropagation();
-          const rect = e.currentTarget.getBoundingClientRect();
-          onExpand(review.src, review, rect);
+          expandFromTarget(e.currentTarget, review);
+        }}
+        onKeyDown={(e) => {
+          if (e.key !== 'Enter' && e.key !== ' ') return;
+          e.preventDefault();
+          e.stopPropagation();
+          expandFromTarget(e.currentTarget, review);
         }}
       >
         <RedditCard
@@ -226,15 +285,36 @@ function MarqueeRow({
           isLight={isLight}
           cardId={key}
           isFlipped={false}
-          onFlip={() => {}}
+          onFlip={noopFlip}
+          interactive={false}
         />
       </div>
     );
   };
 
+  // Reduced motion: a plain natively-scrollable row, no rAF loop.
+  // (Single set — clones only exist to make the loop seamless.)
+  if (isMobile && reduceMotion) {
+    return (
+      <div ref={rootRef} className="relative overflow-hidden">
+        <div
+          className="overflow-x-auto overflow-y-hidden"
+          style={{
+            scrollPaddingLeft: '0.5rem',
+            touchAction: 'pan-x',
+          }}
+        >
+          <div className="flex w-max py-1">
+            {items.map((r, i) => card(r, `${r.src}-${i}`))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (isMobile) {
     return (
-      <div className="relative overflow-hidden">
+      <div ref={rootRef} className="relative overflow-hidden">
         <div
           ref={scrollRef}
           className="overflow-x-auto overflow-y-hidden"
@@ -244,17 +324,30 @@ function MarqueeRow({
             touchAction: 'pan-x',
           }}
         >
-          <div className="flex w-max py-1 pr-4">
+          {/* No trailing padding: the wrap point is exactly half the track,
+              so any asymmetry shows up as a jump every loop. */}
+          <div className="flex w-max py-1">
             {items.map((r, i) => card(r, `${r.src}-${i}`))}
-            {items.map((r, i) => card(r, `${r.src}-clone-${i}`))}
+            {items.map((r, i) => card(r, `${r.src}-clone-${i}`, true))}
           </div>
         </div>
       </div>
     );
   }
 
+  // Reduced motion: static row, no keyframes at all.
+  if (reduceMotion) {
+    return (
+      <div ref={rootRef} className="relative overflow-hidden">
+        <div className="flex w-max py-1">
+          {items.map((r) => card(r, r.src))}
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="relative overflow-hidden">
+    <div ref={rootRef} className="relative overflow-hidden">
       <style>{`
         @keyframes ${uid} {
           0%   { transform: translate3d(${from}%, 0, 0); }
@@ -272,10 +365,10 @@ function MarqueeRow({
       `}</style>
       <div
         className={uid}
-        style={isPaused ? { animationPlayState: 'paused' } : undefined}
+        style={isPaused || !rowVisible ? { animationPlayState: 'paused' } : undefined}
       >
         {items.map((r) => card(r, r.src))}
-        {items.map((r) => card(r, `${r.src}-clone`))}
+        {items.map((r) => card(r, `${r.src}-clone`, true))}
       </div>
     </div>
   );
@@ -286,11 +379,23 @@ const ExpandedCardOverlay: React.FC<{
   expandedCard: ExpandedCardState;
   isLight: boolean;
   onClose: () => void;
-}> = ({ expandedCard, isLight, onClose }) => {
+  containerRef: React.RefObject<HTMLDivElement | null>;
+}> = ({ expandedCard, isLight, onClose, containerRef }) => {
   const { review, originalRect, containerRect } = expandedCard;
+  const reduceMotion = useReducedMotion();
+  // Re-render on window resize so the card re-centers instead of freezing mid-air.
+  const [win, setWin] = useState(0);
+  useEffect(() => {
+    const onResize = () => setWin((w) => w + 1);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
 
   const { targetLeft, targetTop, expandedWidth, expandedHeight } =
     useMemo(() => {
+      // Live rect when available (identical values on first render), so resize
+      // recomputes from truth instead of a stale snapshot.
+      const live = containerRef.current?.getBoundingClientRect() ?? containerRect;
       const vw = window.innerWidth;
       const vh = window.innerHeight;
       const scaleX = (vw * 0.6) / originalRect.width;
@@ -298,15 +403,16 @@ const ExpandedCardOverlay: React.FC<{
       const s = Math.max(1.6, Math.min(scaleX, scaleY, 2.5));
       const ew = originalRect.width * s;
       const eh = originalRect.height * s;
-      const cx = containerRect.left + containerRect.width / 2;
-      const cy = containerRect.top + containerRect.height / 2;
+      const cx = live.left + live.width / 2;
+      const cy = live.top + live.height / 2;
       return {
         targetLeft: cx - ew / 2,
         targetTop: cy - eh / 2,
         expandedWidth: ew,
         expandedHeight: eh,
       };
-    }, [originalRect, containerRect]);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [originalRect, containerRect, containerRef, win]);
 
   const upvotes = useMemo(() => getUpvotes(review.username), [review.username]);
   const subreddit = useMemo(
@@ -330,7 +436,7 @@ const ExpandedCardOverlay: React.FC<{
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        transition={{ duration: 0.3 }}
+        transition={{ duration: reduceMotion ? 0 : 0.3 }}
         className="fixed inset-0 z-[100] bg-black/70"
         onClick={onClose}
       />
@@ -365,7 +471,7 @@ const ExpandedCardOverlay: React.FC<{
             default: { duration: 0.3, ease: [0.4, 0, 0.2, 1] },
           },
         }}
-        transition={{ duration: 0.55, ease: [0.34, 1.56, 0.64, 1] }}
+        transition={{ duration: reduceMotion ? 0 : 0.55, ease: [0.34, 1.56, 0.64, 1] }}
         style={{
           perspective: '1200px',
           transformStyle: 'preserve-3d',
@@ -488,14 +594,33 @@ export const ReviewsCarousel: React.FC<{ className?: string }> = ({
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
 
+    // The landing page scrolls in an inner overflow container, not <body> —
+    // walk up to the real scroller and freeze it too.
+    let scroller: HTMLElement | null = containerRef.current?.parentElement ?? null;
+    while (scroller) {
+      if (scroller.scrollHeight > scroller.clientHeight + 1) break;
+      scroller = scroller.parentElement;
+    }
+    if (scroller && scroller.scrollHeight <= scroller.clientHeight + 1) scroller = null;
+    const prevScrollerOverflow = scroller?.style.overflow;
+    if (scroller) scroller.style.overflow = 'hidden';
+
     const preventScroll = (e: WheelEvent | TouchEvent) => e.preventDefault();
+    // Keyboard scroll (Space/arrows/PageUp/PageDown) bypasses wheel/touch guards.
+    const preventKeys = (e: KeyboardEvent) => {
+      if ([' ', 'ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End'].includes(e.key)) {
+        e.preventDefault();
+      }
+    };
     document.addEventListener('wheel', preventScroll, { passive: false });
     document.addEventListener('touchmove', preventScroll, { passive: false });
-
+    document.addEventListener('keydown', preventKeys);
     return () => {
       document.body.style.overflow = prevOverflow;
+      if (scroller && prevScrollerOverflow !== undefined) scroller.style.overflow = prevScrollerOverflow;
       document.removeEventListener('wheel', preventScroll);
       document.removeEventListener('touchmove', preventScroll);
+      document.removeEventListener('keydown', preventKeys);
     };
   }, [expandedCard]);
 
@@ -624,6 +749,7 @@ export const ReviewsCarousel: React.FC<{ className?: string }> = ({
               expandedCard={expandedCard}
               isLight={isLight}
               onClose={handleClose}
+              containerRef={containerRef}
             />
           )}
         </AnimatePresence>
