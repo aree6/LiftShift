@@ -327,9 +327,9 @@ function PhoneSlideshow() {
     <motion.div
       className="absolute inset-y-0 right-0 w-[30%] flex items-center justify-center -translate-y-4 sm:-translate-y-6"
       style={{ perspective: '1200px' }}
-      initial={{ opacity: 0, scale: 0.94 }}
+      initial={reduceMotion ? false : { opacity: 0, scale: 0.94 }}
       animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
+      transition={{ duration: 0.65, ease: [0.22, 1, 0.36, 1], delay: 0.45 }}
       onMouseEnter={stopAutoAdvance}
       onMouseLeave={reduceMotion ? undefined : startAutoAdvance}
     >
@@ -398,6 +398,7 @@ function PhoneSlideshow() {
 export const HeroIllustration: React.FC<{ className?: string }> = ({ className = '' }) => {
   const { mode } = useTheme();
   const isLight = mode === 'light';
+  const reduceMotion = useReducedMotion();
   const [isMobile, setIsMobile] = React.useState(true);
 
   React.useEffect(() => {
@@ -431,27 +432,33 @@ export const HeroIllustration: React.FC<{ className?: string }> = ({ className =
           {/* ===== LEFT: 5 platform icons ===== */}
           <motion.div
             className="absolute top-0 bottom-0 left-0 flex flex-col justify-center gap-[8px] sm:gap-[12px] md:gap-[15px]"
-            initial={{ opacity: 0, x: -20 }}
+            initial={reduceMotion ? false : { opacity: 0, x: -12 }}
             animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.6 }}
+            transition={{ duration: 0.65, ease: [0.22, 1, 0.36, 1], delay: 0.4 }}
           >
-            {platforms.map((p) => (
-              <div key={p.name} className="-translate-y-1 sm:-translate-y-4 flex items-center justify-center w-7 h-7 sm:w-9 sm:h-9 md:w-11 md:h-11">
+            {platforms.map((p, i) => (
+              <motion.div
+                key={p.name}
+                className="-translate-y-1 sm:-translate-y-4 flex items-center justify-center w-7 h-7 sm:w-9 sm:h-9 md:w-11 md:h-11"
+                initial={reduceMotion ? false : { opacity: 0, x: -6 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1], delay: 0.45 + i * 0.06 }}
+              >
                 <img
                   src={assetPath(p.img)}
                   alt={p.name}
                   className="w-5 h-5 sm:w-7 sm:h-7 md:w-9 md:h-9 object-contain rounded-lg"
                 />
-              </div>
+              </motion.div>
             ))}
           </motion.div>
 
           {/* ===== CENTER: LiftShift logo ===== */}
           <motion.div
             className="absolute top-0 bottom-0 left-[42%] md:left-[46.5%] -translate-x-1/2 flex items-center -translate-y-3"
-            initial={{ opacity: 0, scale: 0.85 }}
+            initial={reduceMotion ? false : { opacity: 0, scale: 0.85 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
+            transition={{ duration: 0.65, delay: 0.5, ease: [0.22, 1, 0.36, 1] }}
           >
             <div className="flex flex-col items-center gap-2 sm:-translate-y-2">
               <img

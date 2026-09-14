@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { ArrowUp } from 'lucide-react';
 import type { DataSourceChoice } from '../../../utils/storage/dataSourceStorage';
 import { useTheme } from '../../theme/ThemeProvider';
@@ -24,6 +24,7 @@ interface LandingPageProps {
 export const LandingPage: React.FC<LandingPageProps> = ({ onSelectPlatform, onTryDemo }) => {
   const { mode } = useTheme();
   const isLight = mode === 'light';
+  const reduceMotion = useReducedMotion();
 
   React.useLayoutEffect(() => {
     const root = document.documentElement;
@@ -161,39 +162,67 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSelectPlatform, onTr
       </div>
 
       {/* ========== HERO SECTION ========== */}
-          <section className="relative z-10 flex flex-col pt-2 mb-[7.5rem] sm:mb-[13.75rem]">
+          <section className="relative z-10 flex flex-col pt-2 mb-8 sm:mb-12">
             <div className="max-w-6xl mx-auto w-full">
               {/* Hero Content */}
               <div className="text-center max-w-5xl mx-auto">
 
                 {/* Main Headline */}
                 <h1 className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-bold tracking-tight mb-8 mt-10 mr-1 ml-1 leading-[1.15]">
-                  <span className={`block ${isLight ? 'text-slate-600' : 'text-slate-400'} text-2xl sm:text-2xl lg:text-3xl xl:text-4xl mb-4`} style={FANCY_FONT}>
+                  <motion.span
+                    className={`block ${isLight ? 'text-slate-600' : 'text-slate-400'} text-2xl sm:text-2xl lg:text-3xl xl:text-4xl mb-4`}
+                    style={FANCY_FONT}
+                    initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.65, ease: [0.22, 1, 0.36, 1], delay: 0.1 }}
+                  >
                     Your workout app logs,
-                  </span>
-                  <span className="block bg-gradient-to-r from-emerald-300 via-emerald-400 to-green-400 bg-clip-text text-transparent pb-2" style={FANCY_FONT}>
+                  </motion.span>
+                  <motion.span
+                    className="block bg-gradient-to-r from-emerald-300 via-emerald-400 to-green-400 bg-clip-text text-transparent pb-2"
+                    style={FANCY_FONT}
+                    initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.65, ease: [0.22, 1, 0.36, 1], delay: 0.18 }}
+                  >
                     LiftShift answers.
-                  </span>
-                  <span className={`block ${isLight ? 'text-slate-600' : 'text-slate-400'} text-2xl sm:text-2xl lg:text-3xl xl:text-4xl mt-2`} style={FANCY_FONT}>
+                  </motion.span>
+                  <motion.span
+                    className={`block ${isLight ? 'text-slate-600' : 'text-slate-400'} text-2xl sm:text-2xl lg:text-3xl xl:text-4xl mt-2`}
+                    style={FANCY_FONT}
+                    initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.65, ease: [0.22, 1, 0.36, 1], delay: 0.26 }}
+                  >
                     Free & open-source.
-                  </span>
+                  </motion.span>
                 </h1>
 
                 {/* Subheadline */}
-                <p className={`${isLight ? 'text-slate-600' : 'text-slate-400'} text-base sm:text-lg max-w-2xl mx-auto mb-8 leading-relaxed`}>
+                <motion.p
+                  className={`${isLight ? 'text-slate-600' : 'text-slate-400'} text-base sm:text-lg max-w-2xl mx-auto mb-8 leading-relaxed`}
+                  initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.65, ease: [0.22, 1, 0.36, 1], delay: 0.36 }}
+                >
                   Connect Hevy, Strong, or Lyfta in seconds. Track training volume, personal records, and exercise progress with interactive muscle heatmaps. Get plateau detection, set-by-set feedback, and AI-ready analysis. All processed on your device, nothing stored on our servers.
-                </p>
+                </motion.p>
 
                 {/* Demo CTA Button */}
                 {onTryDemo && (
-                  <div className="mb-8">
+                  <motion.div
+                    className="mb-8"
+                    initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.65, ease: [0.22, 1, 0.36, 1], delay: 0.46 }}
+                  >
                     <button
                       onClick={onTryDemo}
-                      className={`group cursor-pointer inline-flex items-center justify-center whitespace-nowrap rounded-full text-sm font-semibold h-11 px-8 border transition-[color,background-color,border-color,transform] duration-150 active:scale-[0.97] ${isLight ? 'bg-emerald-50/40 hover:bg-emerald-100/50 border-emerald-300/50 text-slate-600 hover:border-emerald-600 hover:text-emerald-600' : 'bg-emerald-950/30 hover:bg-emerald-950/50 border-emerald-400/30 text-slate-400 hover:border-emerald-400 hover:text-emerald-300'}`}
+                      className={`group cursor-pointer inline-flex items-center justify-center whitespace-nowrap rounded-full text-sm font-semibold h-11 px-8 border transition-all duration-200 active:scale-[0.97] hover:-translate-y-px hover:shadow-lg hover:shadow-emerald-500/20 ${isLight ? 'bg-emerald-50/40 hover:bg-emerald-100/50 border-emerald-300/50 text-slate-600 hover:border-emerald-600 hover:text-emerald-600' : 'bg-emerald-950/30 hover:bg-emerald-950/50 border-emerald-400/30 text-slate-400 hover:border-emerald-400 hover:text-emerald-300'}`}
                     >
                       <span>Try it with sample data</span>
                     </button>
-                  </div>
+                  </motion.div>
                 )}
               </div>
             </div>

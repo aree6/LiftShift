@@ -2,6 +2,7 @@ import {
   motion,
   MotionValue,
   useMotionValue,
+  useReducedMotion,
   useSpring,
   useTransform,
 } from 'motion/react';
@@ -33,8 +34,9 @@ type DockItemProps = {
   totalItems?: number;
 };
 
-// Spring config matching reference dock feel
-const SPRING_CONFIG = { mass: 0.05, stiffness: 400, damping: 20 };
+// Softer than the reference dock: lower stiffness + higher damping removes jitter,
+// keeps the magnification but lands without overshoot.
+const SPRING_CONFIG = { mass: 0.05, stiffness: 320, damping: 22 };
 const BASE_SIZE = 64;
 const MAGNIFICATION = 80;
 const DISTANCE = 120;
@@ -42,6 +44,7 @@ const DISTANCE = 120;
 function DockItem({ item, mouseX, onHoverStart, onHoverEnd, index = 0, totalItems = 1 }: DockItemProps) {
   const ref = useRef<HTMLButtonElement>(null);
   const [isHovered, setIsHovered] = useState(false);
+  const reduceMotion = useReducedMotion();
   const { mode } = useTheme();
   const isLight = mode === 'light';
 
@@ -76,6 +79,9 @@ function DockItem({ item, mouseX, onHoverStart, onHoverEnd, index = 0, totalItem
     <motion.div
       style={{ marginLeft, marginRight }}
       className={item.className}
+      initial={reduceMotion ? false : { opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1], delay: 0.65 + index * 0.06 }}
     >
       <motion.button
         ref={ref}
@@ -83,6 +89,8 @@ function DockItem({ item, mouseX, onHoverStart, onHoverEnd, index = 0, totalItem
         onClick={item.disabled ? undefined : item.onClick}
         disabled={item.disabled}
         style={{ width: size, height: size }}
+        whileTap={reduceMotion || item.disabled ? undefined : { scale: 0.92 }}
+        transition={{ duration: 0.15, ease: 'easeOut' }}
         onMouseEnter={() => {
           if (item.disabled) return;
           setIsHovered(true);
@@ -97,7 +105,7 @@ function DockItem({ item, mouseX, onHoverStart, onHoverEnd, index = 0, totalItem
         onTouchEnd={() => { if (!item.disabled) onHoverEnd?.(); }}
         onFocus={() => { if (!item.disabled) { setIsHovered(true); onHoverStart?.(item.name); } }}
         onBlur={() => { if (!item.disabled) { setIsHovered(false); onHoverEnd?.(); } }}
-        className={`relative inline-flex items-center justify-center rounded-2xl overflow-hidden transition-all duration-100 ${
+        className={`relative inline-flex items-center justify-center rounded-2xl overflow-hidden transition-all duration-200 ${
           item.disabled 
             ? 'opacity-40 cursor-not-allowed border border-slate-700/30 bg-slate-900/50' 
             : `cursor-pointer shadow-lg ${isLight ? 'bg-white/75' : 'bg-slate-950/75'} ${isHovered ? 'border-2 border-emerald-400 shadow-emerald-400/40' : 'border border-emerald-500/40 shadow-emerald-500/20'}`
@@ -116,6 +124,7 @@ function DockItem({ item, mouseX, onHoverStart, onHoverEnd, index = 0, totalItem
 
 export default function PlatformDock({ items, className = '' }: PlatformDockProps) {
   const mouseX = useMotionValue(Infinity);
+  const reduceMotion = useReducedMotion();
   const [isHovered, setIsHovered] = useState(false);
   const [activeName, setActiveName] = useState<string | null>(null);
 
@@ -132,6 +141,9 @@ export default function PlatformDock({ items, className = '' }: PlatformDockProp
         onTouchStart={() => setIsHovered(true)}
         onTouchEnd={() => { setIsHovered(false); setActiveName(null); }}
         className="flex items-center gap-2"
+        initial={reduceMotion ? false : { opacity: 0, y: 24 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1], delay: 0.6 }}
       >
         <div className="flex flex-col items-center gap-3 rounded-2xl px-5 py-3">
           <div className="flex items-end">
