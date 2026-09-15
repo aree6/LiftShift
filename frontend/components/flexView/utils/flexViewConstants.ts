@@ -1,4 +1,5 @@
 export type FlexCardId =
+  | 'receipt'
   | 'summary'
   | 'volume'
   | 'year-heatmap'
@@ -9,6 +10,7 @@ export type FlexCardId =
   | 'streak';
 
 export const FLEX_CARDS: { id: FlexCardId; label: string }[] = [
+  { id: 'receipt', label: 'Receipt' },
   { id: 'volume', label: 'Volume Comparison' },
   { id: 'best-month', label: 'Best Month' },
   { id: 'summary', label: 'Summary' },

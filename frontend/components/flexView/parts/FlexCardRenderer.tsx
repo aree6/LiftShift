@@ -7,6 +7,7 @@ import type { BodyMapGender } from '../../bodyMap/BodyMap';
 import { BestMonthCard } from '../ui/BestMonthCard';
 import { MuscleFocusCard } from '../ui/MuscleFocusCard';
 import { PersonalRecordsCard } from '../ui/PersonalRecordsCard';
+import { ReceiptCard } from '../ui/ReceiptCard';
 import { StreakCard } from '../ui/StreakCard';
 import { SummaryCard } from '../ui/SummaryCard';
 import { TopExercisesCard } from '../ui/TopExercisesCard';
@@ -50,6 +51,15 @@ export const FlexCardRenderer: React.FC<FlexCardRendererProps> = ({
   effectiveNow,
 }) => {
   switch (cardId) {
+    case 'receipt':
+      return (
+        <ReceiptCard
+          data={data}
+          weightUnit={weightUnit}
+          effectiveNow={effectiveNow}
+          streakWeeks={streakInfo?.currentStreak ?? 0}
+        />
+      );
     case 'summary':
       return (
         <SummaryCard
