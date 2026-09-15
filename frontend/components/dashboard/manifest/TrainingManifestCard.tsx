@@ -7,7 +7,7 @@ import type { WeightUnit } from '../../../utils/storage/localStorage';
 import { MUSCLE_GROUP_TO_SVG_IDS } from '../../../utils/muscle/mapping/muscleGroupMappings';
 import type { ExerciseAsset } from '../../../utils/data/exerciseAssets';
 import { computeDailySvgMuscleVolumes } from '../../../utils/muscle/volume/rollingVolumeDaily';
-import { toHeadlessVolumeMap } from '../../../utils/muscle/volume/muscleVolumeUtils';
+import { toMuscleVolumeMap } from '../../../utils/muscle/volume/muscleVolumeUtils';
 import { formatDisplayVolume } from '../../../utils/format/volumeDisplay';
 import { convertWeight } from '../../../utils/format/units';
 import { stripExerciseSourceLabel } from '../../../utils/exercise/exerciseSourceLabel';
@@ -110,7 +110,7 @@ export const TrainingManifestCard: React.FC<TrainingManifestCardProps> = ({
         for (const [id, v] of day.muscles) totals.set(id, (totals.get(id) ?? 0) + v);
       }
     }
-    const headless = toHeadlessVolumeMap(totals);
+    const headless = toMuscleVolumeMap(totals);
     let max = 0;
     for (const v of headless.values()) max = Math.max(max, v);
     return { totals, headless, max };
@@ -422,7 +422,6 @@ export const TrainingManifestCard: React.FC<TrainingManifestCardProps> = ({
                     maxVolume={Math.max(1, periodVolumes.max)}
                     compact
                     compactFill
-                    viewMode="headless"
                     gender={bodyMapGender}
                     stroke={{ width: 5, color: '#332B1C', opacity: 0.85 }}
                   />
