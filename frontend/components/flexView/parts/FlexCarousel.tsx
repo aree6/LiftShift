@@ -96,16 +96,16 @@ export const FlexCarousel: React.FC<FlexCarouselProps> = ({ cards, onSelectCard,
     <div className="relative w-full mt-10">
       <div
         ref={scrollRef}
-        className="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide gap-3 pb-20 px-3 cursor-grab active:cursor-grabbing select-none"
+        className="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide gap-3 pb-20 px-3 cursor-grab active:cursor-grabbing select-none items-stretch"
         style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
       >
         {cards.map((card) => (
           <div
             key={card.id}
-            className="flex-shrink-0 w-[calc(100%-2rem)] max-w-md snap-center mx-auto cursor-pointer"
+            className="flex-shrink-0 w-[calc(100%-2rem)] max-w-md snap-center mx-auto cursor-pointer self-stretch flex flex-col"
             onClick={() => onSelectCard(card.id)}
           >
-            <LazyRender className="w-full" placeholder={<FlexCarouselPlaceholder />} rootMargin="600px 0px">
+            <LazyRender className="w-full h-full flex-1" placeholder={<FlexCarouselPlaceholder />} rootMargin="600px 0px">
               {renderCard(card.id)}
             </LazyRender>
           </div>

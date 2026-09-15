@@ -97,45 +97,35 @@ export const YearlyHeatmapCard: React.FC<{
   }, [daySetCount, effectiveNow, rangeStart, selectedYear]);
 
   const monthsCount = months.length;
-  const isUltraDense = monthsCount >= 10;
-  const isCompact = monthsCount >= 7;
-  const monthColsForDensity = isCompact ? 4 : 3;
+  // Cap the grid at 3 rows so card height never grows: 10-12 months switch to
+  // 4 columns (still 3 rows) with smaller month boxes instead of adding a row.
+  const monthColsForDensity = monthsCount >= 10 ? 4 : 3;
   const monthRows = Math.max(1, Math.ceil(monthsCount / monthColsForDensity));
   const isDense = monthRows >= 3;
-  const isVeryDense = monthRows >= 4;
+  const isFourCol = monthColsForDensity === 4;
 
-  const monthGridColsClass = isCompact ? 'grid-cols-4 md:grid-cols-5 lg:grid-cols-4' : 'grid-cols-3';
-  const monthGridGapX = isUltraDense ? 'gap-x-2' : isVeryDense ? 'gap-x-2' : isDense ? 'gap-x-3' : 'gap-x-6';
-  const monthGridGapY = isUltraDense ? 'gap-y-2' : isVeryDense ? 'gap-y-2' : isDense ? 'gap-y-3' : 'gap-y-6';
-  const monthLabelClass = isUltraDense
-    ? 'text-[10px] sm:text-xs mb-0.5'
-    : isVeryDense
-      ? 'text-[10px] sm:text-xs mb-0.5'
-      : isDense
-        ? 'text-xs mb-1'
-        : 'text-sm mb-2';
-  const cellGapClass = isUltraDense ? 'gap-0.5' : isVeryDense ? 'gap-0.5' : isDense ? 'gap-0.5' : 'gap-1';
-  const headerGapClass = isDense ? 'mb-4' : 'mb-6';
-  const contentPadClass = isDense ? 'pt-5 pb-12' : 'pt-6 pb-14';
-  const monthGridMaxWClass = isUltraDense
-    ? 'max-w-[80px] lg:max-w-[120px]'
-    : isVeryDense
-      ? 'max-w-[84px]'
-      : isDense
-        ? 'max-w-[96px]'
-        : 'max-w-[120px]';
-  const headlineCountClass = isUltraDense
-    ? 'text-4xl sm:text-5xl'
-    : isVeryDense
-      ? 'text-4xl sm:text-5xl'
-      : isDense
-        ? 'text-5xl sm:text-6xl'
-        : 'text-6xl sm:text-7xl';
+  // Fixed col count per density (no viewport breakpoints: card width is capped
+  // at max-w-md in the carousel, so md:/lg: only shrank cells without space).
+  // Compact spacing so 7-12 months fit the shared 500px card height.
+  const monthGridColsClass = isFourCol ? 'grid-cols-4' : 'grid-cols-3';
+  const monthGridGapX = isFourCol ? 'gap-x-2' : isDense ? 'gap-x-3' : 'gap-x-6';
+  const monthGridGapY = isDense ? 'gap-y-2' : 'gap-y-6';
+  const monthLabelClass = isFourCol
+    ? 'text-[10px] mb-0.5'
+    : isDense
+      ? 'text-[11px] mb-0.5'
+      : 'text-sm mb-2';
+  const cellGapClass = isFourCol ? 'gap-0.5' : isDense ? 'gap-[3px]' : 'gap-1';
+  const headerGapClass = isDense ? 'mb-3' : 'mb-6';
+  const contentPadClass = isDense ? 'pt-5 pb-14' : 'pt-6 pb-14';
+  const subheadClass = isDense ? 'text-sm sm:text-base' : 'text-base sm:text-lg';
+  const monthGridMaxWClass = isFourCol ? 'max-w-[84px]' : isDense ? 'max-w-[104px]' : 'max-w-[120px]';
+  const headlineCountClass = isDense ? 'text-4xl sm:text-5xl' : 'text-6xl sm:text-7xl';
 
   return (
-    <FlexCard theme={theme} className="h-[500px] flex flex-col">
-      <div className={`relative z-[1] px-4 sm:px-6 ${contentPadClass} flex flex-col items-center text-center flex-1`}>
-        <div className="w-full flex items-start justify-between gap-3 mb-4">
+    <FlexCard theme={theme} className="h-[500px] max-h-[500px] flex flex-col overflow-hidden">
+      <div className={`relative z-[1] px-4 sm:px-6 ${contentPadClass} flex flex-col items-center text-center flex-1 w-full`}>
+        <div className="w-full flex items-start justify-between gap-3 mb-3">
           <div className="text-left">
             <div className={`text-xs font-semibold uppercase tracking-widest ${textMuted}`}>Highlights</div>
             <div className={`text-lg sm:text-xl font-bold ${textPrimary}`} style={FANCY_FONT}>
@@ -147,13 +137,13 @@ export const YearlyHeatmapCard: React.FC<{
         <div className={`${headlineCountClass} font-black ${textPrimary} mb-1 leading-none`} style={FANCY_FONT_NUMBERS}>
           <CountUp from={0} to={workoutsThisYear} separator="," direction="up" duration={1} />
         </div>
-        <div className={`text-base sm:text-lg ${textSecondary} ${headerGapClass}`}>
+        <div className={` ${textSecondary} ${headerGapClass} ${subheadClass}`}>
           Workouts this year
         </div>
 
-        <div className={`w-full min-w-0 grid ${monthGridColsClass} ${monthGridGapX} ${monthGridGapY}`}>
+        <div className={`w-full min-w-0 grid justify-items-center justify-center ${monthGridColsClass} ${monthGridGapX} ${monthGridGapY}`}>
           {months.map(({ monthIndex, cells }) => (
-            <div key={monthIndex} className={monthGridMaxWClass}>
+            <div key={monthIndex} className={`w-full min-w-0 flex flex-col items-center ${monthGridMaxWClass}`}>
               <div className={`text-center ${monthLabelClass} font-semibold ${textMuted}`}>
                 {MONTH_SHORT[monthIndex]}
               </div>
