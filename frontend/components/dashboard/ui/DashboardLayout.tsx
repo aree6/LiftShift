@@ -77,6 +77,7 @@ interface DashboardLayoutProps {
   tooltipStyle: any;
   fullData: WorkoutSet[];
   exerciseStats: ExerciseStats[];
+  secondarySetMultiplier?: number;
   animationKeyframes: string;
   hypertrophyData: any[];
   hypertrophyData30d?: any[];
@@ -156,6 +157,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = (props) => {
     tooltipStyle,
     fullData,
     exerciseStats,
+    secondarySetMultiplier = 0.5,
     animationKeyframes,
     hypertrophyData,
     hypertrophyData30d,
@@ -192,6 +194,9 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = (props) => {
           assetsMap={assetsMap}
           assetsLowerMap={assetsLowerMap}
           dailyData={dailyData}
+          fullData={fullData}
+          bodyMapGender={bodyMapGender}
+          secondarySetMultiplier={secondarySetMultiplier}
           timelineProgress={timelineProgress}
           weeklySetsDashboard={weeklySetsDashboard}
           weeklySetsDashboard30d={weeklySetsDashboard30d}

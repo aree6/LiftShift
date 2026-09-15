@@ -484,6 +484,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       tooltipStyle={TooltipStyle as any}
       fullData={filteredData}
       exerciseStats={exerciseStats}
+      secondarySetMultiplier={secondarySetMultiplier}
       animationKeyframes={ANIMATION_KEYFRAMES}
       hypertrophyData={hypertrophyData}
       hypertrophyData30d={hypertrophyData30d}

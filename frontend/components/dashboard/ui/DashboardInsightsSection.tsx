@@ -2,10 +2,12 @@ import React from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { InsightsPanel, PlateauAlert, RecentPRsPanel } from '../../insights/InsightCards';
 import { ActivityHeatmap } from './ActivityHeatmap';
+import { TrainingManifestCard } from '../manifest/TrainingManifestCard';
 import { TrainingTimelineCard } from '../trainingTimeline/TrainingTimelineCard';
 import { DashboardSummaryCard } from './DashboardSummaryCard';
 import type { WeightUnit } from '../../../utils/storage/localStorage';
-import type { DailySummary } from '../../../types';
+import type { DailySummary, WorkoutSet } from '../../../types';
+import type { BodyMapGender } from '../../bodyMap/BodyMap';
 import type { TimelineProgress } from '../../../utils/training/trainingTimeline';
 import type { DashboardSummaryResult } from '../../../utils/analysis/dashboardSummary/dashboardSummary';
 import type { WeeklySetsDashboardResult } from '../../../utils/muscle/analytics/dashboardWeeklySets';
@@ -25,6 +27,9 @@ interface DashboardInsightsSectionProps {
   assetsMap?: Map<string, any> | null;
   assetsLowerMap?: Map<string, any> | null;
   dailyData: DailySummary[];
+  fullData: WorkoutSet[];
+  bodyMapGender?: BodyMapGender;
+  secondarySetMultiplier?: number;
   timelineProgress: TimelineProgress;
   weeklySetsDashboard: WeeklySetsDashboardResult | null;
   weeklySetsDashboard30d: WeeklySetsDashboardResult | null;
@@ -45,6 +50,9 @@ export const DashboardInsightsSection: React.FC<DashboardInsightsSectionProps> =
   assetsMap,
   assetsLowerMap,
   dailyData,
+  fullData,
+  bodyMapGender = 'male',
+  secondarySetMultiplier = 0.5,
   timelineProgress,
   weeklySetsDashboard,
   weeklySetsDashboard30d,
@@ -115,6 +123,17 @@ export const DashboardInsightsSection: React.FC<DashboardInsightsSectionProps> =
       consistencySparkline={dashboardInsights.consistencySparkline}
       onDayClick={onDayClick}
       now={effectiveNow}
+    />
+
+    <TrainingManifestCard
+      fullData={fullData}
+      dailyData={dailyData}
+      weightUnit={weightUnit}
+      effectiveNow={effectiveNow}
+      assetsMap={assetsMap}
+      bodyMapGender={bodyMapGender}
+      secondarySetMultiplier={secondarySetMultiplier}
+      onExerciseClick={onExerciseClick}
     />
   </>
 );
