@@ -364,7 +364,7 @@ export const HowItWorksDoc: React.FC<Props> = ({ className = '', showTitle = tru
       {/* Mobile: sticky section chips + full-contents dropdown. The section
           itself renders on the plain page scroll below, with no inner scroll pane. */}
       <div className="lg:hidden sticky top-0 z-20 -mx-1 px-1 pt-1">
-        <div className={`flex items-center gap-2 rounded-2xl border px-2 py-2 backdrop-blur-md ${isLight ? 'border-black/10 bg-white/90' : 'border-white/10 bg-[#0b0f16]/90'}`}>
+        <div className={`flex items-center gap-2 rounded-2xl border px-2 py-2 shadow-lg backdrop-blur-md ${isLight ? 'border-black/10 bg-white/60' : 'border-white/10 bg-slate-950/60'}`}>
           <div className="flex flex-1 gap-2 overflow-x-auto py-0.5" style={{ scrollbarWidth: 'none' }}>
             {HOW_IT_WORKS_SECTIONS.map((s) => {
               const isActive = s.id === mobileSectionId;
@@ -376,10 +376,12 @@ export const HowItWorksDoc: React.FC<Props> = ({ className = '', showTitle = tru
                   onClick={() => handleMobileSelect(s.id)}
                   className={`shrink-0 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
                     isActive
-                      ? 'border-emerald-500/50 bg-emerald-500/20 text-emerald-200'
+                      ? isLight
+                        ? 'border-emerald-600/40 bg-emerald-500/15 text-emerald-700'
+                        : 'border-emerald-500/40 bg-emerald-500/15 text-emerald-200'
                       : isLight
-                        ? 'border-black/10 bg-black/5 text-slate-600'
-                        : 'border-white/10 bg-white/5 text-slate-300'
+                        ? 'border-black/10 bg-transparent text-slate-600 hover:bg-black/5'
+                        : 'border-white/10 bg-transparent text-slate-300 hover:bg-white/5'
                   }`}
                 >
                   {s.sidebarTitle ?? s.title}
@@ -392,10 +394,10 @@ export const HowItWorksDoc: React.FC<Props> = ({ className = '', showTitle = tru
             aria-expanded={mobileTocOpen}
             aria-label="All sections"
             onClick={() => setMobileTocOpen((prev) => !prev)}
-            className={`shrink-0 p-2.5 rounded-xl border-2 transition-colors ${
+            className={`shrink-0 p-2.5 rounded-xl border transition-colors ${
               isLight
-                ? 'border-black/30 text-slate-600 hover:bg-black/5'
-                : 'border-white/30 text-slate-300 hover:bg-white/5'
+                ? 'border-black/15 bg-black/5 text-slate-600 hover:bg-black/10'
+                : 'border-white/15 bg-white/5 text-slate-300 hover:bg-white/10'
             }`}
           >
             {mobileTocOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -410,9 +412,9 @@ export const HowItWorksDoc: React.FC<Props> = ({ className = '', showTitle = tru
             type="button"
             aria-label="Close sections"
             onClick={() => setMobileTocOpen(false)}
-            className="fixed inset-0 z-40 cursor-default bg-black/50"
+            className="fixed inset-0 z-40 cursor-default bg-black/40"
           />
-          <div className={`fixed inset-x-4 top-20 z-50 max-h-[65dvh] overflow-y-auto rounded-2xl border p-2 ${isLight ? 'border-black/10 bg-white' : 'border-white/10 bg-[#111722]'}`}>
+          <div className={`fixed inset-x-4 top-20 z-50 max-h-[65dvh] overflow-y-auto rounded-2xl border p-2 shadow-2xl backdrop-blur-xl ${isLight ? 'border-black/10 bg-white/75' : 'border-white/10 bg-slate-950/75'}`}>
             <div className="flex items-center justify-between px-3 py-2">
               <span className="text-xs font-bold uppercase tracking-widest text-slate-500">Contents</span>
               <button
@@ -438,7 +440,7 @@ export const HowItWorksDoc: React.FC<Props> = ({ className = '', showTitle = tru
                       i.depth === 0
                         ? 'text-[13px] font-semibold tracking-wide text-emerald-400'
                         : `text-[13px] ${isLight ? 'text-slate-600' : 'text-slate-400'}`,
-                      isActive ? 'text-emerald-300' : '',
+                      isActive ? (isLight ? 'text-emerald-700' : 'text-emerald-300') : '',
                       isLight ? 'border-slate-200/60' : 'border-slate-800/40',
                     ].join(' ')}
                   >
