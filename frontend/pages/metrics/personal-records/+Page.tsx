@@ -18,7 +18,7 @@ function Page() {
             A personal record in LiftShift is the best performance you\u2019ve logged for a given exercise, measured across your entire training history. LiftShift tracks PRs by three metrics: heaviest weight lifted for a given rep count, highest estimated 1RM, and highest single-set volume (weight \u00d7 reps) for the exercise.
           </p>
           <p className="text-slate-300 leading-relaxed mb-4">
-            A PR is set-specific \u2014 benching 100 kg for 5 reps and benching 90 kg for 10 reps are different performances. LiftShift records the best combination of weight and reps you\u2019ve achieved, not just the heaviest single rep.
+            A PR is set-specific. Benching 100 kg for 5 reps and benching 90 kg for 10 reps are different performances. LiftShift records the best combination of weight and reps you\u2019ve achieved, not just the heaviest single rep.
           </p>
         </section>
 
@@ -41,10 +41,10 @@ function Page() {
         <section>
           <h2 className="text-lg font-semibold text-white mb-3">PR droughts and frequency</h2>
           <p className="text-slate-300 leading-relaxed mb-4">
-            LiftShift tracks how long it\u2019s been since your last PR for each exercise and alerts you to PR droughts. A PR drought isn\u2019t necessarily a problem \u2014 it may mean you\u2019re in a maintenance phase or focusing on other exercises. But if you\u2019re trying to progress and haven\u2019t hit a PR in a while, it\u2019s a data point worth investigating.
+            LiftShift tracks how long it\u2019s been since your last PR for each exercise and alerts you to PR droughts. A PR drought isn\u2019t necessarily a problem, it may mean you\u2019re in a maintenance phase or focusing on other exercises. But if you\u2019re trying to progress and haven\u2019t hit a PR in a while, it\u2019s a data point worth investigating.
           </p>
           <p className="text-slate-300 leading-relaxed mb-4">
-            PR frequency varies naturally. Beginners hit PRs frequently. Intermediate lifters see them less often. Advanced lifters may go months between PRs. LiftShift doesn\u2019t judge \u2014 it just reports what your data shows.
+            PR frequency varies naturally. Beginners hit PRs frequently. Intermediate lifters see them less often. Advanced lifters may go months between PRs. LiftShift doesn\u2019t judge. It just reports what your data shows.
           </p>
         </section>
 

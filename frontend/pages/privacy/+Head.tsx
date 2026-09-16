@@ -8,7 +8,7 @@ import config from './+config';
 const SCHEMA = JSON.stringify({
   '@context': 'https://schema.org',
   '@type': 'WebPage',
-  'name': 'LiftShift Privacy — How Your Workout Data Stays Private',
+  'name': 'LiftShift Privacy: How Your Workout Data Stays Private',
   'description': 'LiftShift processes workout analytics locally in your browser. Learn what is stored locally and what is never stored on LiftShift servers.',
   'url': 'https://liftshift.app/privacy/',
 });

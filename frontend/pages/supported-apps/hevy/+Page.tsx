@@ -9,7 +9,7 @@ function Page() {
     <InfoShell
       activeNav={null}
       title="Hevy"
-      subtitle="LiftShift gives you analytics Hevy\u2019s built-in charts don\u2019t offer \u2014 muscle heatmaps, plateau detection, set-by-set feedback, and AI-ready exports. Here\u2019s how to connect your Hevy data."
+      subtitle="LiftShift gives you muscle heatmaps, plateau detection, set-by-set feedback, and AI-ready exports that Hevy\u2019s built-in charts don\u2019t offer. Here\u2019s how to connect your Hevy data."
     >
       <div className="space-y-7">
         <section>
@@ -70,7 +70,7 @@ function Page() {
 
           <h3 className="text-base font-semibold text-white mb-2">Units</h3>
           <p className="text-slate-300 leading-relaxed mb-4">
-            Hevy stores all weights in kilograms internally. LiftShift displays weights in the unit you choose in your dashboard settings. If your Hevy profile uses pounds, the CSV export still contains kilograms \u2014 LiftShift converts them to your preferred unit during import. Make sure your unit preference is set correctly in LiftShift\u2019s settings before importing.
+            Hevy stores all weights in kilograms internally. LiftShift displays weights in the unit you choose in your dashboard settings. If your Hevy profile uses pounds, the CSV export still contains kilograms. LiftShift converts them to your preferred unit during import. Make sure your unit preference is set correctly in LiftShift\u2019s settings before importing.
           </p>
         </section>
 
@@ -88,7 +88,7 @@ function Page() {
             <li><a href={assetPath('metrics/personal-records/')} className="text-emerald-300/80 hover:text-emerald-400 transition-colors duration-200">Personal records (PRs)</a>: All-time bests, 1-month bests, and premature PR detection with drought alerts.</li>
             <li><a href={assetPath('metrics/one-rep-max/')} className="text-emerald-300/80 hover:text-emerald-400 transition-colors duration-200">1RM estimates</a>: Estimated one-rep max for every exercise, updated after each workout.</li>
             <li><a href={assetPath('metrics/muscle-heatmap/')} className="text-emerald-300/80 hover:text-emerald-400 transition-colors duration-200">Muscle heatmaps</a>: Visual breakdown of which muscles your training emphasises, with 7-day rolling windows and volume zone scoring.</li>
-            <li>Set-by-set feedback with 19 coaching scenarios \u2014 badges, tooltips, and suggestions based on your performance quality.</li>
+            <li>Set-by-set feedback with 19 coaching scenarios, badges, tooltips, and suggestions based on your performance quality.</li>
             <li>GitHub-style yearly consistency heatmap showing streaks, consistency scores, and workout day highlights.</li>
           </ul>
         </section>

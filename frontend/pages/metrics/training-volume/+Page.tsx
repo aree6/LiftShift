@@ -67,7 +67,7 @@ function Page() {
         <section>
           <h2 className="text-lg font-semibold text-white mb-3">Volume vs. muscle growth</h2>
           <p className="text-slate-300 leading-relaxed mb-4">
-            Higher volume is not always better. Research suggests there\u2019s a per-session volume ceiling beyond which additional sets provide diminishing returns and may increase fatigue without additional stimulus. LiftShift doesn\u2019t prescribe how much volume you should do \u2014 it shows you what you\u2019re actually doing so you can compare it against your own goals and reference research.
+            Higher volume is not always better. Training research points to a per-session volume ceiling beyond which additional sets provide diminishing returns and may increase fatigue without additional stimulus. LiftShift doesn\u2019t prescribe how much volume you should do. It shows you what you\u2019re actually doing so you can compare it against your own goals and reference research.
           </p>
         </section>
 
@@ -89,9 +89,9 @@ function Page() {
         <section>
           <h2 className="text-lg font-semibold text-white mb-3">Caveats</h2>
           <ul className="list-disc list-inside space-y-1 text-slate-300 leading-relaxed">
-            <li>Volume counts all sets equally \u2014 a warm-up set of 10 rep counts the same as a working set to failure. LiftShift\u2019s set-type labels help distinguish these, but total volume is a blunt measurement.</li>
+            <li>Volume counts all sets equally (a warm-up set of 10 rep counts the same as a working set to failure). LiftShift\u2019s set-type labels help distinguish these, but total volume is a blunt measurement.</li>
             <li>Volume doesn\u2019t account for proximity to failure, tempo, or range of motion. Two workouts with identical volume numbers can produce very different training effects.</li>
-            <li>Bodyweight exercises are included in volume if you\u2019ve logged a weight. If you don\u2019t log bodyweight for pull-ups or dips, those exercises contribute zero volume \u2014 which undercounts your actual work.</li>
+            <li>Bodyweight exercises are included in volume if you\u2019ve logged a weight. If you don\u2019t log bodyweight for pull-ups or dips, those exercises contribute zero volume, which undercounts your actual work.</li>
             <li>Volume alone is not a measure of workout quality. Use it as one data point among many.</li>
           </ul>
         </section>

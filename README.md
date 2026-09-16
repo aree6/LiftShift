@@ -48,7 +48,7 @@ Everything runs locally in your browser. No account needed. Sync your data throu
 
 **Muscle heatmaps:** an interactive body map that shows which muscles you train and how much. Click any muscle to see the exact exercises that built it. Tracks weekly volume, volume zones (MEV/MRV thresholds that scale with your training age), and a 0-100 hypertrophy score per muscle. Supports male and female silhouettes.
 
-**PR tracking:** seven types of personal records — weight, 1RM, set volume, session volume, reps, weighted reps, and distance — in gold (all-time best) and silver (1-month best) tiers. Plus premature PR detection (big jumps you couldn't sustain), PR droughts, and your PR hit rate per week.
+**PR tracking:** seven types of personal records (weight, 1RM, set volume, session volume, reps, weighted reps, and distance) in gold (all-time best) and silver (1-month best) tiers. Plus premature PR detection (big jumps you couldn't sustain), PR droughts, and your PR hit rate per week.
 
 **Plateau detection:** every exercise gets a status, like Getting stronger, Plateauing, or Taking a dip, with a confidence level based on how many sessions you've logged. When you stall, LiftShift tells you what to try: add a rep, bump the weight, deload, or switch up the rep scheme. Distinguishes between static plateaus (weight and reps both frozen) and general plateaus (flat trend but still varying).
 

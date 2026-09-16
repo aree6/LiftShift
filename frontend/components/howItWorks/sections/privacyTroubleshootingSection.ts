@@ -74,7 +74,7 @@ export const TROUBLESHOOTING_SECTION: HowItWorksSection = {
         {
           type: 'p',
           text:
-            'If your charts look wrong, check for inconsistent exercise names — "Bench Press" vs "Barbell Bench" vs "Flat Bench" will be treated as different exercises. LiftShift uses fuzzy matching, but significant variations may not be normalized. Standardize your naming in your logging app.',
+            'If your charts look wrong, check for inconsistent exercise names: "Bench Press" vs "Barbell Bench" vs "Flat Bench" will be treated as different exercises. LiftShift uses fuzzy matching, but significant variations may not be normalized. Standardize your naming in your logging app.',
         },
       ],
     },
@@ -98,7 +98,7 @@ export const TROUBLESHOOTING_SECTION: HowItWorksSection = {
         {
           type: 'p',
           text:
-            'If weights are showing incorrectly (e.g., 100 kg bench press when you lift 100 lbs), check your import preferences. CSV files sometimes embed units in headers like "Weight (kg)" — LiftShift tries to detect this automatically. You can also manually select kg or lbs during import.',
+            'If weights are showing incorrectly (e.g., 100 kg bench press when you lift 100 lbs), check your import preferences. CSV files sometimes embed units in headers like "Weight (kg)". LiftShift tries to detect this automatically. You can also manually select kg or lbs during import.',
         },
       ],
     },

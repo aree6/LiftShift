@@ -26,7 +26,7 @@ function Page() {
 
         <div className="rounded-2xl border border-emerald-500/25 bg-emerald-500/10 p-4 mt-6">
           <p className="text-slate-300 text-sm leading-relaxed">
-            <strong className="text-white">Important:</strong> LiftShift\u2019s metrics are analytical tools \u2014 they describe what your data shows, not what you should do next. The analytics dashboard is not a coach. Use the numbers to inform your decisions, not to replace your judgment.
+            <strong className="text-white">Important:</strong> LiftShift\u2019s metrics are analytical tools, they describe what your data shows, not what you should do next. The analytics dashboard is not a coach. Use the numbers to inform your decisions, not to replace your judgment.
           </p>
         </div>
       </div>

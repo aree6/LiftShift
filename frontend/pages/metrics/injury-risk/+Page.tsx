@@ -15,7 +15,7 @@ function Page() {
         <section>
           <h2 className="text-lg font-semibold text-white mb-3">What the score means</h2>
           <p className="text-slate-300 leading-relaxed mb-4">
-            The Injury Risk card scores every joint you train from 0 to 100 percent. Lower is safer. The score is an estimate of how much recent training stress a joint is under &mdash; it is not a prediction of injury and not medical advice. A spike above 40 percent suggests considering a deload or rebalancing your program.
+            The Injury Risk card scores every joint you train from 0 to 100 percent. Lower is safer. The score is an estimate of how much recent training stress a joint is under. It is not a prediction of injury and not medical advice. A spike above 40 percent suggests considering a deload or rebalancing your program.
           </p>
           <p className="text-slate-300 leading-relaxed mb-4">
             The score combines three factors, each shown color-coded in the card: <strong className="text-white">workload</strong> (this week&rsquo;s sets vs. your 4-week average, mirroring the acute:chronic workload ratio), <strong className="text-white">recovery</strong> (back-to-back days training the same joint), and <strong className="text-white">balance</strong> (volume ratio between an antagonist pair, e.g. quads vs. hamstrings).

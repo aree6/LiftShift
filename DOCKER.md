@@ -14,7 +14,7 @@ Open `http://localhost:3000`. Backend health (via the frontend proxy): `http://l
 
 To stop: `Ctrl+C`, then `docker compose down`.
 
-> Already have a `.env` for local dev (`npm run dev`)? Don't overwrite it —
+> Already have a `.env` for local dev (`npm run dev`)? Don't overwrite it.
 > `--env-file` above leaves your `.env` untouched. If you prefer the classic
 > flow, back yours up first: `cp .env .env.backup && cp .env.docker.example .env`
 > (restore with `mv .env.backup .env` when done testing Docker).
@@ -56,7 +56,7 @@ Rule of thumb: if the log shows `CACHED` next to most steps, you're on the fast 
 Community Docker images contain **no analytics, ads, or affiliate tags**:
 
 - No PostHog, no Google Analytics (hard-disabled at image build; keys can't be baked in).
-- No `ads.txt`, no affiliate verification meta — stripped during the image build.
+- No `ads.txt`, no affiliate verification meta. Both are stripped during the image build.
 - The `/ingest` analytics proxy doesn't exist in self-host Nginx.
 
 The official `liftshift.app` hosting still uses analytics to understand usage; your self-hosted copy phones home nowhere. Verify any time in devtools → Network: no requests to google/posthog/impact domains.
@@ -66,7 +66,7 @@ The official `liftshift.app` hosting still uses analytics to understand usage; y
 | Service | Image | Host port | Notes |
 |---|---|---|---|
 | `frontend` | Nginx serving `dist/client` | `3000` (`FRONTEND_PORT`) | Single public entrypoint. Proxies `/api/*` to backend (same-origin, no CORS). |
-| `backend` | Node + Express + Chromium | none (internal only) | Hevy/Lyfta proxy. Reached via the frontend; not published to your machine, so host port 5000 — often taken by macOS AirPlay Receiver — can never collide. |
+| `backend` | Node + Express + Chromium | none (internal only) | Hevy/Lyfta proxy. Reached via the frontend; not published to your machine, so host port 5000 (often taken by macOS AirPlay Receiver) can never collide. |
 
 No database or volumes. Workouts stay in your browser (`localStorage`); the backend is stateless.
 
@@ -133,8 +133,8 @@ curl -f http://localhost:3000/api/health
 
 ## Troubleshooting
 
-- **Frontend port busy (`address already in use` on 3000):** your Vite dev server or another app holds it — set `FRONTEND_PORT=3001` in `.env` (or stop the other process).
-- **Backend port busy:** no longer possible by default — the backend publishes no host port. If you uncommented `ports:` for debugging, pick a free host port.
+- **Frontend port busy (`address already in use` on 3000):** your Vite dev server or another app holds it. Set `FRONTEND_PORT=3001` in `.env` (or stop the other process).
+- **Backend port busy:** no longer possible by default. The backend publishes no host port. If you uncommented `ports:` for debugging, pick a free host port.
 - **Backend unhealthy / Chromium slow:** first start launches Chromium; allow 40s. Check `docker logs liftshift-backend`.
 - **Hevy login 401:** upstream Hevy error; `HEVY_X_API_KEY` missing or wrong in `.env`.
 - **Apple Silicon:** images are `amd64+arm64`; pull gets the right arch automatically.

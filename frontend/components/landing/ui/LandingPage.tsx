@@ -322,7 +322,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSelectPlatform, onTr
                   </div>
                   <h3 className={`text-2xl font-bold ${isLight ? 'text-slate-900' : 'text-slate-200'} mb-3`}><PopIn text="Per-joint injury risk" animateOnView overshoot={1.12} /></h3>
                   <p className={`${isLight ? 'text-slate-600' : 'text-slate-400'} leading-relaxed mb-3`}>
-                    LiftShift scores every joint from 0 to 100 percent, combining your workload ratio (this week vs. your 4-week average), back-to-back recovery days, and antagonist muscle balance. A spike above 40 is a cue to consider a deload &mdash; a load-management hint, not a diagnosis.
+                    LiftShift scores every joint from 0 to 100 percent, combining your workload ratio (this week vs. your 4-week average), back-to-back recovery days, and antagonist muscle balance. A spike above 40 is a cue to consider a deload. It is a load-management hint, not a diagnosis.
                   </p>
                   <p className="text-slate-500 text-sm">
                     Workload ratio &middot; Recovery days &middot; Antagonist balance &middot; 0-100 risk score
@@ -341,7 +341,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSelectPlatform, onTr
                   </div>
                   <h3 className={`text-2xl font-bold ${isLight ? 'text-slate-900' : 'text-slate-200'} mb-3`}><PopIn text="Strength imbalance detection" animateOnView overshoot={1.12} /></h3>
                   <p className={`${isLight ? 'text-slate-600' : 'text-slate-400'} leading-relaxed mb-3`}>
-                    Compares your strength across 13 related exercise pairs &mdash; bench vs. press, rows vs. bench, legs vs. back &mdash; against population statistics. See your weekly trend against the typical band and whether the gap is closing or widening over the last month.
+                    Compares your strength across 13 related exercise pairs (bench vs. press, rows vs. bench, legs vs. back) against population statistics. See your weekly trend against the typical band and whether the gap is closing or widening over the last month.
                   </p>
                   <p className="text-slate-500 text-sm">
                     13 ratio pairs &middot; Typical band &middot; Monthly gap trend &middot; A hint, not a diagnosis

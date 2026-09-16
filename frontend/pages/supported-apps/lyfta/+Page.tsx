@@ -9,7 +9,7 @@ function Page() {
     <InfoShell
       activeNav={null}
       title="Lyfta"
-      subtitle="Lyfta is a powerful workout tracker, and LiftShift adds the analytics layer on top \u2014 muscle heatmaps, plateau detection, PR tracking, and AI-ready exports. Import your Lyfta data via API or CSV export \u2014 all analytics run locally in your browser."
+      subtitle="Lyfta is a powerful workout tracker, and LiftShift adds muscle heatmaps, plateau detection, PR tracking, and AI-ready exports on top. Import your Lyfta data with an API key or CSV export. All analytics run locally in your browser."
     >
       <div className="space-y-7">
         <section>
@@ -56,7 +56,7 @@ function Page() {
 
           <h3 className="text-base font-semibold text-white mb-2">Can\u2019t read export</h3>
           <p className="text-slate-300 leading-relaxed mb-4">
-            If LiftShift cannot parse your Lyfta export, first confirm you downloaded the correct file format. Lyfta may offer multiple export options \u2014 make sure you selected CSV (not JSON or another format). If the file is a valid CSV but still fails, try opening it in a text editor to check that the content looks like structured data (rows with comma-separated values). If the file appears empty or contains only headers, your Lyfta account may not have workout data to export yet.
+            If LiftShift cannot parse your Lyfta export, first confirm you downloaded the correct file format. Lyfta may offer multiple export options. Make sure you selected CSV (not JSON or another format). If the file is a valid CSV but still fails, try opening it in a text editor to check that the content looks like structured data (rows with comma-separated values). If the file appears empty or contains only headers, your Lyfta account may not have workout data to export yet.
           </p>
 
           <h3 className="text-base font-semibold text-white mb-2">Exercise names inconsistent</h3>

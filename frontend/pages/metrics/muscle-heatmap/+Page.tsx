@@ -32,7 +32,7 @@ function Page() {
             The heatmap shows volume over a rolling 7-day window by default. This means the map reflects what you\u2019ve trained in the last week, not your entire history. As older workouts fall outside the window, their volume contribution fades. This helps you see your <em>current</em> training emphasis rather than a lifetime average.
           </p>
           <p className="text-slate-300 leading-relaxed mb-4">
-            You can adjust the window size \u2014 14 days, 30 days, or a custom date range \u2014 using the calendar filter on the dashboard. Longer windows smooth out day-to-day fluctuations; shorter windows give you a real-time picture.
+            You can adjust the window size (14 days, 30 days, or a custom date range) using the calendar filter on the dashboard. Longer windows smooth out day-to-day fluctuations; shorter windows give you a real-time picture.
           </p>
         </section>
 
@@ -66,7 +66,7 @@ function Page() {
           <h2 className="text-lg font-semibold text-white mb-3">Limitations</h2>
           <ul className="list-disc list-inside space-y-1 text-slate-300 leading-relaxed">
             <li>The heatmap reflects <em>volume</em>, not <em>stimulus</em>. Two sets to failure produce a different training effect than two sets with 5 reps in reserve, even though they contribute equal volume. The heatmap treats them the same.</li>
-            <li>Exercise-to-muscle mapping is an approximation. A bench press targets the chest, front delts, and triceps \u2014 but individual technique and anthropometry affect the actual stimulus distribution. The heatmap assumes a standard distribution.</li>
+            <li>Exercise-to-muscle mapping is an approximation. A bench press targets the chest, front delts, and triceps, but individual technique and anthropometry affect the actual stimulus distribution. The heatmap assumes a standard distribution.</li>
             <li>Custom or renamed exercises may not map to any muscle and won\u2019t appear on the heatmap. Using standard exercise names from your app\u2019s built-in library produces the most accurate results.</li>
             <li>Volume zone thresholds are research-informed estimates, not precise cutoffs. The line between maintenance and growth is fuzzy in practice.</li>
             <li>The heatmap does not account for non-gym activity. Manual labour, sports, or daily movement that stresses muscles won\u2019t show up unless you log it.</li>

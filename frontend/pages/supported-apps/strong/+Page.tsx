@@ -9,7 +9,7 @@ function Page() {
     <InfoShell
       activeNav={null}
       title="Strong"
-      subtitle="Strong is a great workout logger, but its built-in charts leave you guessing. LiftShift turns your Strong CSV export into detailed analytics \u2014 muscle heatmaps, plateau detection, PR tracking, and set-by-set feedback."
+      subtitle="Strong is a great workout logger, but its built-in charts leave you guessing. LiftShift turns your Strong CSV export into muscle heatmaps, plateau detection, PR tracking, and set-by-set feedback."
     >
       <div className="space-y-7">
         <section>
@@ -18,7 +18,7 @@ function Page() {
             Strong does not offer an API, so the CSV export is the only way to bring your data into LiftShift. The export contains your full workout history including exercises, sets, reps, weights, and dates.
           </p>
           <ul className="list-disc list-inside space-y-1 text-slate-300 leading-relaxed">
-            <li><strong className="text-white">CSV import</strong>: Export your workout history from Strong as a CSV file and upload it to LiftShift. All analysis runs locally in your browser. Strong exports can vary in format \u2014 see the variants section below.</li>
+            <li><strong className="text-white">CSV import</strong>: Export your workout history from Strong as a CSV file and upload it to LiftShift. All analysis runs locally in your browser. Strong exports can vary in format. See the variants section below.</li>
           </ul>
         </section>
 
@@ -64,7 +64,7 @@ function Page() {
 
           <h3 className="text-base font-semibold text-white mb-2">Error on import</h3>
           <p className="text-slate-300 leading-relaxed mb-4">
-            If LiftShift cannot parse your Strong export, first check the delimiter. Open the CSV file in a text editor \u2014 do the columns appear separated by commas or semicolons? Both should work, but if your file uses an unusual delimiter (tabs, for example), try re-exporting from Strong or using a CSV conversion tool. If the format looks correct but the import still fails, your export may include non-English date formats or unusual encoding. Try re-exporting with your phone\u2019s language set to English.
+            If LiftShift cannot parse your Strong export, first check the delimiter. Open the CSV file in a text editor. Do the columns appear separated by commas or semicolons? Both should work, but if your file uses an unusual delimiter (tabs, for example), try re-exporting from Strong or using a CSV conversion tool. If the format looks correct but the import still fails, your export may include non-English date formats or unusual encoding. Try re-exporting with your phone\u2019s language set to English.
           </p>
 
           <h3 className="text-base font-semibold text-white mb-2">Exercise names are split or missing</h3>

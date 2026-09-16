@@ -31,14 +31,14 @@ function Page() {
             <li>Shows a Training Manifest dashboard card and 9 shareable flex cards, including an all-time training receipt.</li>
             <li>Exports structured training data for AI analysis with built-in analysis modules.</li>
             <li>Combines data from multiple apps into one unified dashboard.</li>
-            <li>Processes everything locally in your browser &mdash; no server-side storage.</li>
+            <li>Processes everything locally in your browser. No server-side storage.</li>
           </ul>
         </section>
 
         <section>
           <h2 className="text-lg font-semibold text-white mb-3">What makes LiftShift different</h2>
           <p className="text-slate-300 leading-relaxed mb-4">
-            Hevy, Strong, Lyfta, and Motra are great workout loggers. LiftShift is a workout analyst. Your app shows you what you did. LiftShift tells you what it means — and what to do next.
+            Hevy, Strong, Lyfta, and Motra are great workout loggers. LiftShift is a workout analyst. Your app shows you what you did. LiftShift tells you what it means and what to do next.
           </p>
           <p className="text-slate-300 leading-relaxed mb-4">
             Most analytics tools give you dashboards full of numbers you have to interpret yourself. LiftShift gives you status labels, coaching feedback, and tiny actionable suggestions you can try next session. See the <a href={assetPath('how-it-works/')} className="text-emerald-300/80 hover:text-emerald-400 transition-colors duration-200">How it works</a> guide for a complete walkthrough.

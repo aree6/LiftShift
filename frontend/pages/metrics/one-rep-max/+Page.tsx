@@ -18,7 +18,7 @@ function Page() {
             Your one-rep max (1RM) is the heaviest weight you can lift for a single repetition with proper form. In practice, testing a true 1RM is fatiguing, risky without a spotter, and impractical to do regularly across multiple exercises.
           </p>
           <p className="text-slate-300 leading-relaxed mb-4">
-            A 1RM estimate is a mathematically predicted value based on a submaximal set. For example, if you bench press 80 kg for 8 reps, LiftShift can estimate that your 1RM is around 99\u2013101 kg \u2014 without you ever needing to load that weight on the bar.
+            A 1RM estimate is a mathematically predicted value based on a submaximal set. For example, if you bench press 80 kg for 8 reps, LiftShift can estimate that your 1RM is around 99\u2013101 kg, without you ever needing to load that weight on the bar.
           </p>
           <div className="rounded-2xl border border-emerald-500/25 bg-emerald-500/10 p-4 mt-6">
             <p className="text-slate-300 text-sm leading-relaxed">
@@ -70,7 +70,7 @@ function Page() {
             <li>The Epley formula assumes reps are performed to or near failure. If you leave several reps in reserve, the estimate will underestimate your true 1RM.</li>
             <li>Accuracy degrades above 10 reps. A 20-rep set will produce an unrealistically high estimate.</li>
             <li>Exercise-specific differences matter. The formula was validated on compound barbell lifts (squat, bench press, deadlift). Estimates for isolation exercises, machine movements, or bodyweight exercises are less reliable.</li>
-            <li>An estimate is not a measurement. Your true 1RM on any given day depends on fatigue, nutrition, sleep, and mental readiness \u2014 none of which LiftShift can see.</li>
+            <li>An estimate is not a measurement. Your true 1RM on any given day depends on fatigue, nutrition, sleep, and mental readiness, none of which LiftShift can see.</li>
             <li>LiftShift shows the highest <em>estimate</em> across your history, not the highest <em>actual</em> lift. These are different concepts.</li>
           </ul>
         </section>

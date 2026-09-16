@@ -61,7 +61,7 @@ export const LIFETIME_PROGRESS_SECTION: HowItWorksSection = {
         {
           type: 'p',
           text:
-            'For each muscle, LiftShift also estimates weeks to your next tier based on your current weekly set rate. If you\'re not currently training a muscle, the estimate shows "∞ years" — signaling you might want to add it back to your routine.',
+            'For each muscle, LiftShift also estimates weeks to your next tier based on your current weekly set rate. If you\'re not currently training a muscle, the estimate shows "∞ years", a nudge to add it back to your routine.',
         },
       ],
     },

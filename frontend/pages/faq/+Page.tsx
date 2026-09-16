@@ -15,7 +15,7 @@ function Page() {
         <section>
           <h2 className="text-lg font-semibold text-white mb-3">What is LiftShift?</h2>
           <p className="text-slate-300 leading-relaxed mb-4">
-            LiftShift is a free and open source workout analytics tool that connects to Hevy, Strong, Lyfta, Motra, or a generic CSV and provides insights your logging app doesn&rsquo;t offer &mdash; muscle heatmaps, plateau detection, set-by-set feedback, PR tracking, per-joint injury risk scoring, strength imbalance detection, shareable flex cards, and AI-ready exports. Everything runs locally in your browser. See the <a href={assetPath('about/')} className="text-emerald-300/80 hover:text-emerald-400 transition-colors duration-200">About</a> page for more.
+            LiftShift is a free and open source workout analytics tool. Connect Hevy, Strong, Lyfta, Motra, or a generic CSV and get muscle heatmaps, plateau detection, set-by-set feedback, PR tracking, per-joint injury risk scoring, strength imbalance detection, shareable flex cards, and AI-ready exports. Everything runs locally in your browser. See the <a href={assetPath('about/')} className="text-emerald-300/80 hover:text-emerald-400 transition-colors duration-200">About</a> page for more.
           </p>
         </section>
 
@@ -36,7 +36,7 @@ function Page() {
         <section>
           <h2 className="text-lg font-semibold text-white mb-3">How does plateau detection work?</h2>
           <p className="text-slate-300 leading-relaxed mb-4">
-            LiftShift analyzes your recent workout history for each exercise and checks whether your performance (volume load, estimated 1RM, and rep quality) has stalled or declined over a configurable window. When a plateau is detected, it provides a status label (Getting stronger, Plateauing, or Taking a dip) along with specific, actionable suggestions &mdash; like changing rep ranges, adding accessory work, or adjusting frequency. Read the <a href={assetPath('how-it-works/')} className="text-emerald-300/80 hover:text-emerald-400 transition-colors duration-200">How it works</a> guide for the full methodology.
+            LiftShift analyzes your recent workout history for each exercise and checks whether your performance (volume load, estimated 1RM, and rep quality) has stalled or declined over a configurable window. When a plateau is detected, it provides a status label (Getting stronger, Plateauing, or Taking a dip) along with specific, actionable suggestions, like changing rep ranges, adding accessory work, or adjusting frequency. Read the <a href={assetPath('how-it-works/')} className="text-emerald-300/80 hover:text-emerald-400 transition-colors duration-200">How it works</a> guide for the full methodology.
           </p>
         </section>
 
@@ -50,28 +50,28 @@ function Page() {
         <section>
           <h2 className="text-lg font-semibold text-white mb-3">What kinds of PRs does LiftShift track?</h2>
           <p className="text-slate-300 leading-relaxed mb-4">
-            LiftShift tracks seven types of personal records — <strong>weight, 1RM, set volume, session volume, reps, weighted reps, and distance</strong> — across two tiers: <strong>all-time bests</strong> (your strongest performance ever for an exercise) and <strong>1-month bests</strong> (your best in the last month, useful for monitoring recent progress). It also detects <strong>premature PRs</strong> (when you hit a PR but your volume and rep quality suggest you pushed too far) and flags PR droughts when you haven&rsquo;t set a new record in a while.
+            LiftShift tracks seven types of personal records: <strong>weight, 1RM, set volume, session volume, reps, weighted reps, and distance</strong>, across two tiers: <strong>all-time bests</strong> (your strongest performance ever for an exercise) and <strong>1-month bests</strong> (your best in the last month, useful for monitoring recent progress). It also detects <strong>premature PRs</strong> (when you hit a PR but your volume and rep quality suggest you pushed too far) and flags PR droughts when you haven&rsquo;t set a new record in a while.
           </p>
         </section>
 
         <section>
           <h2 className="text-lg font-semibold text-white mb-3">What is set-by-set feedback?</h2>
           <p className="text-slate-300 leading-relaxed mb-4">
-            After every workout, LiftShift analyzes each set across 19 predefined scenarios &mdash; including RIR errors, volume mismatch, intensity drops, rep quality issues, and more. Each set gets a badge, a plain-English explanation, and a concrete improvement suggestion. This gives you coaching-style feedback without needing a coach.
+            After every workout, LiftShift analyzes each set across 19 predefined scenarios, including RIR errors, volume mismatch, intensity drops, rep quality issues, and more. Each set gets a badge, a plain-English explanation, and a concrete improvement suggestion. This gives you coaching-style feedback without needing a coach.
           </p>
         </section>
 
         <section>
           <h2 className="text-lg font-semibold text-white mb-3">What is the Injury Risk card?</h2>
           <p className="text-slate-300 leading-relaxed mb-4">
-            The Injury Risk card estimates joint stress from 0 to 100 percent for each joint you train. It combines three factors: your <strong>workload ratio</strong> (this week&rsquo;s sets vs. your 4-week average), <strong>recovery</strong> (back-to-back training days on the same joint), and <strong>antagonist balance</strong> (volume ratio between opposing muscle groups). Lower is safer &mdash; a spike above 40 percent suggests considering a deload or rebalancing your program. It is a load-management hint, not medical advice. See the <a href={assetPath('how-it-works/')} className="text-emerald-300/80 hover:text-emerald-400 transition-colors duration-200">How it works</a> guide for the full methodology.
+            The Injury Risk card estimates joint stress from 0 to 100 percent for each joint you train. It combines three factors: your <strong>workload ratio</strong> (this week&rsquo;s sets vs. your 4-week average), <strong>recovery</strong> (back-to-back training days on the same joint), and <strong>antagonist balance</strong> (volume ratio between opposing muscle groups). Lower is safer. A spike above 40 percent suggests considering a deload or rebalancing your program. It is a load-management hint, not medical advice. See the <a href={assetPath('how-it-works/')} className="text-emerald-300/80 hover:text-emerald-400 transition-colors duration-200">How it works</a> guide for the full methodology.
           </p>
         </section>
 
         <section>
           <h2 className="text-lg font-semibold text-white mb-3">What is Strength Imbalance?</h2>
           <p className="text-slate-300 leading-relaxed mb-4">
-            Strength Imbalance compares your estimated 1-rep max across 13 related exercise pairs (bench vs. overhead press, rows vs. bench, squat vs. bench, curls vs. pushdowns, and more) against typical ratios from population statistics &mdash; roughly 28 million logged lifts. When one side of a pair falls outside its typical band, LiftShift flags it as a watch or flag, shows your weekly trend over the last 3 months, and tells you whether the gap is closing or widening. A flagged ratio is a hint &mdash; it can mean a real imbalance, different training history, or a logging difference &mdash; never a verdict on your form.
+            Strength Imbalance compares your estimated 1-rep max across 13 related exercise pairs (bench vs. overhead press, rows vs. bench, squat vs. bench, curls vs. pushdowns, and more) against typical ratios from population statistics (roughly 28 million logged lifts). When one side of a pair falls outside its typical band, LiftShift flags it as a watch or flag, shows your weekly trend over the last 3 months, and tells you whether the gap is closing or widening. A flagged ratio is a hint. It can mean a real imbalance, different training history, or a logging difference, never a verdict on your form.
           </p>
         </section>
 
@@ -85,14 +85,14 @@ function Page() {
         <section>
           <h2 className="text-lg font-semibold text-white mb-3">Why do some charts look wrong?</h2>
           <p className="text-slate-300 leading-relaxed mb-4">
-            Charts are recalculated based on the selected date range in the calendar filter. If a date range is active, all metrics reflect only that window &mdash; which can make charts look different than expected. Clear the calendar filter or select &ldquo;All time&rdquo; to see your full history. If you synced over an API and see a &ldquo;Showing newest history only&rdquo; banner, the source API capped how far back the sync could go, and totals reflect that partial history. A CSV or Excel import gives you the complete log. Also, make sure you&rsquo;ve imported enough data for meaningful trends. See the <a href={assetPath('how-it-works/')} className="text-emerald-300/80 hover:text-emerald-400 transition-colors duration-200">How it works</a> guide for calendar filtering details.
+            Charts are recalculated based on the selected date range in the calendar filter. If a date range is active, all metrics reflect only that window, which can make charts look different than expected. Clear the calendar filter or select &ldquo;All time&rdquo; to see your full history. If you synced over an API and see a &ldquo;Showing newest history only&rdquo; banner, the source API capped how far back the sync could go, and totals reflect that partial history. A CSV or Excel import gives you the complete log. Also, make sure you&rsquo;ve imported enough data for meaningful trends. See the <a href={assetPath('how-it-works/')} className="text-emerald-300/80 hover:text-emerald-400 transition-colors duration-200">How it works</a> guide for calendar filtering details.
           </p>
         </section>
 
         <section>
           <h2 className="text-lg font-semibold text-white mb-3">Is LiftShift a coaching app?</h2>
           <p className="text-slate-300 leading-relaxed mb-4">
-            No. LiftShift is an analytics tool, not a coaching service or workout program generator. It gives you data-driven insights, status labels, and suggestions &mdash; but it does not write programs, provide medical advice, or replace a qualified coach. Think of it as a second pair of eyes on your training data.
+            No. LiftShift is an analytics tool, not a coaching service or workout program generator. It gives you data-driven insights, status labels, and suggestions. It does not write programs, provide medical advice, or replace a qualified coach. Think of it as a second pair of eyes on your training data.
           </p>
         </section>
 

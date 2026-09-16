@@ -22,7 +22,7 @@ function Page() {
         <section>
           <h2 className="text-lg font-semibold text-white mb-3">Where data is processed</h2>
           <p className="text-slate-300 leading-relaxed mb-4">
-            All computation &mdash; heatmap generation, plateau detection, set-by-set analysis, PR tracking, and AI export formatting &mdash; happens entirely in your browser using IndexedDB. LiftShift does not upload your workout data to a server for processing. The only network requests are to the Hevy API (if you use API sync instead of CSV import) and to fetch the LiftShift application code itself.
+            All computation (heatmap generation, plateau detection, set-by-set analysis, PR tracking, and AI export formatting) happens entirely in your browser using IndexedDB. LiftShift does not upload your workout data to a server for processing. The only network requests are to the Hevy API (if you use API sync instead of CSV import) and to fetch the LiftShift application code itself.
           </p>
         </section>
 

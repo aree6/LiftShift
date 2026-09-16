@@ -8,7 +8,7 @@ import config from './+config';
 const HOW_IT_WORKS_SCHEMA = JSON.stringify({
   '@context': 'https://schema.org',
   '@type': 'TechArticle',
-  headline: 'How LiftShift Works — Import, Analyze, Improve Your Training',
+  headline: 'How LiftShift Works: Import, Analyze, Improve Your Training',
   description:
     'Import workout logs from Hevy, Strong, Lyfta, or CSV. LiftShift computes training volume, PRs, muscle balance, and exercise trends locally in your browser.',
   proficiencyLevel: 'Beginner',
