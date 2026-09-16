@@ -84,7 +84,7 @@ More details at [liftshift.app/supported-apps](https://liftshift.app/supported-a
 
 ---
 
-## Quick Start
+## Quick start
 
 <div align="center">
   <img src="./frontend/public/images/steps/Step1.avif" alt="Export data from Hevy app" width="200" />
@@ -102,7 +102,7 @@ More details at [liftshift.app/supported-apps](https://liftshift.app/supported-a
 
 ---
 
-## Local Development
+## Local development
 
 ```bash
 git clone https://github.com/aree6/LiftShift.git

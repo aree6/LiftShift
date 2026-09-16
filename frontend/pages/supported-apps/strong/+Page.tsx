@@ -18,7 +18,7 @@ function Page() {
             Strong does not offer an API, so the CSV export is the only way to bring your data into LiftShift. The export contains your full workout history including exercises, sets, reps, weights, and dates.
           </p>
           <ul className="list-disc list-inside space-y-1 text-slate-300 leading-relaxed">
-            <li><strong className="text-white">CSV import</strong> \u2014 Export your workout history from Strong as a CSV file and upload it to LiftShift. All analysis runs locally in your browser. Strong exports can vary in format \u2014 see the variants section below.</li>
+            <li><strong className="text-white">CSV import</strong>: Export your workout history from Strong as a CSV file and upload it to LiftShift. All analysis runs locally in your browser. Strong exports can vary in format \u2014 see the variants section below.</li>
           </ul>
         </section>
 
@@ -53,9 +53,9 @@ function Page() {
             Strong\u2019s CSV export format has changed over time and can differ between iOS and Android versions. LiftShift\u2019s parser handles the most common variants automatically:
           </p>
           <ul className="list-disc list-inside space-y-1 text-slate-300 leading-relaxed">
-            <li><strong className="text-white">Semicolon-delimited</strong> \u2014 Some Strong exports use semicolons (<code className="text-emerald-300">;</code>) instead of commas as the delimiter. LiftShift detects and handles both formats.</li>
-            <li><strong className="text-white">Unit-suffixed headers</strong> \u2014 Older Strong exports may include unit information in column headers (e.g. \u201cWeight (kg)\u201d or \u201cWeight (lbs)\u201d). LiftShift strips suffixes and handles unit conversion if needed.</li>
-            <li><strong className="text-white">Routine names</strong> \u2014 Some exports include the routine or workout name as a grouping column. LiftShift preserves this as workout-level metadata so you can filter by routine on the dashboard.</li>
+            <li><strong className="text-white">Semicolon-delimited</strong>: Some Strong exports use semicolons (<code className="text-emerald-300">;</code>) instead of commas as the delimiter. LiftShift detects and handles both formats.</li>
+            <li><strong className="text-white">Unit-suffixed headers</strong>: Older Strong exports may include unit information in column headers (e.g. \u201cWeight (kg)\u201d or \u201cWeight (lbs)\u201d). LiftShift strips suffixes and handles unit conversion if needed.</li>
+            <li><strong className="text-white">Routine names</strong>: Some exports include the routine or workout name as a grouping column. LiftShift preserves this as workout-level metadata so you can filter by routine on the dashboard.</li>
           </ul>
         </section>
 
@@ -81,10 +81,10 @@ function Page() {
         <section>
           <h2 className="text-lg font-semibold text-white mb-3">What analytics you get</h2>
           <ul className="list-disc list-inside space-y-1 text-slate-300 leading-relaxed">
-            <li><a href={assetPath('metrics/training-volume/')} className="text-emerald-300/80 hover:text-emerald-400 transition-colors duration-200">Training volume</a> \u2014 Weekly and per-muscle volume trends with rolling comparisons.</li>
-            <li><a href={assetPath('metrics/personal-records/')} className="text-emerald-300/80 hover:text-emerald-400 transition-colors duration-200">Personal records (PRs)</a> \u2014 Track your strongest lifts with tiered PR detection.</li>
-            <li><a href={assetPath('metrics/one-rep-max/')} className="text-emerald-300/80 hover:text-emerald-400 transition-colors duration-200">1RM estimates</a> \u2014 Strength trend tracking without max testing.</li>
-            <li><a href={assetPath('metrics/muscle-heatmap/')} className="text-emerald-300/80 hover:text-emerald-400 transition-colors duration-200">Muscle heatmaps</a> \u2014 See exactly which muscles are getting attention and which are being neglected.</li>
+            <li><a href={assetPath('metrics/training-volume/')} className="text-emerald-300/80 hover:text-emerald-400 transition-colors duration-200">Training volume</a>: Weekly and per-muscle volume trends with rolling comparisons.</li>
+            <li><a href={assetPath('metrics/personal-records/')} className="text-emerald-300/80 hover:text-emerald-400 transition-colors duration-200">Personal records (PRs)</a>: Track your strongest lifts with tiered PR detection.</li>
+            <li><a href={assetPath('metrics/one-rep-max/')} className="text-emerald-300/80 hover:text-emerald-400 transition-colors duration-200">1RM estimates</a>: Strength trend tracking without max testing.</li>
+            <li><a href={assetPath('metrics/muscle-heatmap/')} className="text-emerald-300/80 hover:text-emerald-400 transition-colors duration-200">Muscle heatmaps</a>: See exactly which muscles are getting attention and which are being neglected.</li>
             <li>Set-by-set coaching feedback and plateau detection with actionable suggestions.</li>
           </ul>
         </section>

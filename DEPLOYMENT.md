@@ -1,4 +1,4 @@
-# Deployment Guide
+# Deployment guide
 
 This project uses a split deployment:
 

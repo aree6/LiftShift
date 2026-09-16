@@ -47,12 +47,12 @@ function Page() {
         <section>
           <h2 className="text-lg font-semibold text-white mb-3">Canonical pages</h2>
           <ul className="list-disc list-inside space-y-1 text-slate-300 leading-relaxed">
-            <li><a href={assetPath('about/')} className="text-emerald-300/80 hover:text-emerald-400 transition-colors duration-200">About LiftShift</a> &mdash; overview of the project, what it does, and what it doesn&rsquo;t do.</li>
-            <li><a href={assetPath('how-it-works/')} className="text-emerald-300/80 hover:text-emerald-400 transition-colors duration-200">How it works</a> &mdash; detailed walkthrough of every feature, metric, and design decision.</li>
-            <li><a href={assetPath('privacy/')} className="text-emerald-300/80 hover:text-emerald-400 transition-colors duration-200">Privacy</a> &mdash; what LiftShift processes, stores, and does not store.</li>
-            <li><a href={assetPath('supported-apps/')} className="text-emerald-300/80 hover:text-emerald-400 transition-colors duration-200">Supported apps</a> &mdash; import guides for Hevy, Strong, and Lyfta.</li>
-            <li><a href={assetPath('metrics/')} className="text-emerald-300/80 hover:text-emerald-400 transition-colors duration-200">Metrics definitions</a> &mdash; definitions for every metric and status label.</li>
-            <li><a href={assetPath('faq/')} className="text-emerald-300/80 hover:text-emerald-400 transition-colors duration-200">FAQ</a> &mdash; quick answers to common questions.</li>
+            <li><a href={assetPath('about/')} className="text-emerald-300/80 hover:text-emerald-400 transition-colors duration-200">About LiftShift</a>: overview of the project, what it does, and what it doesn&rsquo;t do.</li>
+            <li><a href={assetPath('how-it-works/')} className="text-emerald-300/80 hover:text-emerald-400 transition-colors duration-200">How it works</a>: detailed walkthrough of every feature, metric, and design decision.</li>
+            <li><a href={assetPath('privacy/')} className="text-emerald-300/80 hover:text-emerald-400 transition-colors duration-200">Privacy</a>: what LiftShift processes, stores, and does not store.</li>
+            <li><a href={assetPath('supported-apps/')} className="text-emerald-300/80 hover:text-emerald-400 transition-colors duration-200">Supported apps</a>: import guides for Hevy, Strong, and Lyfta.</li>
+            <li><a href={assetPath('metrics/')} className="text-emerald-300/80 hover:text-emerald-400 transition-colors duration-200">Metrics definitions</a>: definitions for every metric and status label.</li>
+            <li><a href={assetPath('faq/')} className="text-emerald-300/80 hover:text-emerald-400 transition-colors duration-200">FAQ</a>: quick answers to common questions.</li>
           </ul>
         </section>
 

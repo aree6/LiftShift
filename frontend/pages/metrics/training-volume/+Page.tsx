@@ -40,11 +40,11 @@ function Page() {
             Volume changes whenever you adjust any of the three input variables:
           </p>
           <ul className="list-disc list-inside space-y-1 text-slate-300 leading-relaxed">
-            <li><strong className="text-white">Weight</strong> \u2014 Adding 2.5 kg to your bench press increases volume.</li>
-            <li><strong className="text-white">Reps</strong> \u2014 Doing 10 reps instead of 8 increases volume.</li>
-            <li><strong className="text-white">Sets</strong> \u2014 Adding a fourth set increases volume.</li>
-            <li><strong className="text-white">Exercise selection</strong> \u2014 Adding or removing exercises from your routine changes total volume.</li>
-            <li><strong className="text-white">Workout frequency</strong> \u2014 Training more days per week increases weekly volume.</li>
+            <li><strong className="text-white">Weight</strong>: Adding 2.5 kg to your bench press increases volume.</li>
+            <li><strong className="text-white">Reps</strong>: Doing 10 reps instead of 8 increases volume.</li>
+            <li><strong className="text-white">Sets</strong>: Adding a fourth set increases volume.</li>
+            <li><strong className="text-white">Exercise selection</strong>: Adding or removing exercises from your routine changes total volume.</li>
+            <li><strong className="text-white">Workout frequency</strong>: Training more days per week increases weekly volume.</li>
           </ul>
         </section>
 
@@ -54,10 +54,10 @@ function Page() {
             Volume trends are most useful when compared over time. LiftShift shows you:
           </p>
           <ul className="list-disc list-inside space-y-1 text-slate-300 leading-relaxed">
-            <li><strong className="text-white">Session volume</strong> \u2014 How much work you did in a single workout.</li>
-            <li><strong className="text-white">Weekly volume</strong> \u2014 Total work across all sessions in a rolling 7-day window.</li>
-            <li><strong className="text-white">Per-muscle volume</strong> \u2014 How volume is distributed across muscle groups (visible on the <a href={assetPath('metrics/muscle-heatmap/')} className="text-emerald-300/80 hover:text-emerald-400 transition-colors duration-200">muscle heatmap</a>).</li>
-            <li><strong className="text-white">Rolling comparisons</strong> \u2014 This week vs. last week, this month vs. last month, so you can spot trends at a glance.</li>
+            <li><strong className="text-white">Session volume</strong>: How much work you did in a single workout.</li>
+            <li><strong className="text-white">Weekly volume</strong>: Total work across all sessions in a rolling 7-day window.</li>
+            <li><strong className="text-white">Per-muscle volume</strong>: How volume is distributed across muscle groups (visible on the <a href={assetPath('metrics/muscle-heatmap/')} className="text-emerald-300/80 hover:text-emerald-400 transition-colors duration-200">muscle heatmap</a>).</li>
+            <li><strong className="text-white">Rolling comparisons</strong>: This week vs. last week, this month vs. last month, so you can spot trends at a glance.</li>
           </ul>
           <p className="text-slate-300 leading-relaxed mb-4">
             A steadily rising weekly volume often indicates progressive overload (you\u2019re doing more work over time). A sharp drop may be intentional (a deload week) or a sign of inconsistency. Look at volume alongside other metrics like <a href={assetPath('metrics/personal-records/')} className="text-emerald-300/80 hover:text-emerald-400 transition-colors duration-200">PRs</a> and <a href={assetPath('metrics/one-rep-max/')} className="text-emerald-300/80 hover:text-emerald-400 transition-colors duration-200">1RM estimates</a> for a complete picture.
@@ -77,9 +77,9 @@ function Page() {
             LiftShift assigns each muscle group a volume zone based on your recent training:
           </p>
           <ul className="list-disc list-inside space-y-1 text-slate-300 leading-relaxed">
-            <li><strong className="text-white">Maintenance</strong> \u2014 Volume is within the range that maintains current muscle size and strength. You\u2019re doing enough to hold ground but not enough to drive significant growth.</li>
-            <li><strong className="text-white">Growth</strong> \u2014 Volume is in the range associated with hypertrophy stimulus. You\u2019re providing enough mechanical tension to signal adaptation.</li>
-            <li><strong className="text-white">Overreaching</strong> \u2014 Volume is above the typical effective range. This can be productive in short blocks (overreaching phases) but sustained overreaching increases injury risk and may lead to systemic fatigue.</li>
+            <li><strong className="text-white">Maintenance</strong>: Volume is within the range that maintains current muscle size and strength. You\u2019re doing enough to hold ground but not enough to drive significant growth.</li>
+            <li><strong className="text-white">Growth</strong>: Volume is in the range associated with hypertrophy stimulus. You\u2019re providing enough mechanical tension to signal adaptation.</li>
+            <li><strong className="text-white">Overreaching</strong>: Volume is above the typical effective range. This can be productive in short blocks (overreaching phases) but sustained overreaching increases injury risk and may lead to systemic fatigue.</li>
           </ul>
           <p className="text-slate-300 leading-relaxed mb-4">
             These zones are general guidelines based on exercise science literature, not personalised prescriptions. Individual response to volume varies significantly.

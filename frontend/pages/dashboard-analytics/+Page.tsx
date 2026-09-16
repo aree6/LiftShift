@@ -33,10 +33,10 @@ const sections = [
           Every exercise you&rsquo;ve logged gets analyzed and labeled:
         </p>
         <ul className="list-disc list-inside space-y-1 text-slate-300 leading-relaxed mb-4">
-          <li><strong>Getting stronger</strong> — Clear positive trend (&gt; +1% strength change).</li>
-          <li><strong>Plateauing</strong> — Roughly stable (between -3% and +1%).</li>
-          <li><strong>Taking a dip</strong> — Clear drop (&gt; -3%).</li>
-          <li><strong>New</strong> — Not enough sessions yet to read a trend.</li>
+          <li><strong>Getting stronger</strong>: Clear positive trend (&gt; +1% strength change).</li>
+          <li><strong>Plateauing</strong>: Roughly stable (between -3% and +1%).</li>
+          <li><strong>Taking a dip</strong>: Clear drop (&gt; -3%).</li>
+          <li><strong>New</strong>: Not enough sessions yet to read a trend.</li>
         </ul>
         <p className="text-slate-300 leading-relaxed mb-4">
           Each status comes with a confidence level (based on how many sessions you&rsquo;ve logged) and a <strong>suggestion card</strong> with concrete next-session advice.
@@ -54,10 +54,10 @@ const sections = [
           This is the feature beginners find most useful. Open any past workout and LiftShift analyzes each set relative to the previous one across <strong>19 scenarios</strong>:
         </p>
         <ul className="list-disc list-inside space-y-1 text-slate-300 leading-relaxed mb-4">
-          <li><strong>Same weight, reps increased</strong> — &ldquo;Found More&rdquo; or &ldquo;Building Momentum&rdquo;</li>
-          <li><strong>Same weight, mild drop</strong> — &ldquo;Normal Fatigue&rdquo;</li>
-          <li><strong>Weight increase, reps below target</strong> — &ldquo;Too Aggressive&rdquo; or &ldquo;Not Ready&rdquo;</li>
-          <li><strong>Weight decrease, reps met</strong> — &ldquo;Good Reset&rdquo; or &ldquo;Fatigue Managed&rdquo;</li>
+          <li><strong>Same weight, reps increased</strong>: &ldquo;Found More&rdquo; or &ldquo;Building Momentum&rdquo;</li>
+          <li><strong>Same weight, mild drop</strong>: &ldquo;Normal Fatigue&rdquo;</li>
+          <li><strong>Weight increase, reps below target</strong>: &ldquo;Too Aggressive&rdquo; or &ldquo;Not Ready&rdquo;</li>
+          <li><strong>Weight decrease, reps met</strong>: &ldquo;Good Reset&rdquo; or &ldquo;Fatigue Managed&rdquo;</li>
         </ul>
         <p className="text-slate-300 leading-relaxed mb-4">
           Each badge has a tooltip with exact numbers. An &ldquo;improvement&rdquo; line tells you what to do next session. A &ldquo;why&rdquo; line explains what just happened.
@@ -75,9 +75,9 @@ const sections = [
           LiftShift tracks seven kinds of PRs per exercise:
         </p>
         <ul className="list-disc list-inside space-y-1 text-slate-300 leading-relaxed mb-4">
-          <li><strong>Gold PRs</strong> — True all-time bests for weight, 1RM estimate, set volume, session volume, reps, weighted reps, and distance.</li>
-          <li><strong>Silver PRs</strong> — Best in the last 1 month. Important for experienced lifters who rarely hit true all-time PRs.</li>
-          <li><strong>Premature PRs</strong> — A big spike that wasn&rsquo;t sustained in follow-up sessions. Flagged so you know it wasn&rsquo;t a real breakthrough yet.</li>
+          <li><strong>Gold PRs</strong>: True all-time bests for weight, 1RM estimate, set volume, session volume, reps, weighted reps, and distance.</li>
+          <li><strong>Silver PRs</strong>: Best in the last 1 month. Important for experienced lifters who rarely hit true all-time PRs.</li>
+          <li><strong>Premature PRs</strong>: A big spike that wasn&rsquo;t sustained in follow-up sessions. Flagged so you know it wasn&rsquo;t a real breakthrough yet.</li>
         </ul>
         <p className="text-slate-300 leading-relaxed mb-4">
           It also tracks <strong>PR droughts</strong> (days since last all-time PR) and <strong>PR frequency</strong> (new PRs per week). The dashboard summary tells you if your momentum is heating up or cooling off.

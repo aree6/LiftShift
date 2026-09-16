@@ -18,8 +18,8 @@ function Page() {
             LiftShift supports two ways to bring in your Hevy data:
           </p>
           <ul className="list-disc list-inside space-y-1 text-slate-300 leading-relaxed">
-            <li><strong className="text-white">CSV import</strong> \u2014 Export your workout history from Hevy as a CSV file and upload it to LiftShift. This gives you the most complete data, file imports are never capped. All analysis runs locally in your browser.</li>
-            <li><strong className="text-white">Hevy API sync</strong> \u2014 Log in with your Hevy email and password, or paste a Hevy Pro API key. LiftShift pulls your newest workouts through your own backend proxy and keeps your dashboard up to date. Very long histories can be capped by the source API, when that happens the app shows a “Showing newest history only” banner.</li>
+            <li><strong className="text-white">CSV import</strong>: Export your workout history from Hevy as a CSV file and upload it to LiftShift. This gives you the most complete data, file imports are never capped. All analysis runs locally in your browser.</li>
+            <li><strong className="text-white">Hevy API sync</strong>: Log in with your Hevy email and password, or paste a Hevy Pro API key. LiftShift pulls your newest workouts through your own backend proxy and keeps your dashboard up to date. Very long histories can be capped by the source API, when that happens the app shows a “Showing newest history only” banner.</li>
           </ul>
         </section>
 
@@ -84,10 +84,10 @@ function Page() {
         <section>
           <h2 className="text-lg font-semibold text-white mb-3">What analytics you get</h2>
           <ul className="list-disc list-inside space-y-1 text-slate-300 leading-relaxed">
-            <li><a href={assetPath('metrics/training-volume/')} className="text-emerald-300/80 hover:text-emerald-400 transition-colors duration-200">Training volume</a> \u2014 Total weight moved per workout, per week, and per muscle group, with rolling window comparisons.</li>
-            <li><a href={assetPath('metrics/personal-records/')} className="text-emerald-300/80 hover:text-emerald-400 transition-colors duration-200">Personal records (PRs)</a> \u2014 All-time bests, 1-month bests, and premature PR detection with drought alerts.</li>
-            <li><a href={assetPath('metrics/one-rep-max/')} className="text-emerald-300/80 hover:text-emerald-400 transition-colors duration-200">1RM estimates</a> \u2014 Estimated one-rep max for every exercise, updated after each workout.</li>
-            <li><a href={assetPath('metrics/muscle-heatmap/')} className="text-emerald-300/80 hover:text-emerald-400 transition-colors duration-200">Muscle heatmaps</a> \u2014 Visual breakdown of which muscles your training emphasises, with 7-day rolling windows and volume zone scoring.</li>
+            <li><a href={assetPath('metrics/training-volume/')} className="text-emerald-300/80 hover:text-emerald-400 transition-colors duration-200">Training volume</a>: Total weight moved per workout, per week, and per muscle group, with rolling window comparisons.</li>
+            <li><a href={assetPath('metrics/personal-records/')} className="text-emerald-300/80 hover:text-emerald-400 transition-colors duration-200">Personal records (PRs)</a>: All-time bests, 1-month bests, and premature PR detection with drought alerts.</li>
+            <li><a href={assetPath('metrics/one-rep-max/')} className="text-emerald-300/80 hover:text-emerald-400 transition-colors duration-200">1RM estimates</a>: Estimated one-rep max for every exercise, updated after each workout.</li>
+            <li><a href={assetPath('metrics/muscle-heatmap/')} className="text-emerald-300/80 hover:text-emerald-400 transition-colors duration-200">Muscle heatmaps</a>: Visual breakdown of which muscles your training emphasises, with 7-day rolling windows and volume zone scoring.</li>
             <li>Set-by-set feedback with 19 coaching scenarios \u2014 badges, tooltips, and suggestions based on your performance quality.</li>
             <li>GitHub-style yearly consistency heatmap showing streaks, consistency scores, and workout day highlights.</li>
           </ul>

@@ -57,10 +57,10 @@ function Page() {
         <section>
           <h2 className="text-lg font-semibold text-white mb-3">Practical uses</h2>
           <ul className="list-disc list-inside space-y-1 text-slate-300 leading-relaxed">
-            <li><strong className="text-white">Track strength trends</strong> \u2014 Watch how your estimated 1RM trends upward (or downward) over weeks and months without ever testing a true max.</li>
-            <li><strong className="text-white">Program design</strong> \u2014 Use your estimated 1RM to set percentage-based training loads (e.g. 75% of 1RM for hypertrophy work).</li>
-            <li><strong className="text-white">Compare across rep ranges</strong> \u2014 A set of 100 kg \u00d7 5 reps and a set of 85 kg \u00d7 10 reps might produce similar 1RM estimates, helping you compare performances at different rep ranges.</li>
-            <li><strong className="text-white">Spot discrepancies</strong> \u2014 If your estimated 1RM jumps sharply from one workout to the next, it may indicate you pushed harder that session or that your previous estimates were sandbagged.</li>
+            <li><strong className="text-white">Track strength trends</strong>: Watch how your estimated 1RM trends upward (or downward) over weeks and months without ever testing a true max.</li>
+            <li><strong className="text-white">Program design</strong>: Use your estimated 1RM to set percentage-based training loads (e.g. 75% of 1RM for hypertrophy work).</li>
+            <li><strong className="text-white">Compare across rep ranges</strong>: A set of 100 kg \u00d7 5 reps and a set of 85 kg \u00d7 10 reps might produce similar 1RM estimates, helping you compare performances at different rep ranges.</li>
+            <li><strong className="text-white">Spot discrepancies</strong>: If your estimated 1RM jumps sharply from one workout to the next, it may indicate you pushed harder that session or that your previous estimates were sandbagged.</li>
           </ul>
         </section>
 

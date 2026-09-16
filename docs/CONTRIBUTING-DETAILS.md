@@ -1,8 +1,8 @@
-# Contributing Details
+# Contributing details
 
 This document expands on the short guidelines in `CONTRIBUTING.md`.
 
-## Coding Standards
+## Coding standards
 
 ### TypeScript
 
@@ -24,7 +24,7 @@ function calculateVolume(sets: Set[]): number {
 }
 ```
 
-### React Components
+### React components
 
 - Use functional components with hooks.
 - Keep components focused and reusable.
@@ -60,7 +60,7 @@ export function Card({ title, children }: CardProps) {
 - Prefer Tailwind spacing and color scales.
 - Avoid inline styles where possible.
 
-### Naming Conventions
+### Naming conventions
 
 - Files: kebab-case for files (`csv-parser.ts`, `Dashboard.tsx`).
 - Functions: camelCase (`calculateVolume`, `parseCSV`).
@@ -68,7 +68,7 @@ export function Card({ title, children }: CardProps) {
 - Constants: UPPER_SNAKE_CASE (`DEFAULT_CSV_DATA`, `MAX_FILE_SIZE`).
 - Types/Interfaces: PascalCase (`WorkoutSet`, `ExerciseStats`).
 
-## Commit Messages
+## Commit messages
 
 ### Format
 

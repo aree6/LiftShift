@@ -25,11 +25,11 @@ function Page() {
         <section>
           <h2 className="text-lg font-semibold text-white mb-3">How strength is measured</h2>
           <ul className="list-disc list-inside space-y-1 text-slate-300 leading-relaxed">
-            <li><strong className="text-white">Window</strong> &mdash; the last 90 days of training.</li>
-            <li><strong className="text-white">Per session</strong> &mdash; the best estimated 1RM of the session (Epley formula, weight &times; (1 + reps/30), working sets of 5&ndash;15 reps, warm-ups excluded).</li>
-            <li><strong className="text-white">Strength level</strong> &mdash; the 75th percentile of your 5 most recent session bests, so one-off PRs or stale peaks don&rsquo;t dominate.</li>
-            <li><strong className="text-white">Unilateral lifts</strong> &mdash; per-arm exercises (lateral raises, dumbbell presses) are doubled so they compare fairly against bilateral totals.</li>
-            <li><strong className="text-white">Minimum data</strong> &mdash; both sides of a pair need at least 2 sessions in the window, and the data overall needs at least 3 sessions, before anything is reported.</li>
+            <li><strong className="text-white">Window</strong>: the last 90 days of training.</li>
+            <li><strong className="text-white">Per session</strong>: the best estimated 1RM of the session (Epley formula, weight &times; (1 + reps/30), working sets of 5&ndash;15 reps, warm-ups excluded).</li>
+            <li><strong className="text-white">Strength level</strong>: the 75th percentile of your 5 most recent session bests, so one-off PRs or stale peaks don&rsquo;t dominate.</li>
+            <li><strong className="text-white">Unilateral lifts</strong>: per-arm exercises (lateral raises, dumbbell presses) are doubled so they compare fairly against bilateral totals.</li>
+            <li><strong className="text-white">Minimum data</strong>: both sides of a pair need at least 2 sessions in the window, and the data overall needs at least 3 sessions, before anything is reported.</li>
           </ul>
         </section>
 

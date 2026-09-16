@@ -32,9 +32,9 @@ function Page() {
             LiftShift classifies every PR into one of three tiers based on how it compares to your history:
           </p>
           <ul className="list-disc list-inside space-y-1 text-slate-300 leading-relaxed">
-            <li><strong className="text-white">Gold PR</strong> \u2014 An all-time personal record. You have never lifted more weight for this many reps, ever, in your logged history. This is the highest tier and the one most people mean when they say \u201cPR.\u201d</li>
-            <li><strong className="text-white">Silver PR</strong> \u2014 A 1-month best. You haven\u2019t lifted this much in the last month. This indicates you\u2019re surpassing recent performance and trending in the right direction, even if you haven\u2019t hit an all-time best yet.</li>
-            <li><strong className="text-white">Premature PR</strong> \u2014 A best at a new rep range. For example, if you\u2019ve never logged this exercise at 6 reps before and you hit a weight that\u2019s your best at 6 reps, it\u2019s flagged as a premature PR. It\u2019s technically a record, but LiftShift notes that the comparison pool is shallow. These often occur when you try a new rep scheme or exercise variation.</li>
+            <li><strong className="text-white">Gold PR</strong>: An all-time personal record. You have never lifted more weight for this many reps, ever, in your logged history. This is the highest tier and the one most people mean when they say \u201cPR.\u201d</li>
+            <li><strong className="text-white">Silver PR</strong>: A 1-month best. You haven\u2019t lifted this much in the last month. This indicates you\u2019re surpassing recent performance and trending in the right direction, even if you haven\u2019t hit an all-time best yet.</li>
+            <li><strong className="text-white">Premature PR</strong>: A best at a new rep range. For example, if you\u2019ve never logged this exercise at 6 reps before and you hit a weight that\u2019s your best at 6 reps, it\u2019s flagged as a premature PR. It\u2019s technically a record, but LiftShift notes that the comparison pool is shallow. These often occur when you try a new rep scheme or exercise variation.</li>
           </ul>
         </section>
 
@@ -54,9 +54,9 @@ function Page() {
             LiftShift evaluates every set you log against three dimensions:
           </p>
           <ul className="list-disc list-inside space-y-1 text-slate-300 leading-relaxed">
-            <li><strong className="text-white">Weight</strong> \u2014 The heaviest load lifted for a given rep count. This is the classic definition of a PR.</li>
-            <li><strong className="text-white">1RM estimate</strong> \u2014 The highest estimated one-rep max for the exercise, derived from any set using the Epley formula. Even if the weight itself isn\u2019t your heaviest, a set with more reps at a slightly lower weight may produce a higher estimated 1RM. See the <a href={assetPath('metrics/one-rep-max/')} className="text-emerald-300/80 hover:text-emerald-400 transition-colors duration-200">1RM page</a> for the formula.</li>
-            <li><strong className="text-white">Volume</strong> \u2014 The highest single-set volume (weight \u00d7 reps) for the exercise. This captures endurance-oriented PRs that raw weight alone would miss.</li>
+            <li><strong className="text-white">Weight</strong>: The heaviest load lifted for a given rep count. This is the classic definition of a PR.</li>
+            <li><strong className="text-white">1RM estimate</strong>: The highest estimated one-rep max for the exercise, derived from any set using the Epley formula. Even if the weight itself isn\u2019t your heaviest, a set with more reps at a slightly lower weight may produce a higher estimated 1RM. See the <a href={assetPath('metrics/one-rep-max/')} className="text-emerald-300/80 hover:text-emerald-400 transition-colors duration-200">1RM page</a> for the formula.</li>
+            <li><strong className="text-white">Volume</strong>: The highest single-set volume (weight \u00d7 reps) for the exercise. This captures endurance-oriented PRs that raw weight alone would miss.</li>
           </ul>
           <p className="text-slate-300 leading-relaxed mb-4">
             A single set can qualify as a PR on one, two, or all three dimensions simultaneously.

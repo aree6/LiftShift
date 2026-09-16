@@ -2,7 +2,7 @@
 
 Thank you for your interest in contributing to LiftShift! We welcome contributions from everyone. This document provides guidelines and instructions for contributing.
 
-## Table of Contents
+## Table of contents
 
 - [Code of Conduct](#code-of-conduct)
 - [Getting Started](#getting-started)
@@ -14,7 +14,7 @@ Thank you for your interest in contributing to LiftShift! We welcome contributio
 - [Coding Standards](#coding-standards)
 - [Commit Messages](#commit-messages)
 
-## Code of Conduct
+## Code of conduct
 
 This project is committed to providing a welcoming and inspiring community for all. Please read and respect our code of conduct:
 
@@ -23,7 +23,7 @@ This project is committed to providing a welcoming and inspiring community for a
 - Focus on what is best for the community
 - Show empathy towards other community members
 
-## Getting Started
+## Getting started
 
 ### Prerequisites
 
@@ -32,7 +32,7 @@ This project is committed to providing a welcoming and inspiring community for a
 - Git
 - A text editor (VS Code recommended)
 
-### Development Setup
+### Development setup
 
 1. **Fork the repository**
    ```bash
@@ -62,9 +62,9 @@ This project is committed to providing a welcoming and inspiring community for a
    ```
    The app will be available at `http://localhost:3000`
 
-## How to Contribute
+## How to contribute
 
-### Types of Contributions
+### Types of contributions
 
 We appreciate all types of contributions:
 
@@ -75,15 +75,15 @@ We appreciate all types of contributions:
 - **Tests** - Add or improve test coverage
 - **Refactoring** - Improve code quality and structure
 
-## Reporting Bugs
+## Reporting bugs
 
-### Before Submitting a Bug Report
+### Before submitting a bug report
 
 - Check if the bug has already been reported in [Issues](https://github.com/aree6/LiftShift/issues)
 - Try to reproduce with the latest code
 - Collect information about the bug
 
-### How to Submit a Bug Report
+### How to submit a bug report
 
 Create an issue with:
 
@@ -116,15 +116,15 @@ Actual: Empty white space where chart should be
 Environment: Safari 17.1, macOS 14.0, Node 18.17.0
 ```
 
-## Suggesting Enhancements
+## Suggesting enhancements
 
-### Before Submitting an Enhancement
+### Before submitting an enhancement
 
 - Check if feature already exists or has been suggested
 - Describe the specific problem the enhancement solves
 - List examples of how the feature would be used
 
-### How to Submit an Enhancement Suggestion
+### How to submit an enhancement suggestion
 
 Create an issue with:
 
@@ -150,22 +150,22 @@ Use Cases:
 - Print for physical training logs
 ```
 
-## Pull Request Process
+## Pull request process
 
-### Before You Start
+### Before you start
 
 1. Create an issue describing what you'll work on
 2. Get feedback from maintainers before starting major work
 3. Create a branch: `git checkout -b feature/your-feature-name`
 
-### Making Changes
+### Making changes
 
 1. **Keep commits focused** - One feature/fix per commit
 2. **Write clear commit messages** - See [Commit Messages](#commit-messages)
 3. **Test your changes** - Run the app and verify functionality
 4. **Keep code clean** - Follow [Coding Standards](#coding-standards)
 
-### Submitting a Pull Request
+### Submitting a pull request
 
 1. **Push to your fork**
    ```bash
@@ -190,7 +190,7 @@ Use Cases:
    - Make requested changes
    - Respond to reviewer comments
 
-### PR Guidelines
+### PR guidelines
 
 - Use descriptive branch names: `feature/add-pr-tracking` not `fix/stuff`
 - Keep PRs focused - don't bundle unrelated changes
@@ -198,11 +198,11 @@ Use Cases:
 - Ensure CI passes (when available)
 - All conversations should be resolved
 
-## Coding Standards
+## Coding standards
 
 See `docs/CONTRIBUTING-DETAILS.md` for the full coding standards (TypeScript, React, styling, naming).
 
-## Commit Messages
+## Commit messages
 
 See `docs/CONTRIBUTING-DETAILS.md` for commit message format, types, and examples.
 

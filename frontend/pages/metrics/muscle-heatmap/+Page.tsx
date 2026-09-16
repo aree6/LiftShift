@@ -42,9 +42,9 @@ function Page() {
             Each muscle on the heatmap is assigned a volume zone: <strong className="text-white">Maintenance</strong>, <strong className="text-white">Growth</strong>, or <strong className="text-white">Overreaching</strong>. These zones are general guidelines based on exercise science literature and help you quickly assess whether each muscle is getting enough stimulus:
           </p>
           <ul className="list-disc list-inside space-y-1 text-slate-300 leading-relaxed">
-            <li><strong className="text-white">Maintenance</strong> \u2014 Enough volume to maintain current muscle size and strength, but probably not enough to drive significant growth.</li>
-            <li><strong className="text-white">Growth</strong> \u2014 Volume is in the range associated with hypertrophy stimulus. Most people training for muscle growth will want to see this zone for their target muscles.</li>
-            <li><strong className="text-white">Overreaching</strong> \u2014 Volume is above typical effective ranges. Productive in short blocks but risky if sustained.</li>
+            <li><strong className="text-white">Maintenance</strong>: Enough volume to maintain current muscle size and strength, but probably not enough to drive significant growth.</li>
+            <li><strong className="text-white">Growth</strong>: Volume is in the range associated with hypertrophy stimulus. Most people training for muscle growth will want to see this zone for their target muscles.</li>
+            <li><strong className="text-white">Overreaching</strong>: Volume is above typical effective ranges. Productive in short blocks but risky if sustained.</li>
           </ul>
           <p className="text-slate-300 leading-relaxed mb-4">
             Zone thresholds are population-level estimates, not personalised prescriptions. Your individual response may differ.
@@ -54,11 +54,11 @@ function Page() {
         <section>
           <h2 className="text-lg font-semibold text-white mb-3">How to use the heatmap</h2>
           <ul className="list-disc list-inside space-y-1 text-slate-300 leading-relaxed">
-            <li><strong className="text-white">Spot neglected muscles</strong> \u2014 If a muscle you want to grow shows no colour or a light maintenance zone, you may need to add volume for that area.</li>
-            <li><strong className="text-white">Check balance</strong> \u2014 Compare left and right sides, front and back. Large asymmetries (e.g. chest gets far more volume than back) may contribute to postural issues or increase injury risk over time.</li>
-            <li><strong className="text-white">Click for detail</strong> \u2014 Click any muscle on the heatmap to see exactly which exercises contributed to its volume and how much each exercise contributed. This helps you understand <em>why</em> a muscle is showing the colour it shows.</li>
-            <li><strong className="text-white">Monitor over time</strong> \u2014 Watch how the heatmap changes week to week. A consistent pattern is good; wild swings suggest programme inconsistency.</li>
-            <li><strong className="text-white">Plan your next block</strong> \u2014 Use the heatmap as a starting point when writing your next training programme. If your hamstrings have been in maintenance for weeks, that\u2019s a signal to consider adding volume.</li>
+            <li><strong className="text-white">Spot neglected muscles</strong>: If a muscle you want to grow shows no colour or a light maintenance zone, you may need to add volume for that area.</li>
+            <li><strong className="text-white">Check balance</strong>: Compare left and right sides, front and back. Large asymmetries (e.g. chest gets far more volume than back) may contribute to postural issues or increase injury risk over time.</li>
+            <li><strong className="text-white">Click for detail</strong>: Click any muscle on the heatmap to see exactly which exercises contributed to its volume and how much each exercise contributed. This helps you understand <em>why</em> a muscle is showing the colour it shows.</li>
+            <li><strong className="text-white">Monitor over time</strong>: Watch how the heatmap changes week to week. A consistent pattern is good; wild swings suggest programme inconsistency.</li>
+            <li><strong className="text-white">Plan your next block</strong>: Use the heatmap as a starting point when writing your next training programme. If your hamstrings have been in maintenance for weeks, that\u2019s a signal to consider adding volume.</li>
           </ul>
         </section>
 

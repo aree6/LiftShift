@@ -25,9 +25,9 @@ function Page() {
         <section>
           <h2 className="text-lg font-semibold text-white mb-3">How it is calculated</h2>
           <ul className="list-disc list-inside space-y-1 text-slate-300 leading-relaxed">
-            <li><strong className="text-white">Workload ratio</strong> &mdash; sets on the joint this week divided by the 4-week rolling average. A ratio above ~1.3 is elevated; higher spikes push the score up sharply.</li>
-            <li><strong className="text-white">Recovery</strong> &mdash; counts consecutive days the joint was worked. Each back-to-back day increases the recovery component.</li>
-            <li><strong className="text-white">Antagonist balance</strong> &mdash; compares weekly sets between opposing muscle groups around the joint. Large imbalances (e.g. far more pressing than pulling) add to the score.</li>
+            <li><strong className="text-white">Workload ratio</strong>: sets on the joint this week divided by the 4-week rolling average. A ratio above ~1.3 is elevated; higher spikes push the score up sharply.</li>
+            <li><strong className="text-white">Recovery</strong>: counts consecutive days the joint was worked. Each back-to-back day increases the recovery component.</li>
+            <li><strong className="text-white">Antagonist balance</strong>: compares weekly sets between opposing muscle groups around the joint. Large imbalances (e.g. far more pressing than pulling) add to the score.</li>
           </ul>
           <p className="text-slate-300 leading-relaxed mb-4 mt-4">
             Muscles are attributed to joints through the exercise-to-muscle mapping used across LiftShift, with warm-up sets excluded and secondary muscles weighted lower.
@@ -37,9 +37,9 @@ function Page() {
         <section>
           <h2 className="text-lg font-semibold text-white mb-3">How to use it</h2>
           <ul className="list-disc list-inside space-y-1 text-slate-300 leading-relaxed">
-            <li><strong className="text-white">Load management</strong> &mdash; if a joint&rsquo;s score climbs week over week, reduce frequency or volume on the exercises that hit it hardest.</li>
-            <li><strong className="text-white">Program balance</strong> &mdash; a high balance component points at an antagonist pair, e.g. add pulling volume if pressing dominates.</li>
-            <li><strong className="text-white">Deload timing</strong> &mdash; scores above 40 are a reasonable cue to schedule a deload week.</li>
+            <li><strong className="text-white">Load management</strong>: if a joint&rsquo;s score climbs week over week, reduce frequency or volume on the exercises that hit it hardest.</li>
+            <li><strong className="text-white">Program balance</strong>: a high balance component points at an antagonist pair, e.g. add pulling volume if pressing dominates.</li>
+            <li><strong className="text-white">Deload timing</strong>: scores above 40 are a reasonable cue to schedule a deload week.</li>
           </ul>
         </section>
 

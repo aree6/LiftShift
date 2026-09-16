@@ -29,9 +29,9 @@ function Page() {
         <section>
           <h2 className="text-lg font-semibold text-white mb-3">What LiftShift stores</h2>
           <ul className="list-disc list-inside space-y-1 text-slate-300 leading-relaxed">
-            <li><strong>Your workout data</strong> &mdash; stored locally in your browser&rsquo;s IndexedDB. This never leaves your device.</li>
-            <li><strong>Application preferences</strong> &mdash; platform selection, date filter ranges, and UI settings are stored in localStorage.</li>
-            <li><strong>Anonymous page view analytics</strong> &mdash; LiftShift uses Google Analytics to track anonymous page views (URLs visited, no workout data). You can block this with any ad blocker or by disabling JavaScript.</li>
+            <li><strong>Your workout data</strong>: stored locally in your browser&rsquo;s IndexedDB. This never leaves your device.</li>
+            <li><strong>Application preferences</strong>: platform selection, date filter ranges, and UI settings are stored in localStorage.</li>
+            <li><strong>Anonymous page view analytics</strong>: LiftShift uses Google Analytics to track anonymous page views (URLs visited, no workout data). You can block this with any ad blocker or by disabling JavaScript.</li>
           </ul>
         </section>
 

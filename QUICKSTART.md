@@ -1,8 +1,8 @@
-# Quick Start Guide
+# Quick start guide
 
 Get up and running with LiftShift in 5 minutes!
 
-## 🚀 Installation
+## Installation
 
 ### Prerequisites
 - Node.js v22+ ([download](https://nodejs.org/))
@@ -31,13 +31,13 @@ Get up and running with LiftShift in 5 minutes!
    http://localhost:3000
    ```
 
-That's it! The app is now running locally. 🎉
+That's it! The app is now running locally. 
 
 ---
 
-## 📊 Using LiftShift
+## Using LiftShift
 
-### First Time Setup
+### First time setup
 
 1. **Select your platform**
     - Hevy (login, Pro API key, or CSV)
@@ -60,7 +60,7 @@ That's it! The app is now running locally. 🎉
     - **Muscle Analysis** - Heatmaps and per-muscle breakdowns
     - **Flex** - 9 shareable cards, including an all-time training receipt
 
-### Key Features
+### Key features
 
 - **Muscle heatmaps** - See which muscles you train and which you neglect
 - **Personal Records** - Seven PR types (weight, 1RM, set volume, session volume, reps, weighted reps, distance) in all-time and 1-month tiers
@@ -73,7 +73,7 @@ That's it! The app is now running locally. 🎉
 - **AI export** - Structured data with 8 analysis modules for ChatGPT, Claude, and the rest
 - **Offline** - All data stored locally, analysis runs on your device
 
-### PR Definitions
+### PR definitions
 
 LiftShift tracks seven PR types: **weight, 1RM, set volume, session volume, reps, weighted reps, and distance**. Each comes in two tiers:
 
@@ -84,9 +84,9 @@ It also flags **premature PRs** (a big jump you couldn't sustain) and **PR droug
 
 ---
 
-## 🛠️ Development
+## Development
 
-### Build Commands
+### Build commands
 
 ```bash
 # Start dev server
@@ -99,7 +99,7 @@ npm run build
 npm run preview
 ```
 
-### Project Structure
+### Project structure
 
 ```
 frontend/
@@ -114,7 +114,7 @@ frontend/
 backend/                 # Express proxy for Hevy / Lyfta API sync
 ```
 
-### Making Changes
+### Making changes
 
 1. Edit files in `frontend/`
 2. Changes hot-reload automatically
@@ -123,13 +123,13 @@ backend/                 # Express proxy for Hevy / Lyfta API sync
 
 ---
 
-## 🌐 Deployment
+## Deployment
 
 See [DEPLOYMENT.md](./DEPLOYMENT.md) for backend (Render/Railway) + frontend (Netlify).
 
 ---
 
-## 🐛 Troubleshooting
+## Troubleshooting
 
 ### Port 3000 already in use
 
@@ -180,7 +180,7 @@ Fix:
 
 ---
 
-## 📚 Learn More
+## Learn more
 
 - [Full README](./README.md)
 - [Deployment Guide](./DEPLOYMENT.md)
@@ -188,23 +188,23 @@ Fix:
 
 ---
 
-## 💪 Tips & Tricks
+## Tips & tricks
 
-### Export Regularly
+### Export regularly
 Export your Hevy data monthly to keep LiftShift updated.
 
-### Use Filters
+### Use filters
 Filter by month to see training trends and seasonal patterns.
 
 ### Monitor PRs
 Check the Exercises tab to see when you hit new personal records.
 
-### Share Progress
+### Share progress
 Export a flex card or your all-time training receipt to share progress with coaches/friends.
 
 ---
 
-## ❓ Need Help?
+## Need help?
 
 - Check [Troubleshooting](#troubleshooting) section
 - Read [Full README](./README.md)
@@ -212,4 +212,4 @@ Export a flex card or your all-time training receipt to share progress with coac
 
 ---
 
-Happy training! 🏋️💪
+Happy training! 

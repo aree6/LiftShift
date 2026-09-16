@@ -1,4 +1,4 @@
-# Strength Imbalance — How It Works
+# How strength imbalance works
 
 LiftShift compares your strength across related exercise pairs (bench vs.
 overhead press, rows vs. bench, squat vs. bench, curls vs. pushdowns…) against

@@ -172,9 +172,9 @@ function Page() {
             LiftShift is not a replacement for Hevy, Lyfta, or Strong. It&rsquo;s a free, open source analytics add-on that plugs into whichever logger you already use.
           </p>
           <ul className="list-disc list-inside space-y-1 text-slate-300 leading-relaxed mb-4">
-            <li><strong className="text-white">Hevy</strong> &mdash; Connect via OAuth2 (credentials) or Pro API key. Automatic sync.</li>
-            <li><strong className="text-white">Lyfta</strong> &mdash; Connect via API key. Automatic sync, pull your full workout history.</li>
-            <li><strong className="text-white">Strong</strong> &mdash; Upload a CSV export. LiftShift&rsquo;s parser handles all export variants automatically.</li>
+            <li><strong className="text-white">Hevy</strong>: Connect via OAuth2 (credentials) or Pro API key. Automatic sync.</li>
+            <li><strong className="text-white">Lyfta</strong>: Connect via API key. Automatic sync, pull your full workout history.</li>
+            <li><strong className="text-white">Strong</strong>: Upload a CSV export. LiftShift&rsquo;s parser handles all export variants automatically.</li>
           </ul>
           <p className="text-slate-300 leading-relaxed mb-4">
             Switched apps over the years? LiftShift merges data from multiple sources into one dashboard. Exercise names are normalized across platforms, duplicates are detected and skipped, and every set is labeled so you know where it came from. Your entire training history, unified.
