@@ -27,8 +27,8 @@ This project is committed to providing a welcoming and inspiring community for a
 
 ### Prerequisites
 
-- Node.js v18 or higher
-- npm v9 or higher
+- Node.js v22 or higher
+- npm v10 or higher
 - Git
 - A text editor (VS Code recommended)
 

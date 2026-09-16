@@ -18,8 +18,8 @@ function Page() {
             LiftShift supports two ways to bring in your Hevy data:
           </p>
           <ul className="list-disc list-inside space-y-1 text-slate-300 leading-relaxed">
-            <li><strong className="text-white">CSV import</strong> \u2014 Export your workout history from Hevy as a CSV file and upload it to LiftShift. This is the recommended method and gives you the most complete data. All analysis runs locally in your browser.</li>
-            <li><strong className="text-white">Hevy API sync</strong> \u2014 Connect your Hevy account directly via OAuth. LiftShift pulls your latest workouts automatically and keeps your dashboard up to date.</li>
+            <li><strong className="text-white">CSV import</strong> \u2014 Export your workout history from Hevy as a CSV file and upload it to LiftShift. This gives you the most complete data, file imports are never capped. All analysis runs locally in your browser.</li>
+            <li><strong className="text-white">Hevy API sync</strong> \u2014 Log in with your Hevy email and password, or paste a Hevy Pro API key. LiftShift pulls your newest workouts through your own backend proxy and keeps your dashboard up to date. Very long histories can be capped by the source API, when that happens the app shows a “Showing newest history only” banner.</li>
           </ul>
         </section>
 
@@ -46,7 +46,7 @@ function Page() {
             <li>Workout-level metadata such as title, description, and notes</li>
           </ul>
           <p className="text-slate-300 leading-relaxed mb-4">
-            All import processing runs locally in your browser. Your data never leaves your device unless you explicitly choose to use our optional cloud sync features.
+            File import runs entirely in your browser. Login and API-key sync pass through your own backend proxy, which only forwards requests to Hevy and stores nothing.
           </p>
         </section>
 
@@ -56,6 +56,11 @@ function Page() {
           <h3 className="text-base font-semibold text-white mb-2">Date parsing</h3>
           <p className="text-slate-300 leading-relaxed mb-4">
             Hevy exports dates in ISO 8601 format (e.g. 2024-01-15T08:30:00Z), which LiftShift parses automatically. If you see date-related import errors, your phone\u2019s locale may be affecting the export format. Try switching your phone\u2019s language to English (US) temporarily before exporting, or check that the <code className="text-emerald-300">start_time</code> column in your CSV uses a standard format.
+          </p>
+
+          <h3 className="text-base font-semibold text-white mb-2">Only newest workouts synced</h3>
+          <p className="text-slate-300 leading-relaxed mb-4">
+            Login and API-key syncs pull your newest workouts first and the source API caps how far back one sync can go. When the cap hits, the app shows a “Showing newest history only” banner and totals reflect the partial history. For the complete log, import a Hevy CSV export instead.
           </p>
 
           <h3 className="text-base font-semibold text-white mb-2">Charts look wrong</h3>

@@ -5,8 +5,8 @@ Get up and running with LiftShift in 5 minutes!
 ## 🚀 Installation
 
 ### Prerequisites
-- Node.js v18+ ([download](https://nodejs.org/))
-- npm v9+ (comes with Node.js)
+- Node.js v22+ ([download](https://nodejs.org/))
+- npm v10+ (comes with Node.js)
 
 ### Steps
 
@@ -40,32 +40,47 @@ That's it! The app is now running locally. 🎉
 ### First Time Setup
 
 1. **Select your platform**
-   - Strong (CSV)
-   - Hevy (Login or CSV)
+    - Hevy (login, Pro API key, or CSV)
+    - Strong (CSV)
+    - Lyfta (API key or CSV)
+    - Motra (Excel)
+    - Other (generic CSV)
 
 2. **Complete setup**
-   - Strong: choose body type + unit, then import Strong CSV
-   - Hevy: choose body type + unit, then Continue to login/sync (or import Hevy CSV)
+    - File import: choose body type + unit, then upload your export (Strong CSV variants, Motra .xlsx, and generic CSVs are all auto-detected)
+    - Hevy: choose body type + unit, then log in, paste a Pro API key, or import a Hevy CSV
+    - Lyfta: choose body type + unit, then paste an API key or import a Lyfta CSV
 
-  Strong CSV imports support common export variants, including semicolon-delimited (`;`) files with quoted fields and unit-suffixed headers like `Weight (kg)`.
+   API syncs pull newest workouts first and the source API can cap how far back one sync goes. If that happens you'll see a "Showing newest history only" banner. For the complete history, use a file import.
 
 3. **Explore your data**
-   - **Dashboard** - Overview of your training
-   - **Exercises** - Detailed performance per exercise
-   - **History** - Browse individual workout sessions
+    - **Dashboard** - Overview of your training, including the Training Manifest card
+    - **Exercises** - Detailed performance per exercise
+    - **History** - Browse individual workout sessions
+    - **Muscle Analysis** - Heatmaps and per-muscle breakdowns
+    - **Flex** - 9 shareable cards, including an all-time training receipt
 
 ### Key Features
 
-- **Volume Tracking** - See total weight lifted over time
-- **Personal Records** - Track your PRs automatically
-- **1RM Estimates** - Get estimated one-rep maxes
-- **Filters** - Filter by month or specific dates
-- **Offline** - All data stored locally, no uploads
+- **Muscle heatmaps** - See which muscles you train and which you neglect
+- **Personal Records** - Seven PR types (weight, 1RM, set volume, session volume, reps, weighted reps, distance) in all-time and 1-month tiers
+- **Plateau detection** - Per-exercise status with concrete next-session suggestions
+- **Set-by-set feedback** - 19 coaching scenarios on every set you log
+- **Strength imbalance** - 13 exercise-pair ratios against population statistics
+- **Calendar filtering** - Pick any date range, every chart recalculates
+- **Multi-app merge** - Combine Hevy, Strong, Lyfta, Motra, and CSVs into one dashboard
+- **Flex cards + Training Manifest** - Shareable summaries and a voyage-style dashboard card
+- **AI export** - Structured data with 8 analysis modules for ChatGPT, Claude, and the rest
+- **Offline** - All data stored locally, analysis runs on your device
 
 ### PR Definitions
 
-- **PR**: Best-ever **weight** for an exercise (shown with **absolute** change)
-- **Volume PR**: Best-ever **single-set volume** for an exercise (`weight × reps`, across all history; shown with **percent** change)
+LiftShift tracks seven PR types: **weight, 1RM, set volume, session volume, reps, weighted reps, and distance**. Each comes in two tiers:
+
+- **Gold**: all-time best for the exercise
+- **Silver**: best in the last month
+
+It also flags **premature PRs** (a big jump you couldn't sustain) and **PR droughts** (no new records in a while).
 
 ---
 
@@ -88,19 +103,15 @@ npm run preview
 
 ```
 frontend/
-├── index.html           # Vite HTML entry
-├── index.tsx            # React entry
 ├── App.tsx              # Main app component
-├── components/          # React components
-│   ├── Dashboard.tsx    # Dashboard view
-│   ├── ExerciseView.tsx # Exercise analytics
-│   ├── HistoryView.tsx  # Workout history
-│   └── CSVImportModal.tsx
+├── index.tsx            # React entry
+├── pages/               # Public pages (landing, how-it-works, features, faq, metrics, supported-apps)
+├── components/          # React components (dashboard, exerciseView, historyView, flexView, landing, ...)
 ├── utils/               # Utility functions
 │   ├── analysis/        # Core analytics logic
-│   ├── csv/             # CSV parsing
+│   ├── csv/             # CSV / Excel parsing
 │   └── storage/         # Local storage management
-└── types.ts             # TypeScript types
+backend/                 # Express proxy for Hevy / Lyfta API sync
 ```
 
 ### Making Changes
@@ -189,7 +200,7 @@ Filter by month to see training trends and seasonal patterns.
 Check the Exercises tab to see when you hit new personal records.
 
 ### Share Progress
-Take screenshots or export data to share progress with coaches/friends.
+Export a flex card or your all-time training receipt to share progress with coaches/friends.
 
 ---
 

@@ -47,7 +47,7 @@ function Page() {
             <li>Workout title, notes, and duration</li>
           </ul>
           <p className="text-slate-300 leading-relaxed mb-4">
-            All import processing runs locally in your browser. Your data never leaves your device unless you choose to use optional cloud features.
+            File import runs entirely in your browser. API-key sync passes through your own backend proxy, which only forwards requests to Lyfta and stores nothing.
           </p>
         </section>
 
@@ -66,7 +66,7 @@ function Page() {
 
           <h3 className="text-base font-semibold text-white mb-2">Missing workouts</h3>
           <p className="text-slate-300 leading-relaxed mb-4">
-            If some workouts from Lyfta don\u2019t appear in LiftShift after import, check that those workouts contain completed sets. Workouts with no logged sets (just a title and duration) are excluded from analytics since there\u2019s no performance data to analyse. Also check your date range filter on the dashboard \u2014 LiftShift shows a default window and you may need to expand it.
+            If some workouts from Lyfta don\u2019t appear in LiftShift after import, check that those workouts contain completed sets. Workouts with no logged sets (just a title and duration) are excluded from analytics since there\u2019s no performance data to analyse. API syncs also pull newest-first and the source API caps how far back one sync can go, when the cap hits the app shows a \u201CShowing newest history only\u201D banner. Also check your date range filter on the dashboard, you may need to expand it. For the complete log, import a Lyfta CSV export instead.
           </p>
 
           <h3 className="text-base font-semibold text-white mb-2">Using alongside other apps</h3>

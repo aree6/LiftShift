@@ -64,7 +64,9 @@ Everything runs locally in your browser. No account needed. Sync your data throu
 
 **Lifetime Progress:** a per-muscle journey from Seedling to Legend across 9 tiers based on cumulative sets. Shows estimated time to your next milestone. Kind of gamified, mostly a motivator to not skip leg day for six months.
 
-**Flex cards:** 8 shareable cards showing your training highlights. Volume comparisons (your total lifted vs real-world objects), PR totals, best month, streak length, top exercises, and a yearly heatmap.
+**Training Manifest:** a dashboard card with a 7-day / 30-day toggle, a volume voyage chart marking your first, peak, and last training days, a body panel for the window, and your top lifts ranked by volume.
+
+**Flex cards:** 9 shareable cards showing your training highlights. An all-time training receipt styled like a shop receipt, volume comparisons (your total lifted vs real-world objects), PR totals, best month, streak length, top exercises, and a yearly heatmap.
 
 ---
 
@@ -91,7 +93,7 @@ More details at [liftshift.app/supported-apps](https://liftshift.app/supported-a
   <img src="./frontend/public/images/steps/Step4.avif" alt="Get real-time feedback and filter data" width="200" />
 </div>
 
-1. Pick your platform (Hevy, Strong, Lyfta, or CSV upload).
+1. Pick your platform (Hevy, Strong, Lyfta, Motra, or generic CSV upload).
 2. Choose body map gender and weight unit (kg or lbs).
 3. Connect your data (log in, enter an API key, or upload a file).
 4. Explore Dashboard, Exercises, History, Muscle Analysis, and Flex.
@@ -120,6 +122,8 @@ Prefer Docker? See [DOCKER.md](DOCKER.md): `docker compose --env-file .env.docke
 ## Troubleshooting
 
 If LiftShift says it "couldn't parse workout dates," your source app is probably using a non-English locale. Switch the Hevy app language to English, export again, and re-upload.
+
+If you synced over an API and see a "Showing newest history only" banner, the source API capped how far back the sync could go. Lifetime totals, PRs, and streaks reflect that partial history. Import a CSV or Excel export for the complete log.
 
 <div align="center">
   <img src="./frontend/public/images/steps/step5.avif" alt="Set Hevy export language to English" width="260" />
