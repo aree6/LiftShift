@@ -205,7 +205,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSelectPlatform, onTr
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.65, ease: [0.22, 1, 0.36, 1], delay: 0.36 }}
                 >
-                  Connect Hevy, Strong, or Lyfta in seconds. Track training volume, personal records, and exercise progress with interactive muscle heatmaps. Get plateau detection, set-by-set feedback, and AI-ready analysis. All processed on your device, nothing stored on our servers.
+                  Connect Hevy, Strong, Lyfta, Motra, or any CSV in seconds. Track training volume, personal records, and exercise progress with interactive muscle heatmaps. Get plateau detection, set-by-set feedback, and AI-ready analysis. All processed on your device, nothing stored on our servers.
                 </motion.p>
 
                 {/* Demo CTA Button */}
@@ -250,7 +250,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSelectPlatform, onTr
                   />
                 </h2>
                 <p className={`max-w-2xl mx-auto text-lg ${isLight ? 'text-slate-600' : 'text-slate-400'}`}>
-                  Hevy, Strong, and Lyfta are great at logging. But their built-in charts leave you guessing. LiftShift gives you the answers you actually want.
+                  Hevy, Strong, Lyfta, and Motra are great at logging. But their built-in charts leave you guessing. LiftShift gives you the answers you actually want.
                 </p>
               </div>
 

@@ -18,6 +18,8 @@ function Page() {
             <li><a href={assetPath('supported-apps/hevy/')} className="text-emerald-300/80 hover:text-emerald-400 transition-colors duration-200">Hevy</a> \u2014 CSV import and API sync</li>
             <li><a href={assetPath('supported-apps/strong/')} className="text-emerald-300/80 hover:text-emerald-400 transition-colors duration-200">Strong</a> \u2014 CSV import</li>
             <li><a href={assetPath('supported-apps/lyfta/')} className="text-emerald-300/80 hover:text-emerald-400 transition-colors duration-200">Lyfta</a> \u2014 CSV import and API sync</li>
+            <li><strong className="text-white">Motra</strong> — Excel (.xlsx) import, pick it from the platform list on the home page</li>
+            <li><strong className="text-white">Other apps</strong> — generic CSV import with automatic column detection</li>
           </ul>
         </section>
 

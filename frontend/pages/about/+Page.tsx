@@ -8,7 +8,7 @@ function Page() {
   return (
     <InfoShell
       title="About LiftShift"
-      subtitle="A free and open source workout analytics tool (AGPL-3.0). Connect Hevy, Strong, or Lyfta and get answers your logging app doesn't give you &mdash; muscle heatmaps, plateau detection, set-by-set feedback, PR tracking, injury risk scoring, strength imbalance detection, and AI-ready exports. Everything runs in your browser."
+      subtitle="A free and open source workout analytics tool (AGPL-3.0). Connect Hevy, Strong, Lyfta, Motra, or a generic CSV and get answers your logging app doesn't give you: muscle heatmaps, plateau detection, set-by-set feedback, PR tracking, injury risk scoring, strength imbalance detection, shareable flex cards, and AI-ready exports. Everything runs in your browser."
       activeNav={null}
     >
       <div className="space-y-10">
@@ -22,12 +22,13 @@ function Page() {
         <section>
           <h2 className="text-lg font-semibold text-white mb-3">What LiftShift does</h2>
           <ul className="list-disc list-inside space-y-1 text-slate-300 leading-relaxed">
-            <li>Imports workout data from Hevy, Strong, and Lyfta (API sync or CSV).</li>
+            <li>Imports workout data from Hevy, Strong, Lyfta, Motra, and generic CSVs (API sync or file upload).</li>
             <li>Builds interactive muscle heatmaps with per-exercise drill-down, volume zone scoring, and muscle balance analysis.</li>
             <li>Detects plateaus and gives specific, actionable next-session suggestions.</li>
             <li>Analyzes every set in a workout with plain-English feedback across 19 scenarios.</li>
             <li>Tracks seven kinds of PRs (weight, 1RM, set volume, session volume, reps, weighted reps, distance) with all-time and 1-month tiers, plus premature PR detection.</li>
             <li>Scores per-joint injury risk from workload, recovery, and antagonist balance, and detects strength imbalances across 13 exercise ratio pairs with a monthly trend.</li>
+            <li>Shows a Training Manifest dashboard card and 9 shareable flex cards, including an all-time training receipt.</li>
             <li>Exports structured training data for AI analysis with built-in analysis modules.</li>
             <li>Combines data from multiple apps into one unified dashboard.</li>
             <li>Processes everything locally in your browser &mdash; no server-side storage.</li>
@@ -37,7 +38,7 @@ function Page() {
         <section>
           <h2 className="text-lg font-semibold text-white mb-3">What makes LiftShift different</h2>
           <p className="text-slate-300 leading-relaxed mb-4">
-            Hevy, Strong, and Lyfta are great workout loggers. LiftShift is a workout analyst. Your app shows you what you did. LiftShift tells you what it means &mdash; and what to do next.
+            Hevy, Strong, Lyfta, and Motra are great workout loggers. LiftShift is a workout analyst. Your app shows you what you did. LiftShift tells you what it means — and what to do next.
           </p>
           <p className="text-slate-300 leading-relaxed mb-4">
             Most analytics tools give you dashboards full of numbers you have to interpret yourself. LiftShift gives you status labels, coaching feedback, and tiny actionable suggestions you can try next session. See the <a href={assetPath('how-it-works/')} className="text-emerald-300/80 hover:text-emerald-400 transition-colors duration-200">How it works</a> guide for a complete walkthrough.

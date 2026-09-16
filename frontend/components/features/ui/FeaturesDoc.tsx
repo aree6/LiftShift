@@ -11,6 +11,7 @@ const featureGroups = [
     alt: 'LiftShift interactive muscle heatmap with exercise drill-down and volume zone scoring',
     items: [
       'Interactive muscle heatmaps, click any muscle to see contributing exercises, with rolling 7-day windows and volume zone scoring.',
+      'Training Manifest dashboard card: 7-day / 30-day toggle, volume voyage chart with first, peak, and last stops, body panel for the window, and top lifts by volume.',
       'GitHub-style yearly consistency heatmap with streaks, consistency scores, and workout day highlights.',
       'Rolling window comparisons: last week vs. previous week, last month vs. previous month, on every metric.',
       'Training focus breakdown by rep ranges (strength / hypertrophy / endurance).',
@@ -44,9 +45,9 @@ const featureGroups = [
     alt: 'LiftShift calendar filtering with date range selection',
     items: [
       'Calendar filtering, pick any date range and all metrics recalculate for just that window.',
-      'Combine data from Hevy, Strong, and Lyfta into one unified dashboard.',
+      'Combine data from Hevy, Strong, Lyfta, Motra, and generic CSVs into one unified dashboard.',
       'Lifetime Progress, 9-tier per-muscle journey from Seedling to Legend.',
-      'Flex cards, shareable year-in-review summaries of your training.',
+      'Flex cards, 9 shareable year-in-review summaries including an all-time training receipt.',
     ],
   },
 ];
@@ -65,7 +66,7 @@ export const FeaturesDoc: React.FC<Props> = ({ className = '', showTitle = true 
         <div>
           <h1 className={`text-2xl sm:text-3xl font-bold tracking-tight ${isLight ? 'text-slate-900' : 'text-white'}`}>Features</h1>
           <p className={`mt-2 ${isLight ? 'text-slate-600' : 'text-slate-300'}`}>
-            Everything LiftShift can do with your workout data. Connect Hevy, Strong, or Lyfta in seconds.
+            Everything LiftShift can do with your workout data. Connect Hevy, Strong, Lyfta, Motra, or a generic CSV in seconds.
           </p>
         </div>
       ) : null}
