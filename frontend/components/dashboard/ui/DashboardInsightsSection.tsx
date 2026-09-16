@@ -2,6 +2,7 @@ import React from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { InsightsPanel, PlateauAlert, RecentPRsPanel } from '../../insights/InsightCards';
 import { ActivityHeatmap } from './ActivityHeatmap';
+import { LifetimeLedgerPanel } from '../receipt/LifetimeLedgerPanel';
 import { TrainingManifestCard } from '../manifest/TrainingManifestCard';
 import { TrainingTimelineCard } from '../trainingTimeline/TrainingTimelineCard';
 import { DashboardSummaryCard } from './DashboardSummaryCard';
@@ -125,15 +126,31 @@ export const DashboardInsightsSection: React.FC<DashboardInsightsSectionProps> =
       now={effectiveNow}
     />
 
-    <TrainingManifestCard
-      fullData={fullData}
-      dailyData={dailyData}
-      weightUnit={weightUnit}
-      effectiveNow={effectiveNow}
-      assetsMap={assetsMap}
-      bodyMapGender={bodyMapGender}
-      secondarySetMultiplier={secondarySetMultiplier}
-      onExerciseClick={onExerciseClick}
-    />
+    {/* Manifest + lifetime ledger: stacked on mobile, equal-height 2/3 + 1/3 on desktop */}
+    <div className="grid gap-2 lg:grid-cols-3 lg:items-stretch">
+      <div className="min-w-0 h-full lg:col-span-2">
+        <TrainingManifestCard
+          fullData={fullData}
+          dailyData={dailyData}
+          weightUnit={weightUnit}
+          effectiveNow={effectiveNow}
+          assetsMap={assetsMap}
+          bodyMapGender={bodyMapGender}
+          secondarySetMultiplier={secondarySetMultiplier}
+          onExerciseClick={onExerciseClick}
+        />
+      </div>
+      <div className="hidden min-w-0 h-full lg:block">
+        <LifetimeLedgerPanel
+          fullData={fullData}
+          dailyData={dailyData}
+          weightUnit={weightUnit}
+          effectiveNow={effectiveNow}
+          streakWeeks={dashboardInsights?.streakInfo?.currentStreak ?? 0}
+          remark={dashboardSummary.sentences?.[0]?.slice(0, 140)}
+          onExerciseClick={onExerciseClick}
+        />
+      </div>
+    </div>
   </>
 );

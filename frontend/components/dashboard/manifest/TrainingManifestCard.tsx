@@ -187,7 +187,7 @@ export const TrainingManifestCard: React.FC<TrainingManifestCardProps> = ({
 
   return (
     <div
-      className="overflow-hidden rounded-xl border p-1.5 sm:p-2"
+      className="h-full overflow-hidden rounded-xl border p-1.5 sm:p-2"
       style={{ backgroundColor: '#8a7f57', borderColor: '#8a7f57' }}
     >
       <div
@@ -235,6 +235,7 @@ export const TrainingManifestCard: React.FC<TrainingManifestCardProps> = ({
             </div>
             <div className="flex shrink-0 flex-col items-end gap-1.5">
               <SegmentControl
+                tone="paper"
                 options={[
                   { value: '7d', label: 'lst wk', title: 'Last 7 days' },
                   { value: '30d', label: 'lst mo', title: 'Last 30 days' },
@@ -411,10 +412,10 @@ export const TrainingManifestCard: React.FC<TrainingManifestCardProps> = ({
                   </div>
                 </div>
               </div>
-              <div className="absolute bottom-0 right-[13%] z-[5] w-[112px]" id="manifest-bodies">
+              <div className="absolute bottom-0 right-[3%] z-[5] w-[92px]" id="manifest-bodies">
                 <style>{bodyCss}</style>
                 <div className="text-[9px] uppercase opacity-60" style={{ letterSpacing: '0.18em' }}>Muscles · /wk</div>
-                <div className="flex h-[112px] items-center justify-center overflow-hidden">
+                <div className="flex h-[92px] items-center justify-center overflow-hidden">
                   <BodyMap
                     onPartClick={() => {}}
                     selectedPart={null}

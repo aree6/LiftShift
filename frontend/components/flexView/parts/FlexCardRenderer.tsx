@@ -52,6 +52,8 @@ export const FlexCardRenderer: React.FC<FlexCardRendererProps> = ({
 }) => {
   switch (cardId) {
     case 'receipt':
+      // Rendered only on non-desktop (FlexView filters it out of the card
+      // list at lg+), so no viewport classes needed here.
       return (
         <ReceiptCard
           data={data}

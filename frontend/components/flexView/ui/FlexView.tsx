@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 
 import type { DailySummary, ExerciseStats, WorkoutSet } from '../../../types';
 import type { WeightUnit } from '../../../utils/storage/localStorage';
@@ -48,6 +48,26 @@ export const FlexView: React.FC<FlexViewProps> = ({
   const { assetLookup, exerciseMuscleData } = useFlexAssets();
   const effectiveNow = useMemo(() => now ?? getEffectiveNowFromWorkoutData(data), [now, data]);
 
+  // Desktop users get the receipt pair (manifest + ledger) in the dashboard
+  // itself, so the carousel skips the receipt slide there entirely (no hidden
+  // slide, no snap stop, no modal entry). Matches Tailwind's lg breakpoint.
+  const [isDesktop, setIsDesktop] = useState<boolean>(() =>
+    typeof window === 'undefined'
+      ? false
+      : (window.matchMedia?.('(min-width: 1024px)')?.matches ?? false),
+  );
+  useEffect(() => {
+    const mq = window.matchMedia?.('(min-width: 1024px)');
+    if (!mq) return;
+    const onChange = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+  const visibleCards = useMemo(
+    () => (isDesktop ? FLEX_CARDS.filter((c) => c.id !== 'receipt') : FLEX_CARDS),
+    [isDesktop],
+  );
+
   const ytdMuscleHeatmap = useFlexMuscleHeatmap(data, effectiveNow, exerciseMuscleData, secondarySetMultiplier);
   const stats = useFlexStats({
     data,
@@ -75,7 +95,7 @@ export const FlexView: React.FC<FlexViewProps> = ({
     focusAdjacentCard,
     canHover,
     clearHideNavTimeout,
-  } = useFlexFocus(FLEX_CARDS.map((card) => card.id));
+  } = useFlexFocus(visibleCards.map((card) => card.id));
 
   const renderCard = (id: (typeof FLEX_CARDS)[number]['id']) => (
     <FlexCardRenderer
@@ -100,12 +120,12 @@ export const FlexView: React.FC<FlexViewProps> = ({
     <div className="flex flex-col gap-1 w-full text-slate-200 pb-6">
       <FlexHeader stats={stats} weightUnit={weightUnit} filtersSlot={filtersSlot} stickyHeader={stickyHeader} />
 
-      <FlexCarousel cards={FLEX_CARDS} onSelectCard={setFocusedCardId} renderCard={renderCard} />
+      <FlexCarousel cards={visibleCards} onSelectCard={setFocusedCardId} renderCard={renderCard} />
 
       <div className="hidden" />
       <div className="hidden" />
 
-      {focusedCardId ? (
+      {focusedCardId && visibleCards.some((c) => c.id === focusedCardId) ? (
         <FlexFocusedCardModal
           cardId={focusedCardId}
           renderCard={renderCard}

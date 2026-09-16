@@ -15,6 +15,10 @@ interface ReceiptPaperProps {
   maxLines?: number;
   /** 'torn' = narrow receipt with zigzag edges; 'straight' = full-bleed ledger sheet. */
   edges?: 'torn' | 'straight';
+  /** 'receipt' = full sheet with line table; 'ledger' = slim lifetime panel (no line table, no source, plus per-session ratios). */
+  variant?: 'receipt' | 'ledger';
+  /** Ledger-only flourishes (flag history, flagship lift, longest voyage, home port, remark). */
+  ledgerExtras?: LedgerExtras | null;
   onExerciseClick?: (exerciseName: string) => void;
   coffeeUrl?: string;
 }
@@ -22,6 +26,16 @@ interface ReceiptPaperProps {
 export const DEFAULT_COFFEE_URL = 'https://www.buymeacoffee.com/aree6';
 const PAPER = '#F0E5C5';
 const INK = '#332B1C';
+
+/** Zero-plumbing ledger flourishes, computed by the host panel from fullData/dailyData. */
+export interface LedgerExtras {
+  daysAtSea: number;
+  distinctExercises: number;
+  flagship: { name: string; sessions: number } | null;
+  longest: { minutes: number; title: string } | null;
+  homePort: { day: string; count: number } | null;
+  remark?: string;
+}
 
 const MONO: React.CSSProperties = {
   fontFamily: '"IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace',
@@ -52,34 +66,49 @@ export const ReceiptPaper: React.FC<ReceiptPaperProps> = ({
   streakWeeks = 0,
   maxLines = 5,
   edges = 'torn',
+  variant = 'receipt',
+  ledgerExtras = null,
   onExerciseClick,
   coffeeUrl = DEFAULT_COFFEE_URL,
 }) => {
   const unitLabel = weightUnit.toUpperCase();
   const totalVol = formatDisplayVolume(receipt.volumeKg, weightUnit, { round: 'int' });
   const period = receipt.period;
-  const lines = receipt.lines.slice(0, maxLines);
   const straight = edges === 'straight';
+  const ledger = variant === 'ledger';
+  const lines = ledger ? [] : receipt.lines.slice(0, maxLines);
+  const pressId = ledger ? 'ldLogoPress' : 'rcLogoPress';
+  const perSessionVol = receipt.sessions > 0 ? receipt.volumeKg / receipt.sessions : 0;
+  const setsPerSession = receipt.sessions > 0 ? receipt.sets / receipt.sessions : 0;
 
   return (
-    <div className="flex justify-center" style={straight ? undefined : { filter: 'drop-shadow(0 10px 22px rgba(0,0,0,0.35))' }}>
+    <div className={`flex justify-center ${ledger ? 'w-full flex-1' : ''}`} style={straight ? undefined : { filter: 'drop-shadow(0 10px 22px rgba(0,0,0,0.35))' }}>
       <div
-        className={`w-full px-5 py-3 ${straight ? '' : 'max-w-[340px]'}`}
+        className={`w-full px-5 py-3 ${straight ? '' : 'max-w-[340px]'} ${ledger ? 'flex flex-1 flex-col' : ''}`}
         style={{ backgroundColor: PAPER, color: INK, ...(straight ? MONO : { clipPath: zigzagClip(), ...MONO }) }}
       >
         {/* Store header — printed form, slightly crooked; brand is letterpress-inked */}
         <div className="text-center -rotate-1">
-          <LogoPressDefs id="rcLogoPress" />
-          <div className="text-lg font-bold tracking-tight" style={{ filter: 'url(#rcLogoPress)' }}>LIFTSHIFT.APP</div>
-          <div className="mt-0.5 text-[9px] tracking-[0.14em] opacity-60">
-            {PERIOD_LABEL[period]} · {fmtDay(receipt.start).slice(0, 6)}–{fmtDay(receipt.end)} · NO {receipt.no}
-          </div>
+          <LogoPressDefs id={pressId} />
+          <div className="text-lg font-bold tracking-tight" style={{ filter: `url(#${pressId})` }}>LIFTSHIFT.APP</div>
+          {ledger ? (
+            <>
+              <div className="mt-0.5 text-[9px] tracking-[0.14em] opacity-60">
+                {PERIOD_LABEL[period]} · {fmtDay(receipt.start).slice(0, 6)}–{fmtDay(receipt.end)}
+              </div>
+              <div className="mt-0.5 text-[9px] tracking-[0.14em] opacity-60">NO {receipt.no}</div>
+            </>
+          ) : (
+            <div className="mt-0.5 text-[9px] tracking-[0.14em] opacity-60">
+              {PERIOD_LABEL[period]} · {fmtDay(receipt.start).slice(0, 6)}–{fmtDay(receipt.end)} · NO {receipt.no}
+            </div>
+          )}
         </div>
 
         <div className="my-1.5 border-t border-dashed rotate-[0.3deg]" style={{ borderColor: `${INK}55` }} />
 
-        {/* Line items — hand-filled, nothing parallel */}
-        {lines.length === 0 ? (
+        {/* Line items — hand-filled, nothing parallel (receipt only; ledger skips the table the manifest owns) */}
+        {!ledger && (lines.length === 0 ? (
           <div className="py-4 text-center text-[11px] tracking-[0.2em] opacity-60">NO SETS LOGGED — REST DAY</div>
         ) : (
           <>
@@ -116,9 +145,11 @@ export const ReceiptPaper: React.FC<ReceiptPaperProps> = ({
               ))}
             </div>
           </>
-        )}
+        ))}
 
+        {!ledger && (
         <div className="my-1.5 border-t border-dashed -rotate-[0.3deg]" style={{ borderColor: `${INK}55` }} />
+        )}
 
         {/* Totals — printed, lightly crooked, two columns to budget height */}
         <div className="text-[11px] leading-relaxed rotate-[0.4deg] grid grid-cols-2 gap-x-4">
@@ -126,8 +157,78 @@ export const ReceiptPaper: React.FC<ReceiptPaperProps> = ({
           <div className="flex justify-between"><span className="opacity-60">SETS</span><span className="font-bold">{receipt.sets.toLocaleString()}</span></div>
           <div className="flex justify-between"><span className="opacity-60">REPS</span><span className="font-bold">{receipt.reps.toLocaleString()}</span></div>
           <div className="flex justify-between"><span className="opacity-60">TIME</span><span className="font-bold">{fmtMinutes(receipt.timeMin)}</span></div>
-          <div className="col-span-2 flex justify-between"><span className="opacity-60">SOURCE</span><span className="font-bold">{receipt.sourceLabel}</span></div>
+          {!ledger && <div className="col-span-2 flex justify-between"><span className="opacity-60">SOURCE</span><span className="font-bold">{receipt.sourceLabel}</span></div>}
         </div>
+
+        {ledger && (
+          <>
+            <div className="my-1.5 border-t border-dashed rotate-[0.3deg]" style={{ borderColor: `${INK}55` }} />
+            <div className="rotate-[-0.4deg]">
+              <div className="text-[9px] tracking-[0.2em] opacity-50">CUSTOMS VALUATION · PER SESSION</div>
+              <div className="mt-1 text-[11px] leading-relaxed">
+                <div className="flex justify-between"><span className="opacity-60">VOLUME</span><span className="font-bold">{formatDisplayVolume(perSessionVol, weightUnit, { round: 'int' })} {unitLabel}</span></div>
+                <div className="flex justify-between"><span className="opacity-60">SETS</span><span className="font-bold">{setsPerSession.toFixed(1)}</span></div>
+              </div>
+            </div>
+          </>
+        )}
+
+        {ledger && ledgerExtras && (
+          <>
+            <div className="my-1.5 border-t border-dashed -rotate-[0.3deg]" style={{ borderColor: `${INK}55` }} />
+            <div className="flex flex-col gap-2 rotate-[0.3deg] text-[11px] leading-snug">
+              <div>
+                <div className="text-[9px] tracking-[0.2em] opacity-50">FLAG HISTORY</div>
+                <div className="font-bold">SAILING SINCE {fmtDay(receipt.start).toUpperCase()}</div>
+                <div className="text-[10px] opacity-60">{ledgerExtras.daysAtSea.toLocaleString()} DAYS AT SEA</div>
+              </div>
+              <div>
+                <div className="text-[9px] tracking-[0.2em] opacity-50">HONORS & DECORATIONS</div>
+                <div className="font-bold">{receipt.prCount.toLocaleString()} PR{receipt.prCount === 1 ? '' : 'S'} ENTERED</div>
+              </div>
+              {receipt.bestLift && (
+                <div className="min-w-0">
+                  <div className="text-[9px] tracking-[0.2em] opacity-50">HEAVIEST CARGO</div>
+                    <div className="font-bold truncate">
+                      {convertWeight(receipt.bestLift.weightKg, weightUnit)} {unitLabel}, {stripExerciseSourceLabel(receipt.bestLift.name).toUpperCase()} × {receipt.bestLift.reps}
+                    </div>
+                </div>
+              )}
+              <div>
+                <div className="text-[9px] tracking-[0.2em] opacity-50">CARGO MANIFEST</div>
+                <div className="font-bold">{ledgerExtras.distinctExercises.toLocaleString()} EXERCISES LOGGED</div>
+              </div>
+              {ledgerExtras.flagship && (
+                <div className="min-w-0">
+                  <div className="text-[9px] tracking-[0.2em] opacity-50">FLAGSHIP LIFT</div>
+                  <div className="font-bold truncate">
+                    {stripExerciseSourceLabel(ledgerExtras.flagship.name).toUpperCase()} · {ledgerExtras.flagship.sessions} VOYAGES
+                  </div>
+                </div>
+              )}
+              {ledgerExtras.longest && (
+                <div className="min-w-0">
+                  <div className="text-[9px] tracking-[0.2em] opacity-50">LONGEST VOYAGE</div>
+                  <div className="font-bold truncate">
+                    ~{fmtMinutes(ledgerExtras.longest.minutes)}{ledgerExtras.longest.title ? ` · ${ledgerExtras.longest.title.toUpperCase()}` : ''}
+                  </div>
+                </div>
+              )}
+              {ledgerExtras.homePort && (
+                <div>
+                  <div className="text-[9px] tracking-[0.2em] opacity-50">HOME PORT</div>
+                  <div className="font-bold">{ledgerExtras.homePort.day} · {ledgerExtras.homePort.count} LANDINGS</div>
+                </div>
+              )}
+              {ledgerExtras.remark && (
+                <div className="-rotate-[0.5deg]">
+                  <div className="text-[9px] tracking-[0.2em] opacity-50">HARBOR MASTER'S REMARK</div>
+                  <div className="italic opacity-80">"{ledgerExtras.remark}"</div>
+                </div>
+              )}
+            </div>
+          </>
+        )}
 
         <div className="my-1.5 border-t-2 border-dashed" style={{ borderColor: INK }} />
         <div className="flex items-baseline justify-between -rotate-[0.5deg]">
@@ -138,8 +239,8 @@ export const ReceiptPaper: React.FC<ReceiptPaperProps> = ({
         </div>
         <div className="my-1.5 border-t border-dashed rotate-[0.3deg]" style={{ borderColor: `${INK}55` }} />
 
-        {/* Sign-off + QR tip-jar side by side to budget height */}
-        <div className="mt-2 flex items-center justify-center gap-3">
+        {/* Sign-off + QR tip-jar side by side to budget height (pinned to the sheet bottom in ledger mode) */}
+        <div className={`flex items-center justify-center gap-3 ${ledger ? 'mt-auto pt-2' : 'mt-2'}`}>
           <a href={coffeeUrl} target="_blank" rel="noopener noreferrer" title="Fuel the dev" className="shrink-0 -rotate-2">
             <img
               src={assetPath('/receipt/tip-qr.svg')}
