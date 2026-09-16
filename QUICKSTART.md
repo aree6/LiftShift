@@ -31,7 +31,7 @@ Get up and running with LiftShift in 5 minutes!
    http://localhost:3000
    ```
 
-That's it! The app is now running locally. 
+That's it! The app is now running locally.
 
 ---
 
@@ -212,4 +212,4 @@ Export a flex card or your all-time training receipt to share progress with coac
 
 ---
 
-Happy training! 
+Happy training!

@@ -103,10 +103,10 @@ function Page() {
                 </tr>
                 <tr className="border-b border-white/5">
                   <td className="py-2 pr-4">API access</td>
-                  <td className="py-2 pr-4">Yes (OAuth2 + Pro API key)</td>
+                  <td className="py-2 pr-4">Yes (login + Pro API key)</td>
                   <td className="py-2 pr-4">Yes (API key)</td>
                   <td className="py-2 pr-4">No</td>
-                  <td className="py-2"><span className="text-emerald-300/80">Connects to all three: Hevy via OAuth2 or Pro API key, Lyfta via API key, Strong via CSV.</span></td>
+                  <td className="py-2"><span className="text-emerald-300/80">Connects to all three: Hevy via login or Pro API key, Lyfta via API key, Strong via CSV.</span></td>
                 </tr>
                 <tr className="border-b border-white/5">
                   <td className="py-2 pr-4">Pricing</td>

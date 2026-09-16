@@ -39,7 +39,7 @@ function Page() {
           <h2 className="text-lg font-semibold text-white mb-3">What LiftShift does not store</h2>
           <ul className="list-disc list-inside space-y-1 text-slate-300 leading-relaxed">
             <li>Your full training history is never stored on LiftShift servers.</li>
-            <li>Your Hevy, Strong, or Lyfta account credentials are never seen by LiftShift. Hevy API auth uses OAuth and LiftShift never receives your password. CSV imports are processed entirely in-browser.</li>
+            <li>Your Hevy, Strong, or Lyfta account credentials are never stored on a LiftShift server. Hevy login sends your email and password through your own backend proxy, which only forwards the request and stores nothing. Any login details you keep for prefill stay encrypted in your own browser. CSV imports are processed entirely in-browser.</li>
             <li>LiftShift does not use cookies beyond what the app itself needs to function (localStorage preferences).</li>
             <li>No personal identifiers (name, email, location) are collected or stored by LiftShift.</li>
           </ul>
