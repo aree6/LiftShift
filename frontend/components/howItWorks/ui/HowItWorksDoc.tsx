@@ -166,14 +166,43 @@ export const HowItWorksDoc: React.FC<Props> = ({ className = '', showTitle = tru
   const flexRef = useRef<HTMLDivElement | null>(null);
   const [paneHeight, setPaneHeight] = useState(0);
   const [flashingId, setFlashingId] = useState<string | null>(null);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mobileTocOpen, setMobileTocOpen] = useState(false);
   const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const observerSuppressed = useRef(false);
   const scrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pendingScrollRef = useRef<string | null>(null);
+  // Mobile renders one top-level section at a time on the plain page scroll
+  // (no inner scroll pane). Selections funnel through here so the section can
+  // render first and the page scrolls to the anchor right after.
+  const [isDesktop, setIsDesktop] = useState<boolean>(() =>
+    typeof window === 'undefined'
+      ? true
+      : (window.matchMedia?.('(min-width: 1024px)')?.matches ?? true),
+  );
+  const [mobileSectionId, setMobileSectionId] = useState<string>(HOW_IT_WORKS_SECTIONS[0]?.id ?? '');
+  const mobileScrollTarget = useRef<{ id: string } | null>(null);
+  const mobileTopRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const mq = window.matchMedia?.('(min-width: 1024px)');
+    if (!mq) return;
+    const onChange = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+
+  const flashId = useCallback((id: string) => {
+    setFlashingId(id);
+    if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
+    flashTimerRef.current = setTimeout(() => setFlashingId(null), 2000);
+  }, []);
+
+  const smoothBehavior = (): ScrollBehavior =>
+    window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ? 'auto' : 'smooth';
 
   useLayoutEffect(() => {
-    if (!sidebarRef.current || !contentRef.current) return;
+    // Desktop only: the inner pane is sized to the sidebar. Mobile renders on
+    // the plain page scroll and needs no measured pane.
+    if (!isDesktop || !sidebarRef.current || !contentRef.current) return;
     const h = sidebarRef.current.getBoundingClientRect().height;
     if (h > 0) {
       setPaneHeight(h);
@@ -181,7 +210,7 @@ export const HowItWorksDoc: React.FC<Props> = ({ className = '', showTitle = tru
       const top = contentRef.current.getBoundingClientRect().top;
       setPaneHeight(window.innerHeight - top);
     }
-  }, []);
+  }, [isDesktop]);
 
   useEffect(() => {
     return () => {
@@ -190,12 +219,29 @@ export const HowItWorksDoc: React.FC<Props> = ({ className = '', showTitle = tru
     };
   }, []);
 
+  // Mobile: after the selected section renders, scroll the page to the queued
+  // anchor (section top on chip tap, subsection on dropdown tap).
   useEffect(() => {
-    if (!mobileMenuOpen && pendingScrollRef.current) {
-      scrollToIdInPane(pendingScrollRef.current);
-      pendingScrollRef.current = null;
-    }
-  }, [mobileMenuOpen]);
+    if (isDesktop) return;
+    const t = mobileScrollTarget.current;
+    if (!t) return;
+    mobileScrollTarget.current = null;
+    const behavior = smoothBehavior();
+    requestAnimationFrame(() => {
+      document.getElementById(t.id)?.scrollIntoView({ behavior, block: 'start' });
+    });
+    flashId(t.id);
+  }, [mobileSectionId, isDesktop, flashId]);
+
+  // Mobile: close the contents dropdown on Escape.
+  useEffect(() => {
+    if (!mobileTocOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMobileTocOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [mobileTocOpen]);
 
   const scrollToIdInPane = (id: string) => {
     const el = document.getElementById(id);
@@ -224,9 +270,30 @@ export const HowItWorksDoc: React.FC<Props> = ({ className = '', showTitle = tru
     setActiveId(resolveParentId(id));
     scrollToIdInPane(id);
 
-    setFlashingId(id);
-    if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
-    flashTimerRef.current = setTimeout(() => setFlashingId(null), 2000);
+    flashId(id);
+  };
+
+  // Mobile: show one section at a time. Chip taps land on the section top,
+  // dropdown taps land on the exact subsection anchor.
+  const handleMobileSelect = (id: string) => {
+    const parentId = resolveParentId(id);
+    setMobileTocOpen(false);
+    try {
+      window.history.replaceState(null, '', `#${id}`);
+    } catch {
+      // hash update is a nicety; never break navigation
+    }
+    if (parentId !== mobileSectionId) {
+      mobileScrollTarget.current = { id };
+      setMobileSectionId(parentId);
+    } else {
+      mobileScrollTarget.current = { id };
+      const behavior = smoothBehavior();
+      requestAnimationFrame(() => {
+        document.getElementById(id)?.scrollIntoView({ behavior, block: 'start' });
+      });
+      flashId(id);
+    }
   };
 
   useEffect(() => {
@@ -234,13 +301,20 @@ export const HowItWorksDoc: React.FC<Props> = ({ className = '', showTitle = tru
     const raw = window.location.hash || '';
     const id = raw.startsWith('#') ? raw.slice(1) : raw;
     if (!id) return;
+    if (!document.getElementById(id)) return;
 
-    scrollToIdInPane(id);
-    setActiveId(resolveParentId(id));
+    if (!isDesktop) {
+      setMobileSectionId(resolveParentId(id));
+      mobileScrollTarget.current = { id };
+    } else {
+      scrollToIdInPane(id);
+      setActiveId(resolveParentId(id));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined' || !isDesktop) return;
 
     const parentIds = navItems.filter(i => i.depth === 0).map(i => i.id);
 
@@ -282,25 +356,110 @@ export const HowItWorksDoc: React.FC<Props> = ({ className = '', showTitle = tru
     return () => observer.disconnect();
   }, [navItems]);
 
+  const mobileSection = HOW_IT_WORKS_SECTIONS.find((s) => s.id === mobileSectionId) ?? HOW_IT_WORKS_SECTIONS[0];
+
   return (
     <div className={`space-y-2 ${className}`}>
-    
-      {/* Mobile burger */}
-      <div className="lg:hidden flex justify-end px-3 sm:px-3">
-        <button
-          onClick={() => setMobileMenuOpen((prev) => !prev)}
-          className={`p-2.5 rounded-xl border-2 transition-colors ${
-            isLight
-              ? 'border-black/30 text-slate-600 hover:bg-black/5'
-              : 'border-white/30 text-slate-300 hover:bg-white/5'
-          }`}
-        >
-          {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-        </button>
+
+      {/* Mobile: sticky section chips + full-contents dropdown. The section
+          itself renders on the plain page scroll below, with no inner scroll pane. */}
+      <div className="lg:hidden sticky top-0 z-20 -mx-1 px-1 pt-1">
+        <div className={`flex items-center gap-2 rounded-2xl border px-2 py-2 backdrop-blur-md ${isLight ? 'border-black/10 bg-white/90' : 'border-white/10 bg-[#0b0f16]/90'}`}>
+          <div className="flex flex-1 gap-2 overflow-x-auto py-0.5" style={{ scrollbarWidth: 'none' }}>
+            {HOW_IT_WORKS_SECTIONS.map((s) => {
+              const isActive = s.id === mobileSectionId;
+              return (
+                <button
+                  key={s.id}
+                  type="button"
+                  aria-current={isActive ? 'true' : undefined}
+                  onClick={() => handleMobileSelect(s.id)}
+                  className={`shrink-0 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                    isActive
+                      ? 'border-emerald-500/50 bg-emerald-500/20 text-emerald-200'
+                      : isLight
+                        ? 'border-black/10 bg-black/5 text-slate-600'
+                        : 'border-white/10 bg-white/5 text-slate-300'
+                  }`}
+                >
+                  {s.sidebarTitle ?? s.title}
+                </button>
+              );
+            })}
+          </div>
+          <button
+            type="button"
+            aria-expanded={mobileTocOpen}
+            aria-label="All sections"
+            onClick={() => setMobileTocOpen((prev) => !prev)}
+            className={`shrink-0 p-2.5 rounded-xl border-2 transition-colors ${
+              isLight
+                ? 'border-black/30 text-slate-600 hover:bg-black/5'
+                : 'border-white/30 text-slate-300 hover:bg-white/5'
+            }`}
+          >
+            {mobileTocOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          </button>
+        </div>
       </div>
 
-      {/* Docs layout: sidebar (left) + content (right) */}
-      <div ref={flexRef} className="flex items-start">
+      {/* Mobile contents sheet */}
+      {mobileTocOpen ? (
+        <div className="lg:hidden">
+          <button
+            type="button"
+            aria-label="Close sections"
+            onClick={() => setMobileTocOpen(false)}
+            className="fixed inset-0 z-40 cursor-default bg-black/50"
+          />
+          <div className={`fixed inset-x-4 top-20 z-50 max-h-[65dvh] overflow-y-auto rounded-2xl border p-2 ${isLight ? 'border-black/10 bg-white' : 'border-white/10 bg-[#111722]'}`}>
+            <div className="flex items-center justify-between px-3 py-2">
+              <span className="text-xs font-bold uppercase tracking-widest text-slate-500">Contents</span>
+              <button
+                type="button"
+                aria-label="Close sections"
+                onClick={() => setMobileTocOpen(false)}
+                className={`p-1.5 rounded-lg transition-colors ${isLight ? 'text-slate-500 hover:bg-black/5' : 'text-slate-300 hover:bg-white/5'}`}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <nav>
+              {navItems.map((i) => {
+                const isActive = i.id === mobileSectionId || i.id === flashingId;
+                return (
+                  <button
+                    key={i.id}
+                    type="button"
+                    onClick={() => handleMobileSelect(i.id)}
+                    className={[
+                      'block w-full text-left transition-colors py-2.5 leading-snug border-b last:border-0',
+                      i.depth === 0 ? '' : i.depth === 1 ? 'pl-5' : 'pl-10',
+                      i.depth === 0
+                        ? 'text-[13px] font-semibold tracking-wide text-emerald-400'
+                        : `text-[13px] ${isLight ? 'text-slate-600' : 'text-slate-400'}`,
+                      isActive ? 'text-emerald-300' : '',
+                      isLight ? 'border-slate-200/60' : 'border-slate-800/40',
+                    ].join(' ')}
+                  >
+                    {i.title}
+                  </button>
+                );
+              })}
+            </nav>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Mobile: one section at a time on the page scroll, footer stays close */}
+      <div ref={mobileTopRef} className="lg:hidden max-w-3xl mx-auto px-5 py-6">
+        {mobileSection ? (
+          <SectionView key={mobileSection.id} section={mobileSection} level={2} linkTarget={linkTarget} flashingId={flashingId} isLight={isLight} />
+        ) : null}
+      </div>
+
+      {/* Docs layout: sidebar (left) + content (right) — desktop only */}
+      <div ref={flexRef} className="hidden lg:flex items-start">
         {/* Sidebar */}
         <aside ref={sidebarRef} className={`hidden lg:flex lg:flex-col w-[280px] shrink-0  sticky top-0 self-start ${isLight ? 'border-slate-300/50' : 'border-slate-800/40'}`}>
           <div className={`sticky top-0 z-10 shrink-0 px-5 py-3.5 `}>
@@ -335,48 +494,12 @@ export const HowItWorksDoc: React.FC<Props> = ({ className = '', showTitle = tru
 
         {/* Content */}
         <div ref={contentRef} className={`flex-1 overflow-y-auto min-w-0 scroll-pt-8 relative rounded-xl border ${isLight ? 'border-slate-300/40' : 'border-white/15'}`} style={paneHeight > 0 ? { maxHeight: paneHeight } : undefined}>
-          {mobileMenuOpen ? (
-            <div className="max-w-3xl mx-auto px-8 py-6">
-              <span className={`text-xs font-bold uppercase tracking-widest ${isLight ? 'text-slate-500' : 'text-slate-500'}`}>Contents</span>
-              <nav className="mt-4">
-                {navItems.map((i) => (
-                  <a
-                    key={i.id}
-                    href={`#${i.id}`}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      pendingScrollRef.current = i.id;
-                      observerSuppressed.current = true;
-                      clearTimeout(scrollTimerRef.current ?? undefined);
-                      scrollTimerRef.current = setTimeout(() => { observerSuppressed.current = false; }, 800);
-                      setActiveId(resolveParentId(i.id));
-                      setFlashingId(i.id);
-                      if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
-                      flashTimerRef.current = setTimeout(() => setFlashingId(null), 2000);
-                      setMobileMenuOpen(false);
-                    }}
-                    className={[
-                      'block transition-colors py-2.5 leading-snug border-b last:border-0',
-                      i.depth === 0 ? '' : i.depth === 1 ? 'pl-5' : 'pl-10',
-                      i.depth === 0
-                        ? 'text-[13px] font-semibold tracking-wide text-emerald-400'
-                        : `text-[13px] ${isLight ? 'text-slate-600' : 'text-slate-400'}`,
-                      isLight ? 'border-slate-200/60' : 'border-slate-800/40',
-                    ].join(' ')}
-                  >
-                    {i.title}
-                  </a>
-                ))}
-              </nav>
-            </div>
-          ) : (
-            <div className="max-w-3xl mx-auto px-8 py-10 space-y-14">
-              {HOW_IT_WORKS_SECTIONS.map((s) => (
-                <SectionView key={s.id} section={s} level={2} linkTarget={linkTarget} flashingId={flashingId} isLight={isLight} />
-              ))}
-              <div className="pb-16" />
-            </div>
-          )}
+          <div className="max-w-3xl mx-auto px-8 py-10 space-y-14">
+            {HOW_IT_WORKS_SECTIONS.map((s) => (
+              <SectionView key={s.id} section={s} level={2} linkTarget={linkTarget} flashingId={flashingId} isLight={isLight} />
+            ))}
+            <div className="pb-16" />
+          </div>
         </div>
       </div>
     </div>
