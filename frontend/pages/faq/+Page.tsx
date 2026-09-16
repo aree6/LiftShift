@@ -36,7 +36,7 @@ function Page() {
         <section>
           <h2 className="text-lg font-semibold text-white mb-3">How does plateau detection work?</h2>
           <p className="text-slate-300 leading-relaxed mb-4">
-            LiftShift analyzes your recent workout history for each exercise and checks whether your performance (volume load, estimated 1RM, and rep quality) has stalled or declined over a configurable window. When a plateau is detected, it provides a status label (Getting stronger, Plateauing, or Taking a dip) along with specific, actionable suggestions, like changing rep ranges, adding accessory work, or adjusting frequency. Read the <a href={assetPath('how-it-works/')} className="text-emerald-300/80 hover:text-emerald-400 transition-colors duration-200">How it works</a> guide for the full methodology.
+            For each exercise, LiftShift checks whether your performance (volume load, estimated 1RM, and rep quality) has stalled or declined over a configurable window. When a plateau is detected, it provides a status label (Getting stronger, Plateauing, or Taking a dip) along with specific, actionable suggestions, like changing rep ranges, adding accessory work, or adjusting frequency. Read the <a href={assetPath('how-it-works/')} className="text-emerald-300/80 hover:text-emerald-400 transition-colors duration-200">How it works</a> guide for the full methodology.
           </p>
         </section>
 
@@ -50,7 +50,7 @@ function Page() {
         <section>
           <h2 className="text-lg font-semibold text-white mb-3">What kinds of PRs does LiftShift track?</h2>
           <p className="text-slate-300 leading-relaxed mb-4">
-            LiftShift tracks seven types of personal records: <strong>weight, 1RM, set volume, session volume, reps, weighted reps, and distance</strong>, across two tiers: <strong>all-time bests</strong> (your strongest performance ever for an exercise) and <strong>1-month bests</strong> (your best in the last month, useful for monitoring recent progress). It also detects <strong>premature PRs</strong> (when you hit a PR but your volume and rep quality suggest you pushed too far) and flags PR droughts when you haven&rsquo;t set a new record in a while.
+            Your PRs come in seven types: <strong>weight, 1RM, set volume, session volume, reps, weighted reps, and distance</strong>, across two tiers: <strong>all-time bests</strong> (your strongest performance ever for an exercise) and <strong>1-month bests</strong> (your best in the last month, useful for monitoring recent progress). LiftShift also detects <strong>premature PRs</strong> (when you hit a PR but your volume and rep quality suggest you pushed too far) and flags PR droughts when you haven&rsquo;t set a new record in a while.
           </p>
         </section>
 
