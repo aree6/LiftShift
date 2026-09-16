@@ -67,7 +67,8 @@ export const TrainingManifestCard: React.FC<TrainingManifestCardProps> = ({
 }) => {
   const { period, setPeriod, receipt } = useTrainingReceiptData(fullData, dailyData, effectiveNow);
   const unitLabel = weightUnit.toUpperCase();
-  const { ref: stampRef, hit: stamped } = useStamped();
+  const { ref: stampRef, hit: stamped, settled: inkSettled } = useStamped();
+  const inkFilter = inkSettled ? GRUNGE : 'none';
 
   const route = useMemo(() => {
     const W = 600;
@@ -192,11 +193,14 @@ export const TrainingManifestCard: React.FC<TrainingManifestCardProps> = ({
     >
       <div
         ref={stampRef}
+        id="manifest-paper"
         className="relative rounded-[14px] border px-3 pt-2 pb-2 sm:px-4 sm:pt-2.5"
         style={{ backgroundColor: PAPER, borderColor: INK, color: INK, ...MONO, filter: 'url(#mfPaperAge)' }}
       >
         <StampGrungeDefs id="mfInk" seed={7} />
         <PaperAgeDefs id="mfPaperAge" />
+        <LogoPressDefs id="mfPressAll" seed={33} />
+        <style>{`#manifest-paper :is(div,span,button):not(:has(*)):not(.stamp-ink,.stamp-ink *){filter:url(#mfPressAll)} #manifest-paper svg text{filter:url(#mfPressAll)}`}</style>
         {/* paper grain + age blotches + vignette + hairline frame */}
         <div
           className="pointer-events-none absolute inset-0"
@@ -255,11 +259,11 @@ export const TrainingManifestCard: React.FC<TrainingManifestCardProps> = ({
             </div>
             {/* date stamp slammed over the manifest line, like the PNG */}
             <div
-              className="absolute -top-2 right-0 z-10 whitespace-nowrap px-2 py-[2px] sm:-top-4 sm:px-4"
+              className="stamp-ink absolute -top-2 right-0 z-10 whitespace-nowrap px-2 py-[2px] sm:-top-4 sm:px-4"
               style={{
                 color: STAMP,
                 mixBlendMode: 'multiply',
-                filter: GRUNGE,
+                filter: inkFilter,
                 ...stampAnim(stamped, { rotate: -6, opacity: 0.92 }, 0),
               }}
             >
@@ -402,12 +406,12 @@ export const TrainingManifestCard: React.FC<TrainingManifestCardProps> = ({
 
               {/* LOGGED stamp — real date + session count, bleeding past the frame */}
               <div
-                className="absolute -bottom-8 -left-4 z-10 sm:-bottom-16 sm:-left-8"
-                style={{ mixBlendMode: 'multiply', filter: GRUNGE, ...stampAnim(stamped, { rotate: -12, opacity: 0.88 }, 150) }}
+                className="stamp-ink absolute -bottom-8 -left-4 z-10 sm:-bottom-16 sm:-left-8"
+                style={{ mixBlendMode: 'multiply', filter: inkFilter, ...stampAnim(stamped, { rotate: -12, opacity: 0.88 }, 150) }}
               >
                 <div className="relative">
                   {loggedFace}
-                  <div aria-hidden="true" className="pointer-events-none absolute inset-0" style={{ transform: 'translate(2.5px, -2px)', opacity: 0.32 }}>
+                  <div aria-hidden="true" className="pointer-events-none absolute inset-0" style={{ transform: 'translate(1px, -1px)', opacity: 0.25 }}>
                     {loggedFace}
                   </div>
                 </div>
@@ -488,12 +492,12 @@ export const TrainingManifestCard: React.FC<TrainingManifestCardProps> = ({
 
             {/* VOLUME VERIFIED stamp — real counts, hanging off the table edge */}
             <div
-              className="pointer-events-none absolute right-[-8px] top-1/2 z-10 max-w-[98%]"
-              style={{ mixBlendMode: 'multiply', filter: GRUNGE, ...stampAnim(stamped, { rotate: -7, opacity: 0.92, y: 'translateY(-50%)' }, 320) }}
+              className="stamp-ink pointer-events-none absolute right-[-8px] top-1/2 z-10 max-w-[98%]"
+              style={{ mixBlendMode: 'multiply', filter: inkFilter, ...stampAnim(stamped, { rotate: -7, opacity: 0.92, y: 'translateY(-50%)' }, 320) }}
             >
               <div className="relative">
                 {verifiedFace}
-                <div aria-hidden="true" className="pointer-events-none absolute inset-0" style={{ transform: 'translate(2.5px, -2px)', opacity: 0.32 }}>
+                <div aria-hidden="true" className="pointer-events-none absolute inset-0" style={{ transform: 'translate(1px, -1px)', opacity: 0.25 }}>
                   {verifiedFace}
                 </div>
               </div>

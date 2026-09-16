@@ -147,7 +147,6 @@ export const DashboardInsightsSection: React.FC<DashboardInsightsSectionProps> =
           weightUnit={weightUnit}
           effectiveNow={effectiveNow}
           streakWeeks={dashboardInsights?.streakInfo?.currentStreak ?? 0}
-          remark={dashboardSummary.sentences?.[0]?.slice(0, 140)}
           onExerciseClick={onExerciseClick}
         />
       </div>

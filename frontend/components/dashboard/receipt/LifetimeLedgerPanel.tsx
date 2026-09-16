@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { PaperAgeDefs, StampGrungeDefs, stampAnim, useStamped } from '../../ui/stamp';
+import { LogoPressDefs, PaperAgeDefs, StampGrungeDefs, stampAnim, useStamped } from '../../ui/stamp';
 import type { DailySummary, WorkoutSet } from '../../../types';
 import type { WeightUnit } from '../../../utils/storage/localStorage';
 import { isWarmupSet } from '../../../utils/analysis/classification';
@@ -19,8 +19,6 @@ interface LifetimeLedgerPanelProps {
   streakWeeks?: number;
   onExerciseClick?: (exerciseName: string) => void;
   coffeeUrl?: string;
-  /** Harbor master's remark (dashboard summary one-liner), trimmed by the caller. */
-  remark?: string;
 }
 
 // ============================================================================
@@ -36,10 +34,9 @@ export const LifetimeLedgerPanel: React.FC<LifetimeLedgerPanelProps> = ({
   streakWeeks = 0,
   onExerciseClick,
   coffeeUrl = DEFAULT_COFFEE_URL,
-  remark,
 }) => {
   const { receipt } = useTrainingReceiptData(fullData, dailyData, effectiveNow, 'all');
-  const { ref: stampRef, hit: stamped } = useStamped(0.3);
+  const { ref: stampRef, hit: stamped, settled: inkSettled } = useStamped(0.3);
 
   // Zero-plumbing flourishes: flagship lift (most sessions), longest voyage,
   // home port (top weekday), distinct exercises, days at sea.
@@ -82,24 +79,23 @@ export const LifetimeLedgerPanel: React.FC<LifetimeLedgerPanelProps> = ({
       flagship,
       longest,
       homePort: Math.max(...counts) > 0 ? { day: days[top], count: counts[top] } : null,
-      remark,
     };
-  }, [fullData, dailyData, receipt.start, receipt.end, remark]);
+  }, [fullData, dailyData, receipt.start, receipt.end]);
 
   const stampFace = (
     <div
-      className="flex h-[96px] w-[96px] items-center justify-center rounded-full border-[3px] p-1 text-center"
+      className="flex h-[115px] w-[115px] items-center justify-center rounded-full border-[3.5px] p-1 text-center"
       style={{ borderColor: STAMP_RED, color: STAMP_RED }}
     >
       <div
-        className="flex h-full w-full flex-col items-center justify-center rounded-full border-[1.5px] px-1"
+        className="flex h-full w-full flex-col items-center justify-center rounded-full border-2 px-1"
         style={{ borderColor: STAMP_RED, fontFamily: '"IBM Plex Mono", ui-monospace, monospace' }}
       >
-        <div className="text-[10px] font-bold leading-none" style={{ letterSpacing: '0.08em' }}>LEDGER</div>
-        <div className="mt-1 text-[9px] font-bold leading-none">
+        <div className="text-[12px] font-bold leading-none" style={{ letterSpacing: '0.08em' }}>LEDGER</div>
+        <div className="mt-1 text-[11px] font-bold leading-none">
           {receipt.sessions} {receipt.sessions === 1 ? 'SESSION' : 'SESSIONS'}
         </div>
-        <div className="mt-1 text-[7px] leading-tight opacity-80">ALL TIME · LIFTSHIFT</div>
+        <div className="mt-1 text-[8px] leading-tight opacity-80">ALL TIME · LIFTSHIFT</div>
       </div>
     </div>
   );
@@ -111,11 +107,14 @@ export const LifetimeLedgerPanel: React.FC<LifetimeLedgerPanelProps> = ({
     >
       <div
         ref={stampRef}
+        id="ledger-paper"
         className="relative flex h-full flex-col rounded-[14px] border px-3 pt-2 pb-2"
         style={{ backgroundColor: PAPER, borderColor: INK, color: INK, filter: 'url(#ldPaperAge)' }}
       >
         <StampGrungeDefs id="ldInk" seed={9} />
         <PaperAgeDefs id="ldPaperAge" />
+        <LogoPressDefs id="ldPressAll" seed={34} />
+        <style>{`#ledger-paper :is(div,span,button,a):not(:has(*)):not(.stamp-ink,.stamp-ink *){filter:url(#ldPressAll)} #ledger-paper svg text{filter:url(#ldPressAll)}`}</style>
         <div className="mb-1 flex shrink-0 items-baseline justify-between gap-2 -rotate-[0.6deg]">
           <div className="text-[11px] font-bold tracking-[0.22em]">LIFETIME LEDGER</div>
           <div className="text-[9px] font-bold tracking-[0.18em] opacity-60">ALL TIME</div>
@@ -132,12 +131,12 @@ export const LifetimeLedgerPanel: React.FC<LifetimeLedgerPanelProps> = ({
             coffeeUrl={coffeeUrl}
           />
           <div
-            className="pointer-events-none absolute -right-2 top-24 z-10"
-            style={{ mixBlendMode: 'multiply', filter: 'url(#ldInk)', ...stampAnim(stamped, { rotate: 10, opacity: 0.9 }, 120) }}
+            className="stamp-ink pointer-events-none absolute -right-2 top-24 z-10"
+            style={{ mixBlendMode: 'multiply', filter: inkSettled ? 'url(#ldInk)' : 'none', ...stampAnim(stamped, { rotate: 10, opacity: 0.9 }, 120) }}
           >
             <div className="relative">
               {stampFace}
-              <div aria-hidden="true" className="pointer-events-none absolute inset-0" style={{ transform: 'translate(2px, -1.5px)', opacity: 0.35 }}>
+              <div aria-hidden="true" className="pointer-events-none absolute inset-0" style={{ transform: 'translate(1px, -1px)', opacity: 0.25 }}>
                 {stampFace}
               </div>
             </div>

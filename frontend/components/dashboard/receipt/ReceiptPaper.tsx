@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useId } from 'react';
 import { Coffee } from 'lucide-react';
 import { assetPath } from '../../../constants';
-import { LogoPressDefs } from '../../ui/stamp';
+import { LogoPressDefs, StampGrungeDefs } from '../../ui/stamp';
 import type { WeightUnit } from '../../../utils/storage/localStorage';
 import { formatDisplayVolume } from '../../../utils/format/volumeDisplay';
 import { convertWeight } from '../../../utils/format/units';
@@ -34,7 +34,6 @@ export interface LedgerExtras {
   flagship: { name: string; sessions: number } | null;
   longest: { minutes: number; title: string } | null;
   homePort: { day: string; count: number } | null;
-  remark?: string;
 }
 
 const MONO: React.CSSProperties = {
@@ -80,9 +79,36 @@ export const ReceiptPaper: React.FC<ReceiptPaperProps> = ({
   const pressId = ledger ? 'ldLogoPress' : 'rcLogoPress';
   const perSessionVol = receipt.sessions > 0 ? receipt.volumeKg / receipt.sessions : 0;
   const setsPerSession = receipt.sessions > 0 ? receipt.sets / receipt.sessions : 0;
+  // Unique scope so the per-text press rule never collides across instances
+  // (ledger panel + flex card can both be mounted).
+  const pressUid = useId().replace(/[^a-zA-Z0-9]/g, '');
+  const pressScopeId = `rp-${pressUid}`;
+  const pressFilterId = `rpPress-${pressUid}`;
+
+  // Streak seal for the ledger's empty right rail (static pre-stamped mark;
+  // the LEDGER seal above it carries the scroll-slam animation).
+  const streakSeal = (
+    <div
+      className="flex h-[130px] w-[130px] items-center justify-center rounded-full border-[5px] p-1 text-center"
+      style={{ borderColor: '#a93226', color: '#a93226' }}
+    >
+      <div
+        className="flex h-full w-full flex-col items-center justify-center rounded-full border-[3px] px-1"
+        style={{ borderColor: '#a93226', fontFamily: '"IBM Plex Mono", ui-monospace, monospace' }}
+      >
+        <div className="text-[11px] font-bold leading-none" style={{ letterSpacing: '0.06em' }}>
+          {streakWeeks > 0 ? `★ ${streakWeeks}-WK ★` : '★ ★ ★'}
+        </div>
+        <div className="mt-1 text-[13px] font-bold leading-none" style={{ letterSpacing: '0.08em' }}>STREAK</div>
+        <div className="mt-1 text-[7px] leading-tight opacity-80">LIFTSHIFT</div>
+      </div>
+    </div>
+  );
 
   return (
-    <div className={`flex justify-center ${ledger ? 'w-full flex-1' : ''}`} style={straight ? undefined : { filter: 'drop-shadow(0 10px 22px rgba(0,0,0,0.35))' }}>
+    <div id={pressScopeId} className={`flex justify-center ${ledger ? 'w-full flex-1' : ''}`} style={straight ? undefined : { filter: 'drop-shadow(0 10px 22px rgba(0,0,0,0.35))' }}>
+      <LogoPressDefs id={pressFilterId} seed={41} />
+      <style>{`#${pressScopeId} :is(div,span,button):not(:has(*)):not(.stamp-ink,.stamp-ink *){filter:url(#${pressFilterId})} #${pressScopeId} svg text{filter:url(#${pressFilterId})}`}</style>
       <div
         className={`w-full px-5 py-3 ${straight ? '' : 'max-w-[340px]'} ${ledger ? 'flex flex-1 flex-col' : ''}`}
         style={{ backgroundColor: PAPER, color: INK, ...(straight ? MONO : { clipPath: zigzagClip(), ...MONO }) }}
@@ -92,12 +118,9 @@ export const ReceiptPaper: React.FC<ReceiptPaperProps> = ({
           <LogoPressDefs id={pressId} />
           <div className="text-lg font-bold tracking-tight" style={{ filter: `url(#${pressId})` }}>LIFTSHIFT.APP</div>
           {ledger ? (
-            <>
-              <div className="mt-0.5 text-[9px] tracking-[0.14em] opacity-60">
-                {PERIOD_LABEL[period]} · {fmtDay(receipt.start).slice(0, 6)}–{fmtDay(receipt.end)}
-              </div>
-              <div className="mt-0.5 text-[9px] tracking-[0.14em] opacity-60">NO {receipt.no}</div>
-            </>
+            <div className="mt-0.5 text-[9px] tracking-[0.14em] opacity-60">
+              {PERIOD_LABEL[period]} · {fmtDay(receipt.start).slice(0, 6)}–{fmtDay(receipt.end)}
+            </div>
           ) : (
             <div className="mt-0.5 text-[9px] tracking-[0.14em] opacity-60">
               {PERIOD_LABEL[period]} · {fmtDay(receipt.start).slice(0, 6)}–{fmtDay(receipt.end)} · NO {receipt.no}
@@ -176,7 +199,8 @@ export const ReceiptPaper: React.FC<ReceiptPaperProps> = ({
         {ledger && ledgerExtras && (
           <>
             <div className="my-1.5 border-t border-dashed -rotate-[0.3deg]" style={{ borderColor: `${INK}55` }} />
-            <div className="flex flex-col gap-2 rotate-[0.3deg] text-[11px] leading-snug">
+            <div className="relative flex gap-3">
+              <div className="flex min-w-0 flex-1 flex-col gap-2 rotate-[0.3deg] text-[11px] leading-snug">
               <div>
                 <div className="text-[9px] tracking-[0.2em] opacity-50">FLAG HISTORY</div>
                 <div className="font-bold">SAILING SINCE {fmtDay(receipt.start).toUpperCase()}</div>
@@ -220,12 +244,29 @@ export const ReceiptPaper: React.FC<ReceiptPaperProps> = ({
                   <div className="font-bold">{ledgerExtras.homePort.day} · {ledgerExtras.homePort.count} LANDINGS</div>
                 </div>
               )}
-              {ledgerExtras.remark && (
-                <div className="-rotate-[0.5deg]">
-                  <div className="text-[9px] tracking-[0.2em] opacity-50">HARBOR MASTER'S REMARK</div>
-                  <div className="italic opacity-80">"{ledgerExtras.remark}"</div>
+              </div>
+              <div className="flex w-[106px] shrink-0 flex-col items-center gap-1 self-start mt-12 -rotate-2">
+                <a href={coffeeUrl} target="_blank" rel="noopener noreferrer" title="Settle your tab">
+                  <img
+                    src={assetPath('/receipt/tip-qr.svg')}
+                    alt="Scan to settle your tab"
+                    width={106}
+                    height={106}
+                    loading="lazy"
+                  />
+                </a>
+                <div className="text-center text-[8px] tracking-[0.14em] opacity-60">SCAN TO SETTLE · NO REFUNDS</div>
+              </div>
+              {/* Streak seal slammed over the flagship/longest-voyage rows, like the manifest's over-stamps */}
+              <div className="stamp-ink absolute left-[16%] top-[60%] z-10 -rotate-[8deg]" style={{ mixBlendMode: 'multiply', filter: 'url(#ldStreak)' }}>
+                <StampGrungeDefs id="ldStreak" seed={13} />
+                <div className="relative">
+                  {streakSeal}
+                  <div aria-hidden="true" className="pointer-events-none absolute inset-0" style={{ transform: 'translate(1px, -1px)', opacity: 0.25 }}>
+                    {streakSeal}
+                  </div>
                 </div>
-              )}
+              </div>
             </div>
           </>
         )}
@@ -237,29 +278,30 @@ export const ReceiptPaper: React.FC<ReceiptPaperProps> = ({
             {totalVol} <span className="text-[12px]">{unitLabel}</span>
           </span>
         </div>
-        <div className="my-1.5 border-t border-dashed rotate-[0.3deg]" style={{ borderColor: `${INK}55` }} />
 
-        {/* Sign-off + QR tip-jar side by side to budget height (pinned to the sheet bottom in ledger mode) */}
-        <div className={`flex items-center justify-center gap-3 ${ledger ? 'mt-auto pt-2' : 'mt-2'}`}>
-          <a href={coffeeUrl} target="_blank" rel="noopener noreferrer" title="Fuel the dev" className="shrink-0 -rotate-2">
-            <img
-              src={assetPath('/receipt/tip-qr.svg')}
-              alt="Tip the dev — Buy Me a Coffee QR code"
-              width={88}
-              height={88}
-              loading="lazy"
-            />
-          </a>
-          <div className="flex flex-col gap-1 rotate-[0.6deg]">
-            <div className="text-[10px] font-bold tracking-[0.12em] leading-snug">
-              {streakWeeks > 0 ? `★ ${streakWeeks}-WK STREAK — SEE YOU NEXT SESSION` : 'THANK YOU — SEE YOU NEXT SESSION'}
-            </div>
-            <div className="flex items-center gap-1 text-[9px] tracking-[0.18em] opacity-60">
-              <Coffee className="w-3 h-3" />
-              <span>FUEL THE DEV — SCAN TO TIP</span>
+        {/* Sign-off (receipt only — the ledger signs off with its streak seal mid-sheet) */}
+        {!ledger && (
+          <div className="mt-2 flex items-center justify-center gap-3">
+            <a href={coffeeUrl} target="_blank" rel="noopener noreferrer" title="Settle your tab" className="shrink-0 -rotate-2">
+              <img
+                src={assetPath('/receipt/tip-qr.svg')}
+                alt="Scan to settle your tab"
+                width={88}
+                height={88}
+                loading="lazy"
+              />
+            </a>
+            <div className="flex flex-col gap-1 rotate-[0.6deg]">
+              <div className="text-[10px] font-bold tracking-[0.12em] leading-snug">
+                {streakWeeks > 0 ? `★ ${streakWeeks}-WK STREAK — SEE YOU NEXT SESSION` : 'THANK YOU — SEE YOU NEXT SESSION'}
+              </div>
+              <div className="flex items-center gap-1 text-[9px] tracking-[0.18em] opacity-60">
+                <Coffee className="w-3 h-3" />
+                <span>SCAN TO SETTLE · NO REFUNDS</span>
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

@@ -23,7 +23,7 @@ export const ReceiptCard: React.FC<{
   coffeeUrl?: string;
 }> = ({ data, weightUnit, effectiveNow, streakWeeks = 0, onExerciseClick, coffeeUrl = DEFAULT_COFFEE_URL }) => {
   const { receipt } = useTrainingReceiptData(data, undefined, effectiveNow, 'all');
-  const { ref: stampRef, hit: stamped } = useStamped(0.3);
+  const { ref: stampRef, hit: stamped, settled: inkSettled } = useStamped(0.3);
 
   // Double-hit rubber stamp face — the ghost copy is the misregistered bounce.
   const stampFace = (
@@ -74,11 +74,11 @@ export const ReceiptCard: React.FC<{
           {/* VERIFIED stamp — double-hit misregistration, slammed on scroll */}
           <div
             className="absolute -right-2 top-14 z-10"
-            style={{ mixBlendMode: 'multiply', filter: 'url(#rcInk)', ...stampAnim(stamped, { rotate: 10, opacity: 0.9 }, 120) }}
+            style={{ mixBlendMode: 'multiply', filter: inkSettled ? 'url(#rcInk)' : 'none', ...stampAnim(stamped, { rotate: 10, opacity: 0.9 }, 120) }}
           >
             <div className="relative">
               {stampFace}
-              <div aria-hidden="true" className="pointer-events-none absolute inset-0" style={{ transform: 'translate(2px, -1.5px)', opacity: 0.35 }}>
+              <div aria-hidden="true" className="pointer-events-none absolute inset-0" style={{ transform: 'translate(1px, -1px)', opacity: 0.25 }}>
                 {stampFace}
               </div>
             </div>

@@ -4,6 +4,15 @@ import React, { useEffect, useRef, useState } from 'react';
 export function useStamped(threshold = 0.15) {
   const ref = useRef<HTMLDivElement>(null);
   const [hit, setHit] = useState(false);
+  // Grunge (live SVG turbulence) is expensive to rasterize every frame, so it
+  // stays OFF while the slam animates and applies once, statically, after the
+  // longest cascade (320ms delay + 240ms duration) has settled.
+  const [settled, setSettled] = useState(false);
+  useEffect(() => {
+    if (!hit) return;
+    const t = window.setTimeout(() => setSettled(true), 600);
+    return () => window.clearTimeout(t);
+  }, [hit]);
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -27,7 +36,7 @@ export function useStamped(threshold = 0.15) {
     io.observe(el);
     return () => io.disconnect();
   }, [threshold]);
-  return { ref, hit };
+  return { ref, hit, settled };
 }
 
 /** Rubber stamp: drops from big + lifted to its resting rotation with an overshoot ease. */
@@ -49,6 +58,7 @@ export function stampAnim(
 /**
  * Whole-sheet aging: fine grain + large soft blotches laid over everything.
  * Gentle by design — it patinas the paper without eating the text.
+ * (Text itself gets its own press treatment separately; this stays neutral.)
  * Apply with style={{ filter: 'url(#id)' }} on the sheet wrapper.
  */
 export const PaperAgeDefs: React.FC<{ id: string }> = ({ id }) => (
@@ -79,6 +89,8 @@ export const PaperAgeDefs: React.FC<{ id: string }> = ({ id }) => (
 /**
  * Letterpress brand mark: uneven inking with fewer dropouts than a rubber
  * stamp, so the logo stays readable while looking pressed, not printed.
+ * Includes a gentle broad fade so one side of the wordmark can sit slightly
+ * lighter than the other, like uneven press pressure.
  */
 export const LogoPressDefs: React.FC<{ id: string; seed?: number }> = ({ id, seed = 21 }) => (
   <svg aria-hidden="true" width={0} height={0} style={{ position: 'absolute' }}>
@@ -92,7 +104,12 @@ export const LogoPressDefs: React.FC<{ id: string; seed?: number }> = ({ id, see
           result="speck"
         />
         <feComposite in="SourceGraphic" in2="speck" operator="in" result="inked" />
-        <feDisplacementMap in="inked" in2="n" scale="1.8" xChannelSelector="R" yChannelSelector="G" />
+        <feTurbulence type="fractalNoise" baseFrequency="0.02 0.03" numOctaves="2" seed={seed + 101} result="cloud" />
+        <feComponentTransfer in="cloud" result="fade">
+          <feFuncA type="table" tableValues="0.6 0.75 0.85 0.95 1 1 1 1" />
+        </feComponentTransfer>
+        <feComposite in="inked" in2="fade" operator="in" result="faded" />
+        <feDisplacementMap in="faded" in2="n" scale="1.8" xChannelSelector="R" yChannelSelector="G" />
       </filter>
     </defs>
   </svg>
@@ -101,15 +118,24 @@ export const StampGrungeDefs: React.FC<{ id: string; seed?: number }> = ({ id, s
   <svg aria-hidden="true" width={0} height={0} style={{ position: 'absolute' }}>
     <defs>
       <filter id={id} x="-20%" y="-20%" width="140%" height="140%">
-        <feTurbulence type="fractalNoise" baseFrequency="0.6" numOctaves="4" seed={seed} result="n" />
+        {/* fine speckle dropouts */}
+        <feTurbulence type="fractalNoise" baseFrequency="0.55" numOctaves="4" seed={seed} result="fine" />
         <feColorMatrix
-          in="n"
+          in="fine"
           type="matrix"
-          values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0.9 0.9 0.9 0 -0.55"
+          values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0.9 0.9 0.9 0 -0.62"
           result="speck"
         />
         <feComposite in="SourceGraphic" in2="speck" operator="in" result="inked" />
-        <feDisplacementMap in="inked" in2="n" scale="2.4" xChannelSelector="R" yChannelSelector="G" />
+        {/* broad uneven fading: whole regions of the stamp sit lighter, like a
+            worn pad that inked heavily in some spots and starved in others */}
+        <feTurbulence type="fractalNoise" baseFrequency="0.011 0.014" numOctaves="3" seed={seed + 101} result="cloud" />
+        <feComponentTransfer in="cloud" result="fade">
+          <feFuncA type="table" tableValues="0.35 0.55 0.75 0.9 1 1 1 1" />
+        </feComponentTransfer>
+        <feComposite in="inked" in2="fade" operator="in" result="faded" />
+        {/* rough stamp edges */}
+        <feDisplacementMap in="faded" in2="fine" scale="3" xChannelSelector="R" yChannelSelector="G" />
       </filter>
     </defs>
   </svg>
