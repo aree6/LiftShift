@@ -7,14 +7,14 @@ export const GETTING_STARTED_SECTION: HowItWorksSection = {
     {
       type: 'p',
       text:
-        'LiftShift turns your workout log into answers about your training: which muscles are growing, what\'s stuck, what\'s improving, and what to do next. Connect Hevy, Strong, or Lyfta in seconds. No account needed. Everything runs in your browser.',
+        'LiftShift turns your workout log into answers about your training: which muscles are growing, what\'s stuck, what\'s improving, and what to do next. Connect Hevy, Strong, Lyfta, Motra, or a generic CSV in seconds. No account needed. Everything runs in your browser.',
     },
     {
       type: 'ul',
       items: [
-        'Import from Hevy (login), Hevy Pro (API key), Lyfta (API key), or CSV (Strong / Lyfta / other apps).',
+        'Import from Hevy (login), Hevy Pro (API key), Lyfta (API key), Strong (CSV), Motra (Excel), or a generic CSV from any other app.',
         'Choose your body map gender and weight unit (kg / lbs) so charts and muscle visuals match you.',
-        'Explore your dashboard: weekly volume, personal records, exercise progress, muscle heatmaps, activity calendar, and set-by-set feedback.',
+        'Explore your dashboard: weekly volume, personal records, exercise progress, muscle heatmaps, activity calendar, the Training Manifest card, and set-by-set feedback.',
       ],
     },
     {
@@ -31,6 +31,7 @@ export const GETTING_STARTED_SECTION: HowItWorksSection = {
       { label: 'Hevy', hrefPath: '/?platform=hevy' },
       { label: 'Strong', hrefPath: '/?platform=strong' },
       { label: 'Lyfta', hrefPath: '/?platform=lyfta' },
+      { label: 'Motra', hrefPath: '/?platform=motra' },
       { label: 'Upload CSV', hrefPath: '/?platform=other' },
     ],
   },

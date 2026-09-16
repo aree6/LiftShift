@@ -8,10 +8,23 @@ export const FLEX_CARDS_SECTION: HowItWorksSection = {
     {
       type: 'p',
       text:
-        'The Flex View is a carousel of 8 cards showing your training highlights. They\'re designed to be shareable, each card a self-contained summary with the LiftShift watermark.',
+        'The Flex View is a carousel of 9 cards showing your training highlights. They\'re designed to be shareable, each card a self-contained summary with the LiftShift watermark.',
+    },
+    {
+      type: 'p',
+      text:
+        'The dashboard has a separate Training Manifest card built on the same receipt engine. It has a 7-day / 30-day toggle, a volume voyage chart with first, peak, and last training-day stops, a body panel showing which muscles you trained in that window, and your top 3 lifts ranked by volume.',
     },
   ],
   children: [
+    {
+      id: 'flex-receipt',
+      title: 'Receipt card',
+      sidebarTitle: 'Receipt',
+      nodes: [
+        { type: 'p', text: 'An all-time training receipt styled like a shop receipt. Top exercises by volume, session / set / rep / time totals, a deterministic receipt number, a VERIFIED stamp, and a QR tip jar. This card always covers your full history, no matter what date filter is active.' },
+      ],
+    },
     {
       id: 'flex-summary',
       title: 'Summary card',

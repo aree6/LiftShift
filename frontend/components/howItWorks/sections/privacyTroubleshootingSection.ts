@@ -43,6 +43,18 @@ export const TROUBLESHOOTING_SECTION: HowItWorksSection = {
   ],
   children: [
     {
+      id: 'trouble-truncated',
+      title: 'Early workouts are missing after API sync',
+      sidebarTitle: 'Truncated history',
+      nodes: [
+        {
+          type: 'p',
+          text:
+            'API syncs pull your newest workouts first and the source API caps how far back one sync can go. When the cap hits, the app shows a "Showing newest history only" banner under the header. Lifetime totals, PRs, and streaks then reflect the partial history. If you want the complete log, import a CSV or Excel export instead, file imports are never capped.',
+        },
+      ],
+    },
+    {
       id: 'trouble-dates',
       title: 'Dates not parsing correctly',
       sidebarTitle: 'Date parsing',
