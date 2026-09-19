@@ -3,9 +3,9 @@ import puppeteer, { type Browser, type Page } from 'puppeteer';
 const HEVY_LOGIN_URL = 'https://hevy.com/login';
 const RECAPTCHA_SITE_KEY = '6LfkQG0jAAAAANTrIkVXKPfSPHyJnt4hYPWqxh0R';
 const HEADLESS_BROWSER_TIMEOUT_MS = 120_000;
-const BROWSER_MAX_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours for testing
+const BROWSER_MAX_AGE_MS = 6 * 60 * 60 * 1000; // 6 hours: bounds leak growth on 512MB instance
 const BROWSER_MAX_USE_COUNT = 100;
-const BROWSER_IDLE_CLOSE_MS = 24 * 60 * 60 * 1000; // 24 hours for testing
+const BROWSER_IDLE_CLOSE_MS = 30 * 60 * 1000; // 30 min idle: keep daytime logins warm, free RAM overnight
 const MAX_CONCURRENT_PAGES = 1;
 const RECAPTCHA_TOKEN_CACHE_MS = 100_000;
 
