@@ -47,14 +47,25 @@ export function useDashboardWarmup({
   const [isWarming, setIsWarming] = useState(false);
   const warmedRef = useRef<{ key: string; data: WorkoutSet[] } | null>(null);
   const runIdRef = useRef(0);
+  // Whoever raised the hold flag last owns lowering it. A cancelled run must
+  // still release the flag when no successor took over — otherwise the overlay
+  // wedges open forever (this stranded the app on the finishProgress path).
+  const flagOwnerRef = useRef<number | null>(null);
+  // Read live without subscribing: the run must SURVIVE the analyzing flag
+  // flipping false mid-run (finishProgress fires ~250ms after data arrival,
+  // long before a 1-2s warmup finishes) and keep holding the overlay until
+  // the data is actually ready.
+  const analyzingRef = useRef(isAnalyzing);
+  analyzingRef.current = isAnalyzing;
 
+  // NOTE: isAnalyzing is intentionally not a dep (see analyzingRef above).
   useEffect(() => {
-    if (!isAnalyzing || filteredData.length === 0) return;
+    if (!analyzingRef.current || filteredData.length === 0) return;
     if (warmedRef.current?.key === filterCacheKey && warmedRef.current?.data === filteredData) return;
 
     const runId = ++runIdRef.current;
-    let settled = false;
-    const alive = (): boolean => !settled && runIdRef.current === runId;
+    flagOwnerRef.current = runId;
+    const alive = (): boolean => flagOwnerRef.current === runId;
     const check = (): void => {
       if (!alive()) throw new Error('warmup superseded');
     };
@@ -125,11 +136,12 @@ export function useDashboardWarmup({
       try {
         await Promise.race([warm(), timeout]);
       } catch {
-        // Superseded, timed out, or failed: release the hold; the dashboard
-        // falls back to computing on mount (today's behavior, no worse).
+        // Superseded, timed out, or failed: the finally below releases the
+        // hold if still ours; the dashboard falls back to computing on mount
+        // (old behavior, no worse).
       } finally {
-        settled = true;
-        if (runIdRef.current === runId) {
+        if (flagOwnerRef.current === runId) {
+          flagOwnerRef.current = null;
           warmedRef.current = { key: filterCacheKey, data: filteredData };
           setIsWarming(false);
         }
@@ -138,9 +150,11 @@ export function useDashboardWarmup({
     void run();
 
     return () => {
-      runIdRef.current += 1;
+      // Supersede: release ownership so the in-flight run aborts at its next
+      // yield; the succeeding run (or nothing, on unmount) owns the flag.
+      if (flagOwnerRef.current === runId) flagOwnerRef.current = null;
     };
-  }, [isAnalyzing, filteredData, filterCacheKey, effectiveNow, weightUnit, secondarySetMultiplier]);
+  }, [filteredData, filterCacheKey, effectiveNow, weightUnit, secondarySetMultiplier]);
 
   return isWarming;
 }
