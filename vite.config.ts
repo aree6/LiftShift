@@ -201,6 +201,10 @@ export default defineConfig(({ mode }) => {
             if (!id.includes('node_modules')) return;
             if (id.includes('/recharts/')) return 'vendor-charts';
             if (id.includes('/date-fns/') || id.includes('/lucide-react/')) return 'vendor-utils';
+            // Motion (toast/overlay/shell animations) + papaparse (CSV parse)
+            // in their own chunks for granular caching.
+            if (id.includes('/motion/') || id.includes('/framer-motion/')) return 'vendor-motion';
+            if (id.includes('/papaparse/')) return 'vendor-csv';
             // Let Vite/Rollup decide chunking for React core packages to avoid circular chunk imports.
             return;
           }
