@@ -28,6 +28,8 @@ import { useDashboardWarmup } from './app/state';
 import { useCalendarSelectionHandlers } from './app/state';
 import { useUpdateFlowHandler } from './app/auth';
 import { calculatePRInsights } from './utils/analysis/insights';
+import { computationCache } from './utils/storage/computationCache';
+import { flexCacheKeys } from './utils/storage/cacheKeys';
 import { createFingerprintMatcher } from './utils/exercise/exerciseFingerprint';
 import { resolveDarkBgByMode, resolveLightBg } from './src/assets/images/misc/bgConfig';
 
@@ -63,6 +65,34 @@ const tryRecoverFromChunkLoadError = (): void => {
   } catch {
     window.location.reload();
   }
+};
+
+const formatRelativeTime = (ms: number): string => {
+  const minutes = Math.floor(ms / (1000 * 60));
+  const hours = Math.floor(ms / (1000 * 60 * 60));
+  const days = Math.floor(ms / (1000 * 60 * 60 * 24));
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return `${minutes} minute${minutes === 1 ? '' : 's'} ago`;
+  if (hours < 24) {
+    const remMins = minutes % 60;
+    if (remMins === 0) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+    return `${hours}h ${remMins}m ago`;
+  }
+  const remHours = hours % 24;
+  if (days === 1) {
+    if (remHours === 0) return '1 day ago';
+    return `1 day, ${remHours}h ago`;
+  }
+  if (remHours === 0) return `${days} days ago`;
+  return `${days} days, ${remHours}h ago`;
+};
+
+const ToastNotifier: React.FC<{ addToastRef: React.MutableRefObject<((content: React.ReactNode, duration?: number) => string) | null> }> = ({ addToastRef }) => {
+  const { addToast } = useToast();
+  useEffect(() => {
+    addToastRef.current = addToast;
+  }, [addToast, addToastRef]);
+  return null;
 };
 
 const App: React.FC = () => {
@@ -133,6 +163,19 @@ const App: React.FC = () => {
   const [preferencesModalOpen, setPreferencesModalOpen] = useState(false);
   const [showBmcModal, setShowBmcModal] = useState(false);
   const [bgLoaded, setBgLoaded] = useState(false);
+
+  // Stable refs declared up-front so data callbacks below keep a fixed identity
+  // (inline closures here previously recreated every auth handler per render).
+  const lastAutoFilteredMaxTs = useRef<number>(0);
+  const isCombiningRef = useRef(false);
+  const platformQueryConsumedRef = useRef(false);
+  const addToastRef = useRef<((content: React.ReactNode, duration?: number) => string) | null>(null);
+  // Live mirror of dataBySource so mergeIntoCombinedData reads fresh state
+  // without depending on it (keeps the callback — and everything downstream
+  // of it — referentially stable across data loads). Same pattern as
+  // analyzingRef in useDashboardWarmup.
+  const dataBySourceRef = useRef(dataBySource);
+  dataBySourceRef.current = dataBySource;
 
   const {
     mode,
@@ -244,41 +287,53 @@ const App: React.FC = () => {
   const mergeIntoCombinedData = useCallback(
     (source: 'hevy' | 'lyfta' | 'strong' | 'other' | 'motra', incoming: WorkoutSet[], replaceMode = true) => {
       const DEMO_MODE_KEY = 'hevy_analytics_demo_mode';
-      const isDemoMode = localStorage.getItem(DEMO_MODE_KEY) === '1';
+      const isDemoMode = (() => {
+        try {
+          return localStorage.getItem(DEMO_MODE_KEY) === '1';
+        } catch {
+          return false;
+        }
+      })();
       if (isDemoMode && source !== 'other') {
-        localStorage.removeItem(DEMO_MODE_KEY);
+        try {
+          localStorage.removeItem(DEMO_MODE_KEY);
+        } catch {}
       }
 
-      setDataBySource((prev) => {
-        const existing = replaceMode ? [] : (prev[source] ?? []);
-        const nextSourceData = [...existing, ...incoming];
+      // Compute outside the updater (updaters must be pure; nesting
+      // setParsedData inside setDataBySource caused double renders and
+      // StrictMode double-invoke of the expensive merge). Reads the live
+      // ref mirror instead of state, so this callback never goes stale and
+      // never invalidates downstream handler memos on data loads.
+      const prev = dataBySourceRef.current;
+      const existing = replaceMode ? [] : (prev[source] ?? []);
+      const nextSourceData = [...existing, ...incoming];
 
-        const byKey = new Map<string, WorkoutSet>();
-        for (const set of nextSourceData) {
-          const key = [
-            set.start_time,
-            set.end_time,
-            set.exercise_title,
-            set.set_index,
-            set.weight_kg,
-            set.reps,
-            set.rpe,
-          ].join('|');
-          if (!byKey.has(key)) byKey.set(key, set);
-        }
+      const byKey = new Map<string, WorkoutSet>();
+      for (const set of nextSourceData) {
+        const key = [
+          set.start_time,
+          set.end_time,
+          set.exercise_title,
+          set.set_index,
+          set.weight_kg,
+          set.reps,
+          set.rpe,
+        ].join('|');
+        if (!byKey.has(key)) byKey.set(key, set);
+      }
 
-        const deduped = Array.from(byKey.values());
-        let next = replaceMode
-          ? { [source]: deduped }
-          : { ...prev, [source]: deduped };
-        if (isDemoMode && source !== 'other') {
-          delete (next as any).other;
-        }
-        const combined = mergeDatasets(next);
-        setParsedData(combined);
-        if (combined.length > 0) setHasHydratedData(true);
-        return next;
-      });
+      const deduped = Array.from(byKey.values());
+      const next: Partial<Record<'hevy' | 'lyfta' | 'strong' | 'other' | 'motra', WorkoutSet[]>> =
+        replaceMode ? { [source]: deduped } : { ...prev, [source]: deduped };
+      if (isDemoMode && source !== 'other') {
+        delete (next as any).other;
+      }
+      const combined = mergeDatasets(next);
+      dataBySourceRef.current = next;
+      setDataBySource(next);
+      setParsedData(combined);
+      if (combined.length > 0) setHasHydratedData(true);
     },
     [mergeDatasets]
   );
@@ -330,6 +385,38 @@ const App: React.FC = () => {
     }, [parsedData]),
   });
 
+  // Stable data-ingest callbacks so useAppAuth/useStartupAutoLoad handler memos
+  // don't invalidate on every App render (was inline closures → full cascade).
+  const handleAuthData = useCallback(
+    (data: WorkoutSet[]) => {
+      const inferredSource = data[0]?.source;
+      if (inferredSource === 'hevy' || inferredSource === 'lyfta' || inferredSource === 'strong' || inferredSource === 'other' || inferredSource === 'motra') {
+        const shouldMerge = isCombiningRef.current;
+        isCombiningRef.current = false;
+        clearAllFilters();
+        lastAutoFilteredMaxTs.current = 0;
+        mergeIntoCombinedData(inferredSource, data, !shouldMerge);
+        return;
+      }
+      setParsedData(data);
+      if (data.length > 0) setHasHydratedData(true);
+    },
+    [clearAllFilters, mergeIntoCombinedData]
+  );
+
+  const handleStartupData = useCallback(
+    (data: WorkoutSet[]) => {
+      const inferredSource = data[0]?.source;
+      if (inferredSource === 'hevy' || inferredSource === 'lyfta' || inferredSource === 'strong' || inferredSource === 'other' || inferredSource === 'motra') {
+        mergeIntoCombinedData(inferredSource, data, false);
+        return;
+      }
+      setParsedData(data);
+      if (data.length > 0) setHasHydratedData(true);
+    },
+    [mergeIntoCombinedData]
+  );
+
   const {
     hevyLoginError,
     lyfatLoginError,
@@ -352,26 +439,13 @@ const App: React.FC = () => {
     clearCsvImportError,
   } = useAppAuth({
     weightUnit,
-    setParsedData: (data) => {
-      const inferredSource = data[0]?.source;
-      if (inferredSource === 'hevy' || inferredSource === 'lyfta' || inferredSource === 'strong' || inferredSource === 'other' || inferredSource === 'motra') {
-        const shouldMerge = isCombiningRef.current;
-        isCombiningRef.current = false;
-        clearAllFilters();
-        lastAutoFilteredMaxTs.current = 0;
-        mergeIntoCombinedData(inferredSource, data, !shouldMerge);
-        return;
-      }
-      setParsedData(data);
-      if (data.length > 0) setHasHydratedData(true);
-    },
+    setParsedData: handleAuthData,
     setDataSource,
     setOnboarding,
     setSelectedMonth,
     setSelectedDay,
   });
 
-  const platformQueryConsumedRef = { current: false };
   usePlatformDeepLink({ location, navigate, setOnboarding, platformQueryConsumedRef });
   useAppSideEffects({ onboardingIntent: onboarding?.intent ?? null, dataSource, location });
   usePrefetchHeavyViews();
@@ -380,15 +454,7 @@ const App: React.FC = () => {
     parsedData,
     setOnboarding,
     setDataSource,
-    setParsedData: (data) => {
-      const inferredSource = data[0]?.source;
-      if (inferredSource === 'hevy' || inferredSource === 'lyfta' || inferredSource === 'strong' || inferredSource === 'other' || inferredSource === 'motra') {
-        mergeIntoCombinedData(inferredSource, data, false);
-        return;
-      }
-      setParsedData(data);
-      if (data.length > 0) setHasHydratedData(true);
-    },
+    setParsedData: handleStartupData,
     setHevyLoginError: clearHevyLoginError,
     setLyfatLoginError: clearLyfatLoginError,
     setCsvImportError: clearCsvImportError,
@@ -416,11 +482,7 @@ const App: React.FC = () => {
     secondarySetMultiplier,
   });
 
-  // Track last auto-filtered max timestamp to prevent re-triggering
-  const lastAutoFilteredMaxTs = useRef<number>(0);
-
-  const isCombiningRef = useRef(false);
-
+  // Track last auto-filtered max timestamp to prevent re-triggering (refs declared at top).
   useEffect(() => {
     if (onboarding === null) {
       isCombiningRef.current = false;
@@ -458,17 +520,23 @@ const App: React.FC = () => {
     });
   }, [dataAgeInfo?.isStale, hasActiveCalendarFilter, parsedData]);
 
-  const filterControls = (
-    <AppFilterControls
-      hasActiveCalendarFilter={hasActiveCalendarFilter}
-      calendarSummaryText={calendarSummaryText}
-      setCalendarOpen={setCalendarOpen}
-      clearAllFilters={clearAllFilters}
-      toggleCalendarOpen={toggleCalendarOpen}
-    />
+  const filterControls = useMemo(
+    () => (
+      <AppFilterControls
+        hasActiveCalendarFilter={hasActiveCalendarFilter}
+        calendarSummaryText={calendarSummaryText}
+        setCalendarOpen={setCalendarOpen}
+        clearAllFilters={clearAllFilters}
+        toggleCalendarOpen={toggleCalendarOpen}
+      />
+    ),
+    [hasActiveCalendarFilter, calendarSummaryText, setCalendarOpen, clearAllFilters, toggleCalendarOpen]
   );
 
-  const desktopFilterControls = <div className="hidden sm:block">{filterControls}</div>;
+  const desktopFilterControls = useMemo(
+    () => <div className="hidden sm:block">{filterControls}</div>,
+    [filterControls]
+  );
 
   const clearCacheAndRestart = useCallback(() => {
     clearCacheAndRestartNow();
@@ -506,26 +574,6 @@ const App: React.FC = () => {
 
   const showColdStartOverlay = onboarding?.intent !== 'initial' && parsedData.length === 0 && !hasHydratedData;
 
-  const formatRelativeTime = (ms: number): string => {
-    const minutes = Math.floor(ms / (1000 * 60));
-    const hours = Math.floor(ms / (1000 * 60 * 60));
-    const days = Math.floor(ms / (1000 * 60 * 60 * 24));
-    if (minutes < 1) return 'just now';
-    if (minutes < 60) return `${minutes} minute${minutes === 1 ? '' : 's'} ago`;
-    if (hours < 24) {
-      const remMins = minutes % 60;
-      if (remMins === 0) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
-      return `${hours}h ${remMins}m ago`;
-    }
-    const remHours = hours % 24;
-    if (days === 1) {
-      if (remHours === 0) return '1 day ago';
-      return `1 day, ${remHours}h ago`;
-    }
-    if (remHours === 0) return `${days} days ago`;
-    return `${days} days, ${remHours}h ago`;
-  };
-
   const dataAgeShownRef = useRef(false);
   const prevHasFilterRef = useRef(false);
 
@@ -548,42 +596,76 @@ const App: React.FC = () => {
     if (latestMs > 0) {
       const msAgo = Date.now() - latestMs;
       const relativeTime = formatRelativeTime(msAgo);
-      const prInsights = calculatePRInsights(parsedData, new Date());
-      const prsToday = prInsights.recentPRs.filter((pr) => {
-        const prDate = pr.date;
-        if (!prDate) return false;
-        const latestDate = new Date(latestMs);
-        return prDate.toDateString() === latestDate.toDateString();
-      });
-      const prCount = prsToday.length;
+      const latestDay = new Date(latestMs).toDateString();
+
+      // Tracked so cleanup can cancel the whole chain (outer timer + inner
+      // idle callback), not just the outer timer.
+      let idleHandle: number | null = null;
+      let idleFallbackTimer: number | null = null;
 
       const timer = setTimeout(() => {
-        if (prCount > 0) {
-          addToastRef.current?.(
-            <div className="flex flex-col gap-1">
+        const scheduleIdle = (fn: () => void): void => {
+          const w = window as any;
+          if (typeof w.requestIdleCallback === 'function') {
+            idleHandle = w.requestIdleCallback(fn, { timeout: 2000 });
+          } else {
+            idleFallbackTimer = window.setTimeout(fn, 50);
+          }
+        };
+        scheduleIdle(() => {
+          let prCount = 0;
+          try {
+            const prInsights = computationCache.getOrCompute(
+              flexCacheKeys.prInsights(filterCacheKey),
+              parsedData,
+              () => calculatePRInsights(parsedData, new Date()),
+              { ttl: 10 * 60 * 1000 }
+            );
+            prCount = prInsights.recentPRs.filter((pr: any) => {
+              const prDate = pr.date;
+              if (!prDate) return false;
+              return prDate.toDateString() === latestDay;
+            }).length;
+          } catch {}
+          if (prCount > 0) {
+            addToastRef.current?.(
+              <div className="flex flex-col gap-1">
+                <span>
+                  <span style={{ color: 'var(--text-secondary)' }}>Last workout was </span>
+                  <strong>{relativeTime}</strong>
+                </span>
+                <span className="inline-flex items-center gap-1.5 text-yellow-400 font-semibold">
+                  <Trophy className="w-4 h-4" />
+                  with {prCount} new PR{prCount === 1 ? '' : 's'}
+                </span>
+              </div>
+            );
+          } else {
+            addToastRef.current?.(
               <span>
-                <span style={{ color: 'var(--text-secondary)' }}>Last workout was </span>
+                <span style={{ color: 'var(--text-secondary)' }}>Last session was </span>
                 <strong>{relativeTime}</strong>
               </span>
-              <span className="inline-flex items-center gap-1.5 text-yellow-400 font-semibold">
-                <Trophy className="w-4 h-4" />
-                with {prCount} new PR{prCount === 1 ? '' : 's'}
-              </span>
-            </div>
-          );
-        } else {
-          addToastRef.current?.(
-            <span>
-              <span style={{ color: 'var(--text-secondary)' }}>Last session was </span>
-              <strong>{relativeTime}</strong>
-            </span>
-          );
-         }
+            );
+          }
+        });
        }, 800);
        dataAgeShownRef.current = true;
-       return () => clearTimeout(timer);
+       return () => {
+         clearTimeout(timer);
+         if (idleHandle != null) {
+           try {
+             (window as any).cancelIdleCallback?.(idleHandle);
+           } catch {}
+           idleHandle = null;
+         }
+         if (idleFallbackTimer != null) {
+           clearTimeout(idleFallbackTimer);
+           idleFallbackTimer = null;
+         }
+       };
     }
-  }, [parsedData, showColdStartOverlay, onboarding?.intent]);
+  }, [parsedData, showColdStartOverlay, onboarding?.intent, filterCacheKey]);
 
   useEffect(() => {
     if (onboarding?.intent === 'initial') return;
@@ -658,31 +740,26 @@ const App: React.FC = () => {
     return () => clearInterval(interval);
   }, [activeTab, onboarding]);
 
-  const addToastRef = useRef<((content: React.ReactNode, duration?: number) => string) | null>(null);
-
-  const ToastNotifier: React.FC = () => {
-    const { addToast } = useToast();
-    useEffect(() => {
-      addToastRef.current = addToast;
-    }, [addToast]);
-    return null;
-  };
-
   return (
     <ToastProvider>
-      <ToastNotifier />
+      <ToastNotifier addToastRef={addToastRef} />
       <div
         className="relative flex flex-col min-h-[100svh] h-[100dvh] overscroll-none bg-transparent text-[color:var(--app-fg)] font-sans"
       >
         {/* Full-page Background Image (dark mode only, user preference) */}
         {mode !== 'light' && showTransparency && (
-          <img
-            src={resolveDarkBgByMode(mode, darkBgChoice)}
-            alt=""
-            aria-hidden="true"
-            onLoad={() => setBgLoaded(true)}
-            className={`fixed inset-0 w-full h-full object-cover z-[-1] pointer-events-none filter brightness-50 transition-opacity duration-500 ${bgLoaded ? 'opacity-50' : 'opacity-0'}`}
-          />
+          <>
+            <img
+              src={resolveDarkBgByMode(mode, darkBgChoice)}
+              alt=""
+              aria-hidden="true"
+              onLoad={() => setBgLoaded(true)}
+              decoding="async"
+              fetchPriority="low"
+              className={`fixed inset-0 w-full h-full object-cover z-[-1] pointer-events-none transition-opacity duration-500 ${bgLoaded ? 'opacity-50' : 'opacity-0'}`}
+            />
+            <div aria-hidden="true" className="fixed inset-0 z-[-1] pointer-events-none bg-black/50" />
+          </>
         )}
         {/* Light mode background */}
         {mode === 'light' && showTransparency && (
@@ -691,6 +768,8 @@ const App: React.FC = () => {
             alt=""
             aria-hidden="true"
             onLoad={() => setBgLoaded(true)}
+            decoding="async"
+            fetchPriority="low"
             className={`fixed inset-0 w-full h-full object-cover z-[-1] pointer-events-none transition-opacity duration-500 ${bgLoaded ? 'opacity-50' : 'opacity-0'}`}
           />
         )}

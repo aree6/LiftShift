@@ -181,6 +181,7 @@ export const AppTabContent: React.FC<AppTabContentProps> = ({
             bodyMapGender={bodyMapGender}
             now={now}
             secondarySetMultiplier={secondarySetMultiplier}
+            filterCacheKey={filterCacheKey}
           />
         </Suspense>
       )}

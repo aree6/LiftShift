@@ -120,12 +120,24 @@ export function useDashboardWarmup({
       await yieldToUI();
       check();
 
-      // 6. Lazy-chunk preloads so Suspense boundaries resolve instantly.
-      await Promise.all([
-        import('../../components/dashboard/ui/Dashboard'),
-        import('../../components/dashboard/manifest/TrainingManifestCard'),
-        import('../../components/dashboard/receipt/LifetimeLedgerPanel'),
-      ]);
+      // 6. Lazy-chunk preloads deferred to idle AFTER the overlay releases,
+      // so chunk fetch/parse never contends with warmup compute or the
+      // overlay ticker. Fire-and-forget: Suspense still covers a miss.
+      const scheduleIdle = (fn: () => void): void => {
+        const w = window as any;
+        if (typeof w.requestIdleCallback === 'function') {
+          w.requestIdleCallback(fn, { timeout: 3000 });
+        } else {
+          window.setTimeout(fn, 1500);
+        }
+      };
+      scheduleIdle(() => {
+        void Promise.all([
+          import('../../components/dashboard/ui/Dashboard'),
+          import('../../components/dashboard/manifest/TrainingManifestCard'),
+          import('../../components/dashboard/receipt/LifetimeLedgerPanel'),
+        ]).catch(() => {});
+      });
     };
 
     const timeout = new Promise<void>((_, reject) => {
