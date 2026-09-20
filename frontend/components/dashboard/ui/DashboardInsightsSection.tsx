@@ -1,9 +1,7 @@
-import React from 'react';
+import React, { Suspense, lazy, memo } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { InsightsPanel, PlateauAlert, RecentPRsPanel } from '../../insights/InsightCards';
 import { ActivityHeatmap } from './ActivityHeatmap';
-import { LifetimeLedgerPanel } from '../receipt/LifetimeLedgerPanel';
-import { TrainingManifestCard } from '../manifest/TrainingManifestCard';
 import { TrainingTimelineCard } from '../trainingTimeline/TrainingTimelineCard';
 import { DashboardSummaryCard } from './DashboardSummaryCard';
 import type { WeightUnit } from '../../../utils/storage/localStorage';
@@ -13,6 +11,20 @@ import type { TimelineProgress } from '../../../utils/training/trainingTimeline'
 import type { DashboardSummaryResult } from '../../../utils/analysis/dashboardSummary/dashboardSummary';
 import type { WeeklySetsDashboardResult } from '../../../utils/muscle/analytics/dashboardWeeklySets';
 import { stripExerciseSourceLabel } from '../../../utils/exercise/exerciseSourceLabel';
+
+// Below-the-fold paper pair (heavy SVG filters + muscle pipeline): split into
+// their own chunks so they never block the initial dashboard paint.
+const TrainingManifestCard = lazy(() => import('../manifest/TrainingManifestCard'));
+const LifetimeLedgerPanel = lazy(() => import('../receipt/LifetimeLedgerPanel'));
+
+const PaperShell: React.FC<{ className?: string; height: number }> = ({ className, height }) => (
+  <div
+    className={`min-w-0 overflow-hidden rounded-xl border p-1.5 sm:p-2 ${className ?? ''}`}
+    style={{ backgroundColor: '#8a7f57', borderColor: '#8a7f57' }}
+  >
+    <div className="animate-pulse rounded-[14px]" style={{ backgroundColor: '#F0E5C5', opacity: 0.6, height }} />
+  </div>
+);
 
 interface DashboardInsightsSectionProps {
   dashboardInsights: any;
@@ -37,7 +49,7 @@ interface DashboardInsightsSectionProps {
   onStrengthBalanceDetails?: () => void;
 }
 
-export const DashboardInsightsSection: React.FC<DashboardInsightsSectionProps> = ({
+export const DashboardInsightsSection: React.FC<DashboardInsightsSectionProps> = memo(({
   dashboardInsights,
   totalWorkouts,
   totalSets,
@@ -126,30 +138,41 @@ export const DashboardInsightsSection: React.FC<DashboardInsightsSectionProps> =
       now={effectiveNow}
     />
 
-    {/* Manifest + lifetime ledger: stacked on mobile, equal-height 2/3 + 1/3 on desktop */}
-    <div className="grid gap-2 lg:grid-cols-3 lg:items-stretch">
+    {/* Manifest + lifetime ledger: stacked on mobile, equal-height 2/3 + 1/3 on desktop.
+        Offscreen rendering is skipped via content-visibility so the paper
+        filters never cost anything until scrolled to. */}
+    <div
+      className="grid gap-2 lg:grid-cols-3 lg:items-stretch"
+      style={{ contentVisibility: 'auto', containIntrinsicSize: 'auto 560px' }}
+    >
       <div className="min-w-0 h-full lg:col-span-2">
-        <TrainingManifestCard
-          fullData={fullData}
-          dailyData={dailyData}
-          weightUnit={weightUnit}
-          effectiveNow={effectiveNow}
-          assetsMap={assetsMap}
-          bodyMapGender={bodyMapGender}
-          secondarySetMultiplier={secondarySetMultiplier}
-          onExerciseClick={onExerciseClick}
-        />
+        <Suspense fallback={<PaperShell height={480} />}>
+          <TrainingManifestCard
+            fullData={fullData}
+            dailyData={dailyData}
+            weightUnit={weightUnit}
+            effectiveNow={effectiveNow}
+            assetsMap={assetsMap}
+            bodyMapGender={bodyMapGender}
+            secondarySetMultiplier={secondarySetMultiplier}
+            onExerciseClick={onExerciseClick}
+          />
+        </Suspense>
       </div>
       <div className="hidden min-w-0 h-full lg:block">
-        <LifetimeLedgerPanel
-          fullData={fullData}
-          dailyData={dailyData}
-          weightUnit={weightUnit}
-          effectiveNow={effectiveNow}
-          streakWeeks={dashboardInsights?.streakInfo?.currentStreak ?? 0}
-          onExerciseClick={onExerciseClick}
-        />
+        <Suspense fallback={<PaperShell height={480} />}>
+          <LifetimeLedgerPanel
+            fullData={fullData}
+            dailyData={dailyData}
+            weightUnit={weightUnit}
+            effectiveNow={effectiveNow}
+            streakWeeks={dashboardInsights?.streakInfo?.currentStreak ?? 0}
+            onExerciseClick={onExerciseClick}
+          />
+        </Suspense>
       </div>
     </div>
   </>
-);
+));
+
+DashboardInsightsSection.displayName = 'DashboardInsightsSection';
