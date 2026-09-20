@@ -161,7 +161,7 @@ const CheckpointIconNode: React.FC<{
       <div
         className={`
           ${ringSize} rounded-full flex items-center justify-center
-          border-2 transition-all duration-300 relative
+          border-2 transition-[border-color,opacity,transform] duration-200 relative
           ${isCurrent
             ? 'border-amber-300 shadow-lg shadow-amber-300/30 scale-110'
             : isReached

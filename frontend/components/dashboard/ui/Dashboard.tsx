@@ -9,7 +9,7 @@ import { calculateDashboardInsights } from '../../../utils/analysis/insights';
 import { buildDashboardSummary } from '../../../utils/analysis/dashboardSummary/dashboardSummary';
 import { computationCache } from '../../../utils/storage/computationCache';
 import { dashboardCacheKeys } from '../../../utils/storage/cacheKeys';
-import { prefetchExerciseData } from '../../../utils/prefetch/prefetchStrategies';
+import { prefetchExerciseData, schedulePrefetch } from '../../../utils/prefetch/prefetchStrategies';
 import { isWarmupSet, getWeeklyVolumeSetWeight } from '../../../utils/analysis/classification';
 import { useDashboardIntensityEvolution } from '../hooks/useDashboardIntensityEvolution';
 import { useDashboardMuscleTrend } from '../hooks/useDashboardMuscleTrend';
@@ -194,12 +194,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   useEffect(() => {
     if (filteredData.length === 0) return;
-    
-    const timer = setTimeout(() => {
+
+    // Idle-gated so chunk fetch + cache warming never contends with
+    // active scrolling/filtering (was a fixed 3s timer on main thread).
+    const cancel = schedulePrefetch(() => {
       prefetchExerciseData(filterCacheKey, filteredData);
-    }, 3000);
-    
-    return () => clearTimeout(timer);
+    });
+
+    return cancel;
   }, [filterCacheKey, filteredData]);
 
   const { activePlateauExercises } = useDashboardPlateaus({
@@ -321,18 +323,54 @@ export const Dashboard: React.FC<DashboardProps> = ({
     return new Date(hypertrophyEffectiveNow.getTime() - days * 24 * 60 * 60 * 1000);
   }, [hypertrophyPeriod, hypertrophyEffectiveNow]);
 
-  const hypertrophyMuscleRatesMap = useMemo(() => {
+  const hypertrophyWindowStart30d = useMemo(() =>
+    new Date(hypertrophyEffectiveNow.getTime() - 30 * 24 * 60 * 60 * 1000),
+    [hypertrophyEffectiveNow]
+  );
+
+  // 30d base is computed once through cache; the period-specific map reuses
+  // it when windows coincide instead of running a second full scan.
+  // INVARIANT: this key space holds RAW WeeklySetsDashboardResult entries
+  // (shared with the weekly-sets hook + warmup). The Map conversion happens
+  // AFTER the lookup, every time — never store the mapped value here, or
+  // readers expecting the raw shape crash (and vice versa). parsedData as
+  // the data arg keeps same-length content edits invalidating correctly.
+  const hypertrophyMuscleRatesMap30d = useMemo(() => {
     if (!assetsMap) return null;
-    const result = computeWeeklySetsDashboardData(
+    const result = computationCache.getOrCompute(
+      dashboardCacheKeys.weeklySets(filterCacheKey, '30d', 'muscles', secondarySetMultiplier),
       parsedData,
-      assetsMap,
-      hypertrophyEffectiveNow,
-      hypertrophyPeriod,
-      'muscles',
-      secondarySetMultiplier
+      () => computeWeeklySetsDashboardData(
+        parsedData,
+        assetsMap,
+        hypertrophyEffectiveNow,
+        '30d',
+        'muscles',
+        secondarySetMultiplier
+      ),
+      { ttl: 10 * 60 * 1000 }
     );
     return toMuscleVolumeMap(result.heatmap.volumes);
-  }, [assetsMap, parsedData, hypertrophyEffectiveNow, hypertrophyPeriod, secondarySetMultiplier]);
+  }, [assetsMap, parsedData, hypertrophyEffectiveNow, secondarySetMultiplier, filterCacheKey]);
+
+  const hypertrophyMuscleRatesMap = useMemo(() => {
+    if (!assetsMap) return null;
+    if (hypertrophyPeriod === '30d') return hypertrophyMuscleRatesMap30d;
+    const result = computationCache.getOrCompute(
+      dashboardCacheKeys.weeklySets(filterCacheKey, hypertrophyPeriod, 'muscles', secondarySetMultiplier),
+      parsedData,
+      () => computeWeeklySetsDashboardData(
+        parsedData,
+        assetsMap,
+        hypertrophyEffectiveNow,
+        hypertrophyPeriod,
+        'muscles',
+        secondarySetMultiplier
+      ),
+      { ttl: 10 * 60 * 1000 }
+    );
+    return toMuscleVolumeMap(result.heatmap.volumes);
+  }, [assetsMap, parsedData, hypertrophyEffectiveNow, hypertrophyPeriod, secondarySetMultiplier, filterCacheKey, hypertrophyMuscleRatesMap30d]);
 
   const hypertrophyData = useMemo(() => {
     if (!parsedData.length || !assetsMap) return [];
@@ -348,24 +386,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
       exerciseTrendResults
     );
   }, [parsedData, assetsMap, exerciseStats, hypertrophyEffectiveNow, trainingLevel, hypertrophyPeriod, hypertrophyMuscleRatesMap, hypertrophyWindowStart, exerciseTrendResults]);
-
-  const hypertrophyWindowStart30d = useMemo(() =>
-    new Date(hypertrophyEffectiveNow.getTime() - 30 * 24 * 60 * 60 * 1000),
-    [hypertrophyEffectiveNow]
-  );
-
-  const hypertrophyMuscleRatesMap30d = useMemo(() => {
-    if (!assetsMap) return null;
-    const result = computeWeeklySetsDashboardData(
-      parsedData,
-      assetsMap,
-      hypertrophyEffectiveNow,
-      '30d',
-      'muscles',
-      secondarySetMultiplier
-    );
-    return toMuscleVolumeMap(result.heatmap.volumes);
-  }, [assetsMap, parsedData, hypertrophyEffectiveNow, secondarySetMultiplier]);
 
   const hypertrophyData30d = useMemo(() => {
     if (!parsedData.length || !assetsMap || !hypertrophyMuscleRatesMap30d) return [];

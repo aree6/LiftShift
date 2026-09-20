@@ -153,9 +153,13 @@ export const ActivityHeatmap = memo(({
 
   const [tooltip, setTooltip] = useState<TooltipData | null>(null);
   const scrollContainerRef = React.useRef<HTMLDivElement>(null);
+  // Scroll to "today" once on mount only. Previously re-ran on every
+  // heatmapData change, yanking scroll away from the user mid-interaction.
+  const didInitialScrollRef = React.useRef(false);
 
   useEffect(() => {
-    if (!scrollContainerRef.current) return;
+    if (!scrollContainerRef.current || didInitialScrollRef.current) return;
+    didInitialScrollRef.current = true;
 
     requestAnimationFrame(() => {
       setTimeout(() => {

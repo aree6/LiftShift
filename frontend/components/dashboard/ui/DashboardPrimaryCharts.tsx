@@ -157,8 +157,8 @@ export const DashboardPrimaryCharts: React.FC<DashboardPrimaryChartsProps> = ({
 </div>
 
 <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 sm:gap-2">
-      <LazyRender className="lg:h-auto" placeholder={<ChartSkeleton className="h-[450px] sm:h-[650px]" />}>
-        <Suspense fallback={<ChartSkeleton className="h-[450px] sm:h-[650px]" />}>
+      <LazyRender className="lg:h-auto" placeholder={<ChartSkeleton className="min-h-[450px] sm:min-h-[650px]" />}>
+        <Suspense fallback={<ChartSkeleton className="min-h-[450px] sm:min-h-[650px]" />}>
           <HypertrophyScatterCard
             hypertrophyData={scatterHypertrophyData}
             hypertrophyPeriod={hypertrophyPeriod}

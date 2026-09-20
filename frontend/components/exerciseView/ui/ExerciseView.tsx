@@ -6,7 +6,7 @@ import { loadExerciseMuscleData, ExerciseMuscleData, toMuscleVolumeMap } from '.
 import { ExerciseTrendMode, WeightUnit, getSmartFilterMode } from '../../../utils/storage/localStorage';
 import { summarizeExerciseHistory, analyzeExerciseTrendCore, type ExerciseSessionEntry } from '../../../utils/analysis/exerciseTrend';
 import { getRechartsCategoricalTicks, getRechartsTickIndexMap } from '../../../utils/chart/chartEnhancements';
-import { prefetchMuscleData } from '../../../utils/prefetch/prefetchStrategies';
+import { prefetchMuscleData, schedulePrefetch } from '../../../utils/prefetch/prefetchStrategies';
 import { getVolumeThresholds } from '../../../utils/muscle/hypertrophy/muscleParams';
 import { useTrainingLevel } from '../../../hooks/app/useTrainingLevel';
 
@@ -137,15 +137,15 @@ export const ExerciseView: React.FC<ExerciseViewProps> = ({
     return () => { mounted = false; };
   }, []);
 
-  // Prefetch Muscle Analysis data after 3 seconds on Exercise view
+  // Prefetch Muscle Analysis data when idle on Exercise view
   useEffect(() => {
     if (!assetsMap || filteredData.length === 0) return;
-    
-    const timer = setTimeout(() => {
+
+    const cancel = schedulePrefetch(() => {
       prefetchMuscleData(filterCacheKey, filteredData, assetsMap, effectiveNow, secondarySetMultiplier);
-    }, 3000);
-    
-    return () => clearTimeout(timer);
+    });
+
+    return cancel;
   }, [filterCacheKey, filteredData, assetsMap, effectiveNow, secondarySetMultiplier]);
 
   const selectedSessions = useMemo(() => {

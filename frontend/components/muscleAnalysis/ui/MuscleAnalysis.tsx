@@ -16,7 +16,7 @@ import { MuscleAnalysisExerciseListPanel } from './MuscleAnalysisExerciseListPan
 import { LifetimeAchievementCard } from './LifetimeAchievementCard';
 import { TooltipData } from '../../ui/Tooltip';
 import { TabSkeleton } from '../../ui/TabSkeleton';
-import { prefetchHistoryData } from '../../../utils/prefetch/prefetchStrategies';
+import { prefetchHistoryData, schedulePrefetch } from '../../../utils/prefetch/prefetchStrategies';
 import { calculateHypertrophyScoresWithExerciseTrends, HypertrophyScoreResult } from '../../../utils/muscle/hypertrophy/hypertrophyScore';
 import type { MuscleVolumeThresholds } from '../../../utils/muscle/hypertrophy/muscleParams';
 
@@ -88,15 +88,15 @@ export const MuscleAnalysis: React.FC<MuscleAnalysisProps> = ({
     secondarySetMultiplier,
   });
 
-  // Prefetch History view data after 3 seconds on Muscle Analysis
+  // Prefetch History view data when idle on Muscle Analysis
   useEffect(() => {
     if (data.length === 0 || !effectiveNow) return;
-    
-    const timer = setTimeout(() => {
+
+    const cancel = schedulePrefetch(() => {
       prefetchHistoryData(filterCacheKey, data, effectiveNow);
-    }, 3000);
-    
-    return () => clearTimeout(timer);
+    });
+
+    return cancel;
   }, [filterCacheKey, data, effectiveNow]);
 
   const {

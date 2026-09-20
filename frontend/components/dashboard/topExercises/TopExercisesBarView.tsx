@@ -110,7 +110,7 @@ export const TopExercisesBarView: React.FC<TopExercisesBarViewProps> = ({
                       backgroundClip: 'text',
                       color: 'transparent',
                       filter: 'drop-shadow(0 0 4px rgba(255,255,255,0.08))',
-                      animation: 'textShimmer 2.4s linear infinite',
+                      animation: 'textShimmer 2.4s linear 1',
                     }
                   : undefined;
 

@@ -97,7 +97,7 @@ export const HistorySessionHeaderCard: React.FC<
 
       {sessionHeatmapHasData && (
         <div
-          className={`relative z-10 w-full sm:hidden grid grid-cols-[auto_1fr_1fr] gap-x-3 gap-y-1 transition-all duration-300 ${isCollapsed ? "grid-rows-[auto_auto]" : "grid-rows-[auto_auto_1.75rem_1.75rem_1.75rem_1.75rem_auto]"}`}
+          className={`relative z-10 w-full sm:hidden grid grid-cols-[auto_1fr_1fr] gap-x-3 gap-y-1 transition-[grid-template-rows] duration-200 ease-out ${isCollapsed ? "grid-rows-[auto_auto]" : "grid-rows-[auto_auto_1.75rem_1.75rem_1.75rem_1.75rem_auto]"}`}
         >
           <div className="col-span-3 relative flex items-center justify-between gap-2 min-w-0">
             <h3
@@ -143,7 +143,7 @@ export const HistorySessionHeaderCard: React.FC<
 
           {!isCollapsed && (
             <>
-              <div className="col-span-1 row-start-3 h-7 flex items-center gap-1 text-xs text-slate-600 dark:text-slate-400 whitespace-nowrap transition-all duration-300">
+              <div className="col-span-1 row-start-3 h-7 flex items-center gap-1 text-xs text-slate-600 dark:text-slate-400 whitespace-nowrap transition-colors duration-200">
                 <Hash
                   className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400"
                   aria-hidden
@@ -151,7 +151,7 @@ export const HistorySessionHeaderCard: React.FC<
                 <span>{session.totalSets} Sets</span>
               </div>
 
-              <div className="col-span-1 row-start-4 h-7 flex items-center gap-1 text-xs text-slate-600 dark:text-slate-400 whitespace-nowrap transition-all duration-300">
+              <div className="col-span-1 row-start-4 h-7 flex items-center gap-1 text-xs text-slate-600 dark:text-slate-400 whitespace-nowrap transition-colors duration-200">
                 <Dumbbell
                   className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400"
                   aria-hidden
@@ -161,7 +161,7 @@ export const HistorySessionHeaderCard: React.FC<
                 </span>
               </div>
 
-              <div className="col-span-1 row-start-5 h-7 flex items-center gap-1 text-xs text-slate-600 dark:text-slate-400 min-w-0 transition-all duration-300">
+              <div className="col-span-1 row-start-5 h-7 flex items-center gap-1 text-xs text-slate-600 dark:text-slate-400 min-w-0 transition-colors duration-200">
                 {prevSession &&
                   prevSession.totalVolume > 0 &&
                   session.totalVolume !== prevSession.totalVolume && (
@@ -189,7 +189,7 @@ export const HistorySessionHeaderCard: React.FC<
                   )}
               </div>
 
-              <div className="col-span-1 row-start-6 h-7 flex items-center gap-1 text-xs transition-all duration-300">
+              <div className="col-span-1 row-start-6 h-7 flex items-center gap-1 text-xs transition-colors duration-200">
                 <button
                   type="button"
                   data-no-toggle
@@ -205,13 +205,13 @@ export const HistorySessionHeaderCard: React.FC<
                 </button>
               </div>
 
-              <div className="col-span-3 row-start-7 flex items-center transition-all duration-300">
+              <div className="col-span-3 row-start-7 flex items-center transition-colors duration-200">
                 <MuscleSetsList muscleVolumes={sessionMuscleVolumes} />
               </div>
 
               <div
                 data-no-toggle
-                className="col-start-2 col-span-2 row-start-3 row-span-4 flex items-stretch pl-2 border-l border-slate-800/50 overflow-visible transition-all duration-300"
+                className="col-start-2 col-span-2 row-start-3 row-span-4 flex items-stretch pl-2 border-l border-slate-800/50 overflow-visible transition-colors duration-200"
               >
                 <div className="w-full h-full flex items-center justify-center overflow-visible mt-5">
                   <div className="w-full h-full overflow-visible scale-[1.3] origin-bottom">

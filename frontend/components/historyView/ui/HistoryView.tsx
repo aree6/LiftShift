@@ -16,7 +16,7 @@ import { useHistoryTooltip } from '../hooks/useHistoryTooltip';
 import { HistoryPaginationControls } from './HistoryPaginationControls';
 import { HistorySessionBlock } from './HistorySessionBlock';
 import { ITEMS_PER_PAGE, isSameCalendarDay } from '../utils/historyViewConstants';
-import { prefetchFlexData } from '../../../utils/prefetch/prefetchStrategies';
+import { prefetchFlexData, schedulePrefetch } from '../../../utils/prefetch/prefetchStrategies';
 import { useTrainingLevel } from '../../../hooks/app/useTrainingLevel';
 
 interface HistoryViewProps {
@@ -79,15 +79,15 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
     return () => { mounted = false; };
   }, []);
 
-  // Prefetch Flex view data after 3 seconds on History view
+  // Prefetch Flex view data when idle on History view
   useEffect(() => {
     if (data.length === 0) return;
-    
-    const timer = setTimeout(() => {
+
+    const cancel = schedulePrefetch(() => {
       prefetchFlexData(filterCacheKey, data, effectiveNow);
-    }, 3000);
-    
-    return () => clearTimeout(timer);
+    });
+
+    return cancel;
   }, [filterCacheKey, data, effectiveNow]);
 
   const sessions: Session[] = useMemo(() => buildHistorySessions(data), [data]);
