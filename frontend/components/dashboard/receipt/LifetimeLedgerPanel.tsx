@@ -121,7 +121,8 @@ export const LifetimeLedgerPanel: React.FC<LifetimeLedgerPanelProps> = memo(({
         <StampGrungeDefs id="ldInk" seed={9} />
         <PaperAgeDefs id="ldPaperAge" />
         <LogoPressDefs id="ldPressAll" seed={34} />
-        <style>{`#ledger-paper :is(div,span,button,a):not(:has(*)):not(.stamp-ink,.stamp-ink *){filter:url(#ldPressAll)} #ledger-paper svg text{filter:url(#ldPressAll)}`}</style>
+        {/* Press only display type — see ReceiptPaper note. */}
+        <style>{`#ledger-paper :is(div.font-bold,div.font-semibold,span.font-bold,button.font-bold):not(.stamp-ink,.stamp-ink *){filter:url(#ldPressAll)} #ledger-paper svg text{filter:url(#ldPressAll)}`}</style>
         <div className="mb-1 flex shrink-0 items-baseline justify-between gap-2 -rotate-[0.6deg]">
           <div className="text-[11px] font-bold tracking-[0.22em]">LIFETIME LEDGER</div>
           <div className="text-[9px] font-bold tracking-[0.18em] opacity-60">ALL TIME</div>

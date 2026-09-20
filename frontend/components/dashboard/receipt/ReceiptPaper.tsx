@@ -108,7 +108,11 @@ export const ReceiptPaper: React.FC<ReceiptPaperProps> = ({
   return (
     <div id={pressScopeId} className={`flex justify-center ${ledger ? 'w-full flex-1' : ''}`} style={straight ? undefined : { filter: 'drop-shadow(0 10px 22px rgba(0,0,0,0.35))' }}>
       <LogoPressDefs id={pressFilterId} seed={41} />
-      <style>{`#${pressScopeId} :is(div,span,button):not(:has(*)):not(.stamp-ink,.stamp-ink *){filter:url(#${pressFilterId})} #${pressScopeId} svg text{filter:url(#${pressFilterId})}`}</style>
+      {/* Press only display type: a live SVG filter per text node is the dominant
+          scroll-raster cost, so microcopy/labels stay flat ink (indistinguishable
+          at 8-10px) while bold values keep the letterpress bite. Plain class
+          selectors also avoid :has() style-matching on every mutation. */}
+      <style>{`#${pressScopeId} :is(div.font-bold,span.font-bold,button.font-bold):not(.stamp-ink,.stamp-ink *){filter:url(#${pressFilterId})} #${pressScopeId} svg text{filter:url(#${pressFilterId})}`}</style>
       <div
         className={`w-full px-5 py-3 ${straight ? '' : 'max-w-[340px]'} ${ledger ? 'flex flex-1 flex-col' : ''}`}
         style={{ backgroundColor: PAPER, color: INK, ...(straight ? MONO : { clipPath: zigzagClip(), ...MONO }) }}

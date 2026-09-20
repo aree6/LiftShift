@@ -217,7 +217,9 @@ export const TrainingManifestCard: React.FC<TrainingManifestCardProps> = memo(({
         <StampGrungeDefs id="mfInk" seed={7} />
         <PaperAgeDefs id="mfPaperAge" />
         <LogoPressDefs id="mfPressAll" seed={33} />
-        <style>{`#manifest-paper :is(div,span,button):not(:has(*)):not(.stamp-ink,.stamp-ink *){filter:url(#mfPressAll)} #manifest-paper svg text{filter:url(#mfPressAll)}`}</style>
+        {/* Press only display type (bold/semibold) — see ReceiptPaper note: per-node
+            live filters dominate scroll raster, microcopy stays flat ink. */}
+        <style>{`#manifest-paper :is(div.font-bold,div.font-semibold,span.font-bold,button.font-bold):not(.stamp-ink,.stamp-ink *){filter:url(#mfPressAll)} #manifest-paper svg text{filter:url(#mfPressAll)}`}</style>
         {/* paper grain + age blotches + vignette + hairline frame */}
         <div
           className="pointer-events-none absolute inset-0"
