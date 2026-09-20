@@ -48,17 +48,15 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           {toasts.map((t) => (
             <motion.div
               key={t.id}
-              layout
               initial={{ opacity: 0, y: -12, scale: 0.96 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -8, scale: 0.96 }}
-              transition={{ duration: 0.16, ease: [0.23, 1, 0.32, 1], layout: { duration: 0.15 } }}
+              transition={{ duration: 0.16, ease: [0.23, 1, 0.32, 1] }}
               className="pointer-events-auto rounded-lg border px-3 py-2.5 sm:px-4 sm:py-3 shadow-xl flex items-center gap-2 sm:gap-3 break-words"
               style={{
                 backgroundColor: 'rgb(var(--panel-rgb) / 0.96)',
                 borderColor: 'rgb(var(--border-rgb) / 0.4)',
                 color: 'var(--text-primary)',
-                backdropFilter: 'blur(8px)',
                 fontSize: '0.75rem',
               }}
             >

@@ -66,7 +66,7 @@ export const UserPreferencesModal: React.FC<UserPreferencesModalProps> = ({
     <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-sm overflow-y-auto overscroll-contain">
       <div className="min-h-full w-full px-3 sm:px-6 py-8 flex items-center justify-center">
         <div className="w-full max-w-2xl mx-auto">
-          <div className="relative bg-slate-950 border border-slate-700/50 rounded-2xl p-5 sm:p-6 overflow-hidden backdrop-blur-md shadow-lg">
+          <div className="relative bg-slate-950 border border-slate-700/50 rounded-2xl p-5 sm:p-6 overflow-hidden shadow-lg">
             {!isLightTheme ? (
               <img
                 src={resolveDarkBgByMode(themeMode, darkBgChoice)}

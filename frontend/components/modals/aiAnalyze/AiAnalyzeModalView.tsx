@@ -65,7 +65,7 @@ export const AiAnalyzeModalView: React.FC<AiAnalyzeModalViewProps> = ({
     <div className="min-h-full w-full px-3 sm:px-6 py-8 flex items-center justify-center">
       <div className="w-full max-w-2xl mx-auto">
         <div
-          className="relative bg-slate-950 border border-slate-700/50 rounded-2xl overflow-hidden backdrop-blur-md shadow-lg"
+          className="relative bg-slate-950 border border-slate-700/50 rounded-2xl overflow-hidden shadow-lg"
           style={{ height: '85vh', maxHeight: '700px' }}
         >
           {!isLightTheme ? (
