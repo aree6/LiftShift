@@ -8,6 +8,8 @@ import type { WeightUnit } from '../../../utils/storage/localStorage';
 import type { ExerciseAssetLookup } from '../../../utils/exercise/exerciseAssetLookup';
 import type { FlexTopPRExercise } from '../utils/flexViewTypes';
 import { getLoadProgressionDirection } from '../../../utils/exercise/loadProgression';
+import { computationCache } from '../../../utils/storage/computationCache';
+import { flexCacheKeys } from '../../../utils/storage/cacheKeys';
 
 interface UseFlexInsightsArgs {
   data: WorkoutSet[];
@@ -15,6 +17,8 @@ interface UseFlexInsightsArgs {
   weightUnit: WeightUnit;
   assetLookup: ExerciseAssetLookup;
   exerciseStats?: ExerciseStats[];
+  /** Shares cache entries with History→Flex prefetch when provided. */
+  filterCacheKey?: string;
 }
 
 interface UseFlexInsightsResult {
@@ -29,10 +33,21 @@ export const useFlexInsights = ({
   weightUnit,
   assetLookup,
   exerciseStats,
+  filterCacheKey,
 }: UseFlexInsightsArgs): UseFlexInsightsResult => {
-  const streakInfo = useMemo(() => calculateStreakInfo(data, effectiveNow), [data, effectiveNow]);
+  // Routed through the shared computation cache (canonical keys) so the
+  // History→Flex prefetch turns this mount into a cache hit. Persists across
+  // tab unmount/remount, unlike a bare useMemo.
+  const cacheKey = filterCacheKey ?? 'all';
+  const streakInfo = useMemo(
+    () => computationCache.getOrCompute(flexCacheKeys.streakInfo(cacheKey), data, () => calculateStreakInfo(data, effectiveNow), { ttl: 10 * 60 * 1000 }),
+    [data, effectiveNow, cacheKey]
+  );
 
-  const prInsights = useMemo(() => calculatePRInsights(data, effectiveNow), [data, effectiveNow]);
+  const prInsights = useMemo(
+    () => computationCache.getOrCompute(flexCacheKeys.prInsights(cacheKey), data, () => calculatePRInsights(data, effectiveNow), { ttl: 10 * 60 * 1000 }),
+    [data, effectiveNow, cacheKey]
+  );
 
   const topPRExercises = useMemo(() => {
     if (data.length === 0) return [] as FlexTopPRExercise[];

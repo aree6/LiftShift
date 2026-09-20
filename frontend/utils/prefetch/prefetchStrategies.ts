@@ -1,7 +1,7 @@
 import type { WorkoutSet } from '../../types';
 import type { ExerciseAsset } from '../data/exerciseAssets';
 import { computationCache } from '../storage/computationCache';
-import { cacheKeys, muscleCacheKeys } from '../storage/cacheKeys';
+import { cacheKeys, flexCacheKeys, muscleCacheKeys } from '../storage/cacheKeys';
 import { getExerciseStats } from '../analysis/core';
 import { buildHistorySessions } from '../../components/historyView/utils';
 import { calculateStreakInfo, calculatePRInsights } from '../analysis/insights';
@@ -18,6 +18,22 @@ import type { WeeklySetsWindow, WeeklySetsGrouping } from '../muscle/analytics';
  */
 
 const PREFETCH_TTL = 10 * 60 * 1000; // 10 minutes
+
+/**
+ * Idle-gated prefetch scheduler. Runs the (synchronous, cache-warming)
+ * prefetch work when the browser is idle instead of on a fixed timer that
+ * can fire mid-scroll/filter. Falls back to a delayed timer where
+ * requestIdleCallback is unavailable. Returns a cancel function.
+ */
+export const schedulePrefetch = (fn: () => void): (() => void) => {
+  const w = window as any;
+  if (typeof w.requestIdleCallback === 'function') {
+    const id = w.requestIdleCallback(fn, { timeout: 3000 });
+    return () => w.cancelIdleCallback?.(id);
+  }
+  const timer = window.setTimeout(fn, 3000);
+  return () => window.clearTimeout(timer);
+};
 
 /**
  * Prefetch Exercise view data
@@ -123,17 +139,17 @@ export const prefetchFlexData = (
   effectiveNow: Date
 ): void => {
   try {
-    // Prefetch streak info
+    // Prefetch streak info (canonical key so History→Flex navigation hits)
     computationCache.getOrCompute(
-      `streakInfo:v2:${filterCacheKey}`,
+      flexCacheKeys.streakInfo(filterCacheKey),
       data,
       () => calculateStreakInfo(data, effectiveNow),
       { ttl: PREFETCH_TTL }
     );
 
-    // Prefetch PR insights
+    // Prefetch PR insights (canonical key)
     computationCache.getOrCompute(
-      `prInsights:v2:${filterCacheKey}`,
+      flexCacheKeys.prInsights(filterCacheKey),
       data,
       () => calculatePRInsights(data, effectiveNow),
       { ttl: PREFETCH_TTL }

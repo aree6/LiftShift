@@ -28,6 +28,8 @@ interface FlexViewProps {
   /** Reference date for relative time calculations. Pass from App for centralized date mode control. */
   now?: Date;
   secondarySetMultiplier?: number;
+  /** Shares Flex insight cache with prefetch. Optional; defaults to unkeyed. */
+  filterCacheKey?: string;
 }
 
 export const FlexView: React.FC<FlexViewProps> = ({
@@ -40,6 +42,7 @@ export const FlexView: React.FC<FlexViewProps> = ({
   bodyMapGender = 'male',
   now,
   secondarySetMultiplier = 0.5,
+  filterCacheKey,
 }) => {
   const { mode } = useTheme();
   const cardTheme: CardTheme = mode === 'light' ? 'light' : 'dark';
@@ -84,6 +87,7 @@ export const FlexView: React.FC<FlexViewProps> = ({
     weightUnit,
     assetLookup,
     exerciseStats: exerciseStatsProp,
+    filterCacheKey,
   });
 
   const {

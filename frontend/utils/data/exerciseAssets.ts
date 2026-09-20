@@ -1,5 +1,3 @@
-import Papa from 'papaparse';
-
 const exerciseCSVUrl = `${import.meta.env.BASE_URL}exercises_muscles_and_thumbnail_data.csv`;
 
 export interface ExerciseAsset {
@@ -62,6 +60,9 @@ const parseRow = (row: ExerciseAssetRow): ExerciseAsset | null => {
 const loadAssets = async (): Promise<Map<string, ExerciseAsset>> => {
   const res = await fetch(exerciseCSVUrl);
   const text = await res.text();
+  // Dynamically imported so papaparse ships in its own chunk, loaded only
+  // when assets are actually parsed (not in the dashboard boot path).
+  const { default: Papa } = await import('papaparse');
   const parsed = Papa.parse<ExerciseAssetRow>(text, { 
     header: true, 
     skipEmptyLines: true 

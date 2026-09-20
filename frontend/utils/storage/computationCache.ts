@@ -25,17 +25,22 @@ class ComputationCache {
     if (data === null || data === undefined) return 'null';
     
     if (Array.isArray(data)) {
-      // For arrays, use length + first/last item timestamps + a light sample checksum
+      // For arrays, use length + edge/middle timestamps + a light sample checksum.
+      // Includes a middle sample and title-length folding so middle-edits and
+      // same-length swaps can't collide (old hash only saw 5 edge samples).
       const len = data.length;
       if (len === 0) return 'empty';
 
       const first = data[0];
       const last = data[len - 1];
+      const mid = data[len >> 1];
       const firstTs = first?.parsedDate?.getTime?.() ?? first?.timestamp ?? 0;
       const lastTs = last?.parsedDate?.getTime?.() ?? last?.timestamp ?? 0;
+      const midTs = mid?.parsedDate?.getTime?.() ?? mid?.timestamp ?? 0;
 
-      const sampleCount = Math.min(5, len);
+      const sampleCount = Math.min(8, len);
       let sampleSum = 0;
+      let titleLenSum = 0;
       for (let i = 0; i < sampleCount; i++) {
         const idx = Math.floor((i * (len - 1)) / Math.max(sampleCount - 1, 1));
         const item = data[idx] as any;
@@ -43,9 +48,11 @@ class ComputationCache {
         const weight = item?.weight_kg ?? 0;
         const reps = item?.reps ?? 0;
         sampleSum += (Number(ts) || 0) + (Number(weight) || 0) * 10 + (Number(reps) || 0);
+        const title = item?.exercise_title;
+        titleLenSum += (typeof title === 'string' ? title.length : 0) * (i + 1);
       }
 
-      return `arr:${len}:${firstTs}:${lastTs}:${Math.round(sampleSum)}`;
+      return `arr:${len}:${firstTs}:${midTs}:${lastTs}:${Math.round(sampleSum)}:${titleLenSum}`;
     }
     
     if (typeof data === 'object') {
@@ -71,10 +78,12 @@ class ComputationCache {
     const now = Date.now();
     const ttl = options?.ttl ?? this.maxAge;
 
-    // Check if we have a valid cached entry
+    // Check if we have a valid cached entry (refresh recency for true LRU).
     if (!options?.forceRecompute) {
       const entry = this.cache.get(cacheKey);
       if (entry && (now - entry.timestamp) < ttl) {
+        this.cache.delete(cacheKey);
+        this.cache.set(cacheKey, entry);
         return entry.value as T;
       }
     }
@@ -145,19 +154,15 @@ class ComputationCache {
   }
 
   /**
-   * Evict oldest entries if cache exceeds max size
+   * Evict oldest entries if cache exceeds max size.
+   * Map preserves insertion order, so the first key is the least recently
+   * used (hits refresh via delete+set above). O(overflow), no sort.
    */
   private evictIfNeeded(): void {
-    if (this.cache.size <= this.maxSize) return;
-
-    // Convert to array and sort by timestamp
-    const entries = Array.from(this.cache.entries())
-      .sort((a, b) => a[1].timestamp - b[1].timestamp);
-
-    // Remove oldest entries until we're under the limit
-    const toRemove = entries.slice(0, this.cache.size - this.maxSize);
-    for (const [key] of toRemove) {
-      this.cache.delete(key);
+    while (this.cache.size > this.maxSize) {
+      const oldest = this.cache.keys().next();
+      if (oldest.done) return;
+      this.cache.delete(oldest.value);
     }
   }
 

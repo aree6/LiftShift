@@ -12,16 +12,28 @@ import { EQUIPMENT_WORDS, FILLER_WORDS, WORD_SYNONYMS } from './exerciseFingerpr
 /**
  * Generate a fingerprint for an exercise name.
  * The fingerprint is a sorted, normalized list of meaningful words.
+ * Results are memoized (merge + asset paths call this per set).
  */
+const fingerprintCache = new Map<string, string>();
+const equipmentCache = new Map<string, string | null>();
+const APOSTROPHE_RE = /['']/g;
+const NON_WORD_RE = /[^\w\s]/g;
+const WHITESPACE_RE = /\s+/g;
+const PAREN_RE = /\(([^)]+)\)/;
+const IMPORTANT_WORDS = new Set(['curl', 'press', 'row', 'squat', 'deadlift', 'raise', 'fly',
+  'extension', 'pulldown', 'pushdown', 'pullup', 'chinup', 'lunge', 'crunch', 'plank']);
+
 export const getFingerprint = (text: string): string => {
   if (!text) return '';
-  
+  const cached = fingerprintCache.get(text);
+  if (cached !== undefined) return cached;
+
   // 1. Lowercase and remove special characters
-  let normalized = text
+  const normalized = text
     .toLowerCase()
-    .replace(/['']/g, '')  // Remove apostrophes
-    .replace(/[^\w\s]/g, ' ')  // Replace special chars with space
-    .replace(/\s+/g, ' ')  // Normalize whitespace
+    .replace(APOSTROPHE_RE, '')  // Remove apostrophes
+    .replace(NON_WORD_RE, ' ')  // Replace special chars with space
+    .replace(WHITESPACE_RE, ' ')  // Normalize whitespace
     .trim();
   
   // 2. Split into words
@@ -45,9 +57,11 @@ export const getFingerprint = (text: string): string => {
   
   // 4. Sort alphabetically (this is the key insight!)
   processedWords.sort();
-  
+
   // 5. Join back
-  return processedWords.join(' ');
+  const result = processedWords.join(' ');
+  if (fingerprintCache.size < 5000) fingerprintCache.set(text, result);
+  return result;
 };
 
 /**
@@ -70,33 +84,39 @@ export const getFingerprintWithoutEquipment = (text: string): string => {
  */
 export const extractEquipment = (text: string): string | null => {
   if (!text) return null;
-  
+  const cached = equipmentCache.get(text);
+  if (cached !== undefined) return cached;
+
   const lower = text.toLowerCase();
-  const words = lower.replace(/[^\w\s]/g, ' ').split(/\s+/);
-  
+  const words = lower.replace(NON_WORD_RE, ' ').split(WHITESPACE_RE);
+
   for (const word of words) {
     if (EQUIPMENT_WORDS.has(word) && word !== 'none' && word !== 'other') {
       // Normalize equipment name
-      if (word === 'db' || word === 'dumbbells') return 'dumbbell';
-      if (word === 'bb') return 'barbell';
-      if (word === 'kb') return 'kettlebell';
-      if (word === 'ez' || word === 'ezbar' || word === 'curlbar') return 'ezbar';
-      if (word === 'bw' || word === 'bodyweight') return 'bodyweight';
-      return word;
+      let out = word;
+      if (word === 'db' || word === 'dumbbells') out = 'dumbbell';
+      else if (word === 'bb') out = 'barbell';
+      else if (word === 'kb') out = 'kettlebell';
+      else if (word === 'ez' || word === 'ezbar' || word === 'curlbar') out = 'ezbar';
+      else if (word === 'bw' || word === 'bodyweight') out = 'bodyweight';
+      if (equipmentCache.size < 5000) equipmentCache.set(text, out);
+      return out;
     }
   }
-  
+
   // Check for equipment in parentheses like "Bench Press (Dumbbell)"
-  const parenMatch = text.match(/\(([^)]+)\)/);
+  const parenMatch = text.match(PAREN_RE);
   if (parenMatch) {
     const parenContent = parenMatch[1].toLowerCase();
     for (const eq of EQUIPMENT_WORDS) {
       if (parenContent.includes(eq)) {
+        if (equipmentCache.size < 5000) equipmentCache.set(text, eq);
         return eq;
       }
     }
   }
-  
+
+  if (equipmentCache.size < 5000) equipmentCache.set(text, null);
   return null;
 };
 
@@ -228,26 +248,29 @@ export const findBestMatch = (
     return { name: sortedMatches[0], method: 'equipment_agnostic', confidence: 0.85 };
   }
   
-  // Tier 4: Fuzzy word-overlap match
+  // Tier 4: Fuzzy word-overlap match (allocation-light Jaccard: no union Set).
   const userWords = new Set(userFingerprint.split(' '));
+  const userImportant = [...userWords].filter(w => IMPORTANT_WORDS.has(w));
   let bestFuzzy: { name: string; score: number } | null = null;
-  
+
   for (const [masterFingerprint, masterName] of index.exactMap.entries()) {
-    const masterWords = new Set(masterFingerprint.split(' '));
-    
-    // Calculate Jaccard similarity
-    const intersection = [...userWords].filter(w => masterWords.has(w)).length;
-    const union = new Set([...userWords, ...masterWords]).size;
+    const masterParts = masterFingerprint.split(' ');
+    let intersection = 0;
+    for (const w of masterParts) {
+      if (userWords.has(w)) intersection++;
+    }
+    if (intersection === 0) continue;
+    const union = userWords.size + masterParts.length - intersection;
     const jaccard = intersection / union;
-    
-    // Also check for important word matches (exercise type words)
-    const importantWords = ['curl', 'press', 'row', 'squat', 'deadlift', 'raise', 'fly', 
-      'extension', 'pulldown', 'pushdown', 'pullup', 'chinup', 'lunge', 'crunch', 'plank'];
-    const userImportant = [...userWords].filter(w => importantWords.includes(w));
-    const masterImportant = [...masterWords].filter(w => importantWords.includes(w));
-    const importantMatch = userImportant.some(w => masterImportant.includes(w));
-    
+
     // Boost score if important words match
+    let importantMatch = false;
+    for (const w of masterParts) {
+      if (IMPORTANT_WORDS.has(w) && userImportant.includes(w)) {
+        importantMatch = true;
+        break;
+      }
+    }
     const score = importantMatch ? jaccard * 1.2 : jaccard;
     
     if (score > 0.4 && (!bestFuzzy || score > bestFuzzy.score)) {
