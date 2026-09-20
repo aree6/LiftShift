@@ -1,5 +1,5 @@
-import { useState, useMemo, useCallback } from 'react';
-import { format, isSameDay, startOfDay, endOfDay } from 'date-fns';
+import { useState, useMemo, useCallback, startTransition } from 'react';
+import { isSameDay, startOfDay, endOfDay } from 'date-fns';
 import { WorkoutSet } from '../../types';
 import { formatDayYearContraction, formatHumanReadableDate } from '../../utils/date/dateUtils';
 
@@ -41,16 +41,38 @@ export function useAppCalendarFilters({
   const [selectedWeeks, setSelectedWeeks] = useState<Array<{ start: Date; end: Date }>>([]);
   const [calendarOpen, setCalendarOpen] = useState(false);
 
-  // Available months for filter dropdown
-  const availableMonths = useMemo(() => {
+  // Available months + calendar boundaries in a SINGLE pass over parsedData.
+  // Previously three separate loops each called date-fns `format` per set
+  // (~10-15k format calls per filter interaction on 5k sets). Manual
+  // year/month/day math is allocation-light and format-free.
+  const { availableMonths, minDate, maxDate, availableDatesSet } = useMemo(() => {
     const months = new Set<string>();
-    parsedData.forEach(d => {
-      if (d.parsedDate) {
-        months.add(format(d.parsedDate, 'yyyy-MM'));
-      }
-    });
-    return Array.from(months).sort().reverse();
-  }, [parsedData]);
+    let minTs = Number.POSITIVE_INFINITY;
+    let maxTs = 0;
+    const set = new Set<string>();
+    for (const d of parsedData) {
+      const pd = d.parsedDate;
+      if (!pd) continue;
+      const ts = pd.getTime();
+      if (ts < minTs) minTs = ts;
+      if (ts > maxTs) maxTs = ts;
+      const y = pd.getFullYear();
+      const m = pd.getMonth() + 1;
+      months.add(`${y}-${m < 10 ? `0${m}` : m}`);
+      const day = pd.getDate();
+      set.add(`${y}-${m < 10 ? `0${m}` : m}-${day < 10 ? `0${day}` : day}`);
+    }
+    const minDate = isFinite(minTs) ? startOfDay(new Date(minTs)) : null;
+    const maxInData = maxTs > 0 ? endOfDay(new Date(maxTs)) : null;
+    // Use effectiveNow consistently - respect user's dateMode preference
+    const maxDate = maxInData ?? (effectiveNow.getTime() > 0 ? endOfDay(effectiveNow) : null);
+    return {
+      availableMonths: Array.from(months).sort().reverse(),
+      minDate,
+      maxDate,
+      availableDatesSet: set,
+    };
+  }, [effectiveNow, parsedData]);
 
   // Normalized bounds, hoisted out of the per-set filter: startOfDay/endOfDay
   // were re-allocated for every set × every selected week on each keystroke.
@@ -63,19 +85,25 @@ export function useAppCalendarFilters({
     [selectedRange],
   );
 
-  // Apply filters
+  // Apply filters (month compare is manual yyyy-MM math — date-fns `format`
+  // per set was the dominant filter INP cost).
   const filteredData = useMemo(() => {
+    const wantMonth = selectedMonth !== 'all';
     return parsedData.filter(d => {
-      if (!d.parsedDate) return false;
-      const ts = d.parsedDate.getTime();
-      if (selectedDay) return isSameDay(d.parsedDate, selectedDay);
+      const pd = d.parsedDate;
+      if (!pd) return false;
+      const ts = pd.getTime();
+      if (selectedDay) return isSameDay(pd, selectedDay);
       if (normalizedWeeks.length > 0) {
         return normalizedWeeks.some(r => ts >= r.start && ts <= r.end);
       }
       if (normalizedRange) {
         return ts >= normalizedRange.start && ts <= normalizedRange.end;
       }
-      if (selectedMonth !== 'all') return format(d.parsedDate, 'yyyy-MM') === selectedMonth;
+      if (wantMonth) {
+        const m = pd.getMonth() + 1;
+        return `${pd.getFullYear()}-${m < 10 ? `0${m}` : m}` === selectedMonth;
+      }
       return true;
     });
   }, [parsedData, selectedMonth, selectedDay, normalizedRange, normalizedWeeks]);
@@ -90,35 +118,19 @@ export function useAppCalendarFilters({
     return 'No filter';
   }, [effectiveNow, selectedDay, selectedRange, selectedWeeks]);
 
-  // Calendar boundaries
-  const { minDate, maxDate, availableDatesSet } = useMemo(() => {
-    let minTs = Number.POSITIVE_INFINITY;
-    let maxTs = 0;
-    const set = new Set<string>();
-    parsedData.forEach(d => {
-      if (!d.parsedDate) return;
-      const ts = d.parsedDate.getTime();
-      if (ts < minTs) minTs = ts;
-      if (ts > maxTs) maxTs = ts;
-      set.add(format(d.parsedDate, 'yyyy-MM-dd'));
-    });
-    const minDate = isFinite(minTs) ? startOfDay(new Date(minTs)) : null;
-    const maxInData = maxTs > 0 ? endOfDay(new Date(maxTs)) : null;
-    // Use effectiveNow consistently - respect user's dateMode preference
-    const maxDate = maxInData ?? (effectiveNow.getTime() > 0 ? endOfDay(effectiveNow) : null);
-    return { minDate, maxDate, availableDatesSet: set };
-  }, [effectiveNow, parsedData]);
+  // (Boundaries + months + date set are computed together above in one pass.)
 
   // Cache key carries the actual week bounds (was count-only `w:length`,
   // so two different week selections with the same count shared entries).
+  // Numeric getTime() avoids toISOString allocation per keystroke.
   const filterCacheKey = useMemo(() => {
     const parts: string[] = [];
     if (selectedMonth !== 'all') parts.push(`m:${selectedMonth}`);
-    if (selectedDay) parts.push(`d:${selectedDay.toISOString()}`);
-    if (selectedRange) parts.push(`r:${selectedRange.start.toISOString()}-${selectedRange.end.toISOString()}`);
+    if (selectedDay) parts.push(`d:${selectedDay.getTime()}`);
+    if (selectedRange) parts.push(`r:${selectedRange.start.getTime()}-${selectedRange.end.getTime()}`);
     if (selectedWeeks.length > 0) {
       const weeks = selectedWeeks
-        .map((w) => `${w.start.toISOString()}-${w.end.toISOString()}`)
+        .map((w) => `${w.start.getTime()}-${w.end.getTime()}`)
         .sort()
         .join(',');
       parts.push(`w:${weeks}`);
@@ -130,11 +142,29 @@ export function useAppCalendarFilters({
     setCalendarOpen(prev => !prev);
   }, []);
 
+  // Data-affecting setters run inside startTransition so calendar input stays
+  // responsive while the expensive downstream (filters → derived data →
+  // charts) renders at non-urgent priority. Overlay open/close stays urgent.
+  const setSelectedMonthT = useCallback((month: string) => {
+    startTransition(() => setSelectedMonth(month));
+  }, []);
+  const setSelectedDayT = useCallback((day: Date | null) => {
+    startTransition(() => setSelectedDay(day));
+  }, []);
+  const setSelectedRangeT = useCallback((range: { start: Date; end: Date } | null) => {
+    startTransition(() => setSelectedRange(range));
+  }, []);
+  const setSelectedWeeksT = useCallback((weeks: Array<{ start: Date; end: Date }>) => {
+    startTransition(() => setSelectedWeeks(weeks));
+  }, []);
+
   const clearAllFilters = useCallback(() => {
-    setSelectedRange(null);
-    setSelectedDay(null);
-    setSelectedWeeks([]);
-    setSelectedMonth('all');
+    startTransition(() => {
+      setSelectedRange(null);
+      setSelectedDay(null);
+      setSelectedWeeks([]);
+      setSelectedMonth('all');
+    });
   }, []);
 
   return {
@@ -151,10 +181,10 @@ export function useAppCalendarFilters({
     maxDate,
     availableDatesSet,
     filterCacheKey,
-    setSelectedMonth,
-    setSelectedDay,
-    setSelectedRange,
-    setSelectedWeeks,
+    setSelectedMonth: setSelectedMonthT,
+    setSelectedDay: setSelectedDayT,
+    setSelectedRange: setSelectedRangeT,
+    setSelectedWeeks: setSelectedWeeksT,
     setCalendarOpen,
     toggleCalendarOpen,
     clearAllFilters,
