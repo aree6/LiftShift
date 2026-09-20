@@ -1,4 +1,4 @@
-import React, { useLayoutEffect, useRef, useCallback, useMemo } from 'react';
+import React, { memo, useLayoutEffect, useRef, useCallback, useMemo } from 'react';
 import { getVolumeColor, getExerciseMuscleColor, getHypertrophyColor, SVG_MUSCLE_GROUPS, CSV_TO_SVG_MUSCLE_MAP, getMuscleIdForDetailedSvgId } from '../../utils/muscle/mapping';
 import { INTERACTIVE_MUSCLE_IDS } from '../../utils/muscle/mapping';
 import { getMuscleWithFallback } from '../../utils/muscle/mapping/bodyMapAvailability';
@@ -57,7 +57,7 @@ export const getRelatedMuscleIds = (muscleGroup: string | null): string[] => {
   return Array.from(relatedIds);
 };
 
-export const BodyMap: React.FC<BodyMapProps> = ({
+export const BodyMap: React.FC<BodyMapProps> = memo(({
   onPartClick,
   selectedPart,
   selectedMuscleIdsOverride,
@@ -197,4 +197,6 @@ export const BodyMap: React.FC<BodyMapProps> = ({
       <BackSvg className={svgClass} warpOverrides={warpParams} stroke={stroke} />
     </div>
   );
-};
+});
+
+BodyMap.displayName = 'BodyMap';
