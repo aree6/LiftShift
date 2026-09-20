@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { memo, useMemo } from 'react';
 import { LogoPressDefs, PaperAgeDefs, StampGrungeDefs, stampAnim, useStamped } from '../../ui/stamp';
 import type { DailySummary, WorkoutSet } from '../../../types';
 import type { WeightUnit } from '../../../utils/storage/localStorage';
@@ -26,7 +26,7 @@ interface LifetimeLedgerPanelProps {
 // Fixed all-time scope (the manifest owns the 7d/30d window), slim variant of
 // the receipt paper: lifetime totals, per-session valuation, streak, QR.
 // ============================================================================
-export const LifetimeLedgerPanel: React.FC<LifetimeLedgerPanelProps> = ({
+export const LifetimeLedgerPanel: React.FC<LifetimeLedgerPanelProps> = memo(({
   fullData,
   dailyData,
   weightUnit,
@@ -40,6 +40,10 @@ export const LifetimeLedgerPanel: React.FC<LifetimeLedgerPanelProps> = ({
 
   // Zero-plumbing flourishes: flagship lift (most sessions), longest voyage,
   // home port (top weekday), distinct exercises, days at sea.
+  // Timestamp deps (not the fresh Date objects) keep this memo stable across
+  // receipt recomputes that resolve to the same all-time window.
+  const windowStartTs = receipt.start.getTime();
+  const windowEndTs = receipt.end.getTime();
   const extras = useMemo<LedgerExtras | null>(() => {
     if (fullData.length === 0) return null;
     const byEx = new Map<string, Set<string>>();
@@ -80,9 +84,10 @@ export const LifetimeLedgerPanel: React.FC<LifetimeLedgerPanelProps> = ({
       longest,
       homePort: Math.max(...counts) > 0 ? { day: days[top], count: counts[top] } : null,
     };
-  }, [fullData, dailyData, receipt.start, receipt.end]);
+  }, [fullData, dailyData, windowStartTs, windowEndTs]);
 
-  const stampFace = (
+  const stampFace = useMemo(
+    () => (
     <div
       className="flex h-[115px] w-[115px] items-center justify-center rounded-full border-[3.5px] p-1 text-center"
       style={{ borderColor: STAMP_RED, color: STAMP_RED }}
@@ -98,6 +103,8 @@ export const LifetimeLedgerPanel: React.FC<LifetimeLedgerPanelProps> = ({
         <div className="mt-1 text-[8px] leading-tight opacity-80">ALL TIME · LIFTSHIFT</div>
       </div>
     </div>
+    ),
+    [receipt.sessions],
   );
 
   return (
@@ -145,6 +152,8 @@ export const LifetimeLedgerPanel: React.FC<LifetimeLedgerPanelProps> = ({
       </div>
     </div>
   );
-};
+});
+
+LifetimeLedgerPanel.displayName = 'LifetimeLedgerPanel';
 
 export default LifetimeLedgerPanel;
