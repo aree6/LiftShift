@@ -24,6 +24,7 @@ import { AppFilterControls } from './app/ui';
 import { AppShell } from './app/ui';
 import { useAppSideEffects } from './app/state';
 import { useAppDerivedData } from './app/state';
+import { useDashboardWarmup } from './app/state';
 import { useCalendarSelectionHandlers } from './app/state';
 import { useUpdateFlowHandler } from './app/auth';
 import { calculatePRInsights } from './utils/analysis/insights';
@@ -402,6 +403,17 @@ const App: React.FC = () => {
     parsedData,
     filteredData,
     filterCacheKey,
+  });
+
+  // Precompute the dashboard's expensive derivations under the boot overlay so
+  // first paint mounts onto warm cache. Holds the overlay open until done.
+  const isWarming = useDashboardWarmup({
+    isAnalyzing,
+    filteredData,
+    filterCacheKey,
+    effectiveNow: filteredEffectiveNow,
+    weightUnit,
+    secondarySetMultiplier,
   });
 
   // Track last auto-filtered max timestamp to prevent re-triggering
@@ -799,8 +811,8 @@ const App: React.FC = () => {
       />
 
       <AnimatePresence>
-        {(isAnalyzing || showColdStartOverlay) && (
-          <AppLoadingOverlay open={isAnalyzing || showColdStartOverlay} isCompleting={isCompleting} />
+        {(isAnalyzing || showColdStartOverlay || isWarming) && (
+          <AppLoadingOverlay open={isAnalyzing || showColdStartOverlay || isWarming} isCompleting={isCompleting} />
         )}
       </AnimatePresence>
     </div>
