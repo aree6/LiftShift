@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { memo, useMemo } from 'react';
 import { SegmentControl } from '../../ui/SegmentControl';
 import { LogoPressDefs, PaperAgeDefs, StampGrungeDefs, stampAnim, useStamped } from '../../ui/stamp';
 import { BodyMap, type BodyMapGender } from '../../bodyMap/BodyMap';
@@ -55,7 +55,11 @@ function niceScale(raw: number): number {
 
 const GRUNGE = 'url(#mfInk)';
 
-export const TrainingManifestCard: React.FC<TrainingManifestCardProps> = ({
+// Hoisted so memoized children (BodyMap) keep stable prop identities.
+const MANIFEST_STROKE = { width: 5, color: '#332B1C', opacity: 0.85 };
+const noop = () => {};
+
+export const TrainingManifestCard: React.FC<TrainingManifestCardProps> = memo(({
   fullData,
   dailyData,
   weightUnit,
@@ -90,11 +94,25 @@ export const TrainingManifestCard: React.FC<TrainingManifestCardProps> = ({
     const mid = coords[Math.floor(coords.length / 2)];
     const scaleKg = niceScale(max / 4);
     return { W, H, base, coords, d, active, peak, mid, max, scaleKg };
-  }, [receipt]);
+  }, [receipt.daySeries, receipt.maxDayVolumeKg]);
 
   const firstActive = route.active[0] ?? null;
   const lastActive = route.active.length > 0 ? route.active[route.active.length - 1] : null;
-  const cargo = receipt.lines.slice(0, 3);
+  const cargo = useMemo(() => receipt.lines.slice(0, 3), [receipt.lines]);
+
+  // Window the data BEFORE the muscle pipeline: the asset lookup + fuzzy
+  // matching per set is the most expensive part, and only 7/30 days of it
+  // are ever used. Cheap timestamp check first, heavy work only on the window.
+  const windowStartTs = receipt.start.getTime();
+  const windowEndTs = receipt.end.getTime();
+  const windowedData = useMemo(
+    () =>
+      fullData.filter((s) => {
+        const t = s.parsedDate?.getTime();
+        return t !== undefined && t >= windowStartTs && t <= windowEndTs;
+      }),
+    [fullData, windowStartTs, windowEndTs],
+  );
 
   // Bodies follow THIS card's 7d/30d toggle: window-scoped totals via the
   // dashboard's own daily muscle pipeline (proper asset lookup + set-type
@@ -103,11 +121,7 @@ export const TrainingManifestCard: React.FC<TrainingManifestCardProps> = ({
   const periodVolumes = useMemo(() => {
     const totals = new Map<string, number>();
     if (assetsMap) {
-      const startTs = receipt.start.getTime();
-      const endTs = receipt.end.getTime();
-      for (const day of computeDailySvgMuscleVolumes(fullData, assetsMap, secondarySetMultiplier)) {
-        const t = day.date.getTime();
-        if (t < startTs || t > endTs) continue;
+      for (const day of computeDailySvgMuscleVolumes(windowedData, assetsMap, secondarySetMultiplier)) {
         for (const [id, v] of day.muscles) totals.set(id, (totals.get(id) ?? 0) + v);
       }
     }
@@ -115,7 +129,7 @@ export const TrainingManifestCard: React.FC<TrainingManifestCardProps> = ({
     let max = 0;
     for (const v of headless.values()) max = Math.max(max, v);
     return { totals, headless, max };
-  }, [fullData, assetsMap, secondarySetMultiplier, receipt.start, receipt.end]);
+  }, [windowedData, assetsMap, secondarySetMultiplier]);
 
   // Manifest duotone as generated CSS: `!important` beats BodyMap's inline
   // fills no matter when *it* repaints, so sibling filters, remounts and
@@ -176,15 +190,18 @@ export const TrainingManifestCard: React.FC<TrainingManifestCardProps> = ({
     </div>
   );
 
-  const statCells: { label: string; value: string; sub?: string }[] = [
-    { label: 'Sessions logged', value: String(receipt.sessions) },
-    {
-      label: `Volume lifted (${unitLabel})`,
-      value: formatDisplayVolume(receipt.volumeKg, weightUnit, { round: 'int' }),
-    },
-    { label: 'Time trained', value: fmtMinutes(receipt.timeMin) },
-    { label: 'Record sets', value: String(receipt.prCount) },
-  ];
+  const statCells: { label: string; value: string; sub?: string }[] = useMemo(
+    () => [
+      { label: 'Sessions logged', value: String(receipt.sessions) },
+      {
+        label: `Volume lifted (${unitLabel})`,
+        value: formatDisplayVolume(receipt.volumeKg, weightUnit, { round: 'int' }),
+      },
+      { label: 'Time trained', value: fmtMinutes(receipt.timeMin) },
+      { label: 'Record sets', value: String(receipt.prCount) },
+    ],
+    [receipt.sessions, receipt.volumeKg, receipt.timeMin, receipt.prCount, unitLabel, weightUnit],
+  );
 
   return (
     <div
@@ -421,14 +438,14 @@ export const TrainingManifestCard: React.FC<TrainingManifestCardProps> = ({
                 <div className="text-[9px] uppercase opacity-60" style={{ letterSpacing: '0.18em' }}>Muscles · /wk</div>
                 <div className="flex h-[92px] items-center justify-center overflow-hidden">
                   <BodyMap
-                    onPartClick={() => {}}
+                    onPartClick={noop}
                     selectedPart={null}
                     muscleVolumes={periodVolumes.headless}
                     maxVolume={Math.max(1, periodVolumes.max)}
                     compact
                     compactFill
                     gender={bodyMapGender}
-                    stroke={{ width: 5, color: '#332B1C', opacity: 0.85 }}
+                    stroke={MANIFEST_STROKE}
                   />
                 </div>
               </div>
@@ -517,6 +534,8 @@ export const TrainingManifestCard: React.FC<TrainingManifestCardProps> = ({
       </div>
     </div>
   );
-};
+});
+
+TrainingManifestCard.displayName = 'TrainingManifestCard';
 
 export default TrainingManifestCard;
