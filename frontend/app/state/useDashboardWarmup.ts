@@ -150,9 +150,14 @@ export function useDashboardWarmup({
     void run();
 
     return () => {
-      // Supersede: release ownership so the in-flight run aborts at its next
-      // yield; the succeeding run (or nothing, on unmount) owns the flag.
-      if (flagOwnerRef.current === runId) flagOwnerRef.current = null;
+      // Supersede: the in-flight run aborts at its next yield. Release the
+      // hold here unconditionally when still ours — a succeeding run re-raises
+      // it synchronously in the same commit (batched, no flicker), and with no
+      // successor this release is the only one (otherwise the overlay wedges).
+      if (flagOwnerRef.current === runId) {
+        flagOwnerRef.current = null;
+        setIsWarming(false);
+      }
     };
   }, [filteredData, filterCacheKey, effectiveNow, weightUnit, secondarySetMultiplier]);
 
