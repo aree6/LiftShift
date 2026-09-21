@@ -33,8 +33,13 @@ RUN apt-get update \
 
 ENV NODE_ENV=production
 ENV PORT=5000
-ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
-ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+# Browser binaries (full Chrome + chrome-headless-shell) are downloaded by
+# Puppeteer's postinstall into PUPPETEER_CACHE_DIR (must be appuser-readable
+# at runtime); the launch code auto-resolves the shell from this cache.
+# Do NOT set PUPPETEER_EXECUTABLE_PATH here: any explicit executable forces
+# Puppeteer to skip downloads and pins full Chromium. (Legacy
+# PUPPETEER_SKIP_CHROMIUM_DOWNLOAD is ignored by Puppeteer 24+.)
+ENV PUPPETEER_CACHE_DIR=/opt/pptr-cache
 
 WORKDIR /app
 COPY --from=build /app/package.json ./package.json
@@ -43,7 +48,8 @@ COPY --from=build /app/dist ./dist
 RUN npm ci --omit=dev && npm cache clean --force
 
 RUN groupadd -r appuser && useradd -r -g appuser appuser \
-  && chown -R appuser:appuser /app
+  && mkdir -p /opt/pptr-cache \
+  && chown -R appuser:appuser /app /opt/pptr-cache
 USER appuser
 
 EXPOSE 5000
