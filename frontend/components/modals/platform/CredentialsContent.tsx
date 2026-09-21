@@ -174,6 +174,10 @@ export function CredentialsContent({
           onFocus={() => maybeWarmup()}
           onChange={(e) => {
             setEmailOrUsername(e.target.value);
+            // First keystroke starts the captcha browser warming in the
+            // background (once per mount via warmupTriggeredRef), banking the
+            // ~20s cold start against the time the user spends typing.
+            maybeWarmup();
             if (touchedUser && e.target.value.trim()) setTouchedUser(false);
           }}
           disabled={isLoading}
@@ -203,6 +207,9 @@ export function CredentialsContent({
             onChange={(e) => {
               passwordTouchedRef.current = true;
               setPassword(e.target.value);
+              // Same pre-warm as the username field: password-first typists
+              // get the captcha browser started on their first keystroke.
+              maybeWarmup();
               if (touchedPass && e.target.value) setTouchedPass(false);
             }}
           disabled={isLoading}

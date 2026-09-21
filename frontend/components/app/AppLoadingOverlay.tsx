@@ -36,7 +36,10 @@ interface AppLoadingOverlayProps {
   onReload?: () => void;
 }
 
-const SLOW_LOAD_THRESHOLD_MS = 20 * 1000;
+// Shown only as a last-resort fallback: normal logins (even cold captcha
+// ones) resolve well before this, so firing earlier just cries wolf on
+// every login and teaches users to hit reload mid-sync.
+const SLOW_LOAD_THRESHOLD_MS = 40 * 1000;
 
 // Single message pool - no phases
 const LOADING_MESSAGES = [
