@@ -306,47 +306,73 @@ const executeRecaptcha = async (p: Page): Promise<string> => {
   return token;
 };
 
-const fetchRecaptchaToken = async (): Promise<string> => {
-  const { page, isStandby } = await acquirePage();
+export interface RecaptchaTokenResult {
+  token: string;
+  usedCache: boolean;
+  /** How the token was obtained: fresh token cache, hot standby page, or full cold launch. */
+  source: 'cache' | 'standby' | 'cold';
+  /**
+   * Time spent inside acquirePage. For `cold` this INCLUDES the browser
+   * launch + page load; for `standby` it is pure queue waiting behind whoever
+   * currently holds the single page slot.
+   */
+  acquireMs: number;
+  /** Number of other waiters queued ahead when acquisition started. */
+  queuePosition: number;
+  /** Time spent minting the token via page.evaluate (0 on cache hit). */
+  executeMs: number;
+}
+
+const fetchRecaptchaToken = async (): Promise<RecaptchaTokenResult> => {
+  const { page, isStandby, queueMs, queuePosition } = await acquirePage();
+  const source = isStandby ? 'standby' : 'cold';
 
   try {
-    let token: string;
-    
     if (isTokenCacheValid() && tokenCache) {
-      token = tokenCache.token;
-    } else {
-      try {
-        token = await executeRecaptcha(page);
-      } catch {
-        await ensureRecaptchaLoaded(page, true);
-        token = await executeRecaptcha(page);
-      }
+      return { token: tokenCache.token, usedCache: true, source, acquireMs: queueMs, queuePosition, executeMs: 0 };
     }
+    const execStart = now();
+    let token: string;
+    try {
+      token = await executeRecaptcha(page);
+    } catch {
+      await ensureRecaptchaLoaded(page, true);
+      token = await executeRecaptcha(page);
+    }
+    const executeMs = now() - execStart;
 
     browserUseCount += 1;
-    return token;
+    return { token, usedCache: false, source, acquireMs: queueMs, queuePosition, executeMs };
   } finally {
     await releasePage(page);
   }
 };
 
-export const getRecaptchaToken = async (): Promise<{ token: string; usedCache: boolean }> => {
+export const getRecaptchaToken = async (): Promise<RecaptchaTokenResult> => {
   if (isTokenCacheValid() && tokenCache) {
-    return { token: tokenCache.token, usedCache: true };
+    return { token: tokenCache.token, usedCache: true, source: 'cache', acquireMs: 0, queuePosition: 0, executeMs: 0 };
   }
-  const token = await fetchRecaptchaToken();
-  return { token, usedCache: false };
+  return fetchRecaptchaToken();
 };
 
-export const warmRecaptchaSession = async (): Promise<void> => {
+export interface WarmupResult {
+  /** What the warmup actually did: fetched on a hot standby page, launched cold, or skipped. */
+  source: 'standby' | 'cold' | 'cache' | 'busy' | 'inflight';
+  /** Time spent minting the token (0 when nothing was fetched). */
+  executeMs: number;
+}
+
+export const warmRecaptchaSession = async (): Promise<WarmupResult> => {
   if (sessionWarmupInFlight) {
     await sessionWarmupInFlight;
-    return;
+    return { source: 'inflight', executeMs: 0 };
   }
 
   if (isTokenCacheValid()) {
-    return;
+    return { source: 'cache', executeMs: 0 };
   }
+
+  let result: WarmupResult = { source: 'busy', executeMs: 0 };
 
   sessionWarmupInFlight = (async () => {
     if (activePages.size > 0 || pageWaiters.length > 0) {
@@ -364,12 +390,14 @@ export const warmRecaptchaSession = async (): Promise<void> => {
       try {
         activePages.add(page);
         let token: string;
+        const execStart = now();
         try {
           token = await executeRecaptcha(page);
         } catch {
           await ensureRecaptchaLoaded(page, true);
           token = await executeRecaptcha(page);
         }
+        result = { source: 'standby', executeMs: now() - execStart };
         setTokenCache(token);
         browserUseCount += 1;
       } catch (err) {
@@ -388,7 +416,9 @@ export const warmRecaptchaSession = async (): Promise<void> => {
     try {
       const acquired = await acquirePage();
       page = acquired.page;
+      const execStart = now();
       const token = await executeRecaptcha(page);
+      result = { source: acquired.isStandby ? 'standby' : 'cold', executeMs: now() - execStart };
       setTokenCache(token);
     } catch (err) {
       console.warn(`⚠️ Warmup failed:`, safeErrorMessage(err));
@@ -405,6 +435,7 @@ export const warmRecaptchaSession = async (): Promise<void> => {
   } finally {
     sessionWarmupInFlight = null;
   }
+  return result;
 };
 
 export const shutdownRecaptchaSession = async (): Promise<void> => {

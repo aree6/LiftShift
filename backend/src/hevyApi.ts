@@ -65,7 +65,10 @@ export const hevyLogin = async (
   password: string,
   context: HevyRequestContext = {}
 ): Promise<HevyLoginResponse> => {
-  const { token: recaptchaToken, usedCache } = await getRecaptchaToken();
+  const startedAt = Date.now();
+  const tokenResult = await getRecaptchaToken();
+  const { token: recaptchaToken, usedCache } = tokenResult;
+  const tokenMs = Date.now() - startedAt;
 
   if (usedCache) {
     clearTokenCache();
@@ -90,6 +93,7 @@ export const hevyLogin = async (
     return { res, token };
   };
 
+  const upstreamStart = Date.now();
   let { res } = await attemptLogin(recaptchaToken);
 
   if (res.status === 400) {
@@ -101,6 +105,18 @@ export const hevyLogin = async (
       clearTokenCache();
     }
   }
+  const upstreamMs = Date.now() - upstreamStart;
+
+  // Stage-split timing: `acquire` covers queue waiting AND browser launch +
+  // page load on the cold path (see RecaptchaTokenResult), so a login that
+  // queued behind a concurrent warmup shows up here instead of hiding inside
+  // the route total.
+  console.log(
+    `🔐 ${emailOrUsername} stages: via=${tokenResult.source} ` +
+    `acquire=${formatDuration(tokenResult.acquireMs)} ` +
+    `qpos=${tokenResult.queuePosition} exec=${formatDuration(tokenResult.executeMs)} ` +
+    `upstream=${formatDuration(upstreamMs)} total=${formatDuration(Date.now() - startedAt)}`
+  );
 
   if (!res.ok) {
     const msg = await parseErrorBody(res);

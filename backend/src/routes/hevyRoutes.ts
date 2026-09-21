@@ -99,9 +99,9 @@ export const createHevyRouter = (opts: {
     }
 
     try {
-      await warmRecaptchaSession();
+      const warmup = await warmRecaptchaSession();
       const warmupDurationMs = Date.now() - warmupStartedAt;
-      console.log(`👤 ${emailOrUsername} 🔥 Warmup OK (${formatDuration(warmupDurationMs)})`);
+      console.log(`👤 ${emailOrUsername} 🔥 Warmup OK (${formatDuration(warmupDurationMs)}) via=${warmup.source} exec=${formatDuration(warmup.executeMs)}`);
       res.json({ warmed: true });
     } catch (err) {
       const status = (err as any).statusCode ?? 500;
