@@ -471,10 +471,15 @@ const App: React.FC = () => {
     filterCacheKey,
   });
 
-  // Precompute the dashboard's expensive derivations under the boot overlay so
-  // first paint mounts onto warm cache. Holds the overlay open until done.
-  const isWarming = useDashboardWarmup({
-    isAnalyzing,
+  // Background-only precompute of the dashboard's expensive derivations so
+  // first paint mounts onto warm cache. Deliberately NOT used to hold the
+  // boot overlay open: the hold (isWarming in the overlay condition) wedged
+  // Hevy/Lyfta credential login on an infinite loading screen — finishProgress
+  // flips isAnalyzing false ~250ms after data arrival while warmup is still
+  // running, stranding the hold with no successor to release it. Overlay
+  // keeps its pre-audit behavior (isAnalyzing / cold-start only); warmup
+  // still fills the shared cache in the background.
+  useDashboardWarmup({
     filteredData,
     filterCacheKey,
     effectiveNow: filteredEffectiveNow,
@@ -890,8 +895,8 @@ const App: React.FC = () => {
       />
 
       <AnimatePresence>
-        {(isAnalyzing || showColdStartOverlay || isWarming) && (
-          <AppLoadingOverlay open={isAnalyzing || showColdStartOverlay || isWarming} isCompleting={isCompleting} />
+        {(isAnalyzing || showColdStartOverlay) && (
+          <AppLoadingOverlay open={isAnalyzing || showColdStartOverlay} isCompleting={isCompleting} />
         )}
       </AnimatePresence>
     </div>

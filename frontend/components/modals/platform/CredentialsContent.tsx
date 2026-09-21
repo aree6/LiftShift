@@ -129,18 +129,13 @@ export function CredentialsContent({
     return expires > Date.now() + 60_000;
   };
 
-  const canRefreshForThisAccount = () => {
-    const refreshToken = getHevyRefreshToken();
-    if (!refreshToken) return false;
-    const savedUsername = getHevyUsernameOrEmail()?.trim().toLowerCase();
-    const currentUsername = emailOrUsername.trim().toLowerCase();
-    return savedUsername && savedUsername === currentUsername;
-  };
-
   const maybeWarmup = () => {
     if (warmupTriggeredRef.current) return;
     if (hasValidToken()) return;
-    if (canRefreshForThisAccount()) return;
+    // NOTE: intentionally warms even when a refresh token is saved for this
+    // account. The saved token may be dead (server-side rotation), in which
+    // case login falls through to a cold captcha browser and times out.
+    // The warmup endpoint is rate-limit-exempt and cheap.
     warmupTriggeredRef.current = true;
     void hevyBackendWarmupSession(emailOrUsername.trim() || ' warmup');
   };
