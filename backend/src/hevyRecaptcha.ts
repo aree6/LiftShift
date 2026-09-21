@@ -3,6 +3,12 @@ import puppeteer, { type Browser, type Page } from 'puppeteer';
 const HEVY_LOGIN_URL = 'https://hevy.com/login';
 const RECAPTCHA_SITE_KEY = '6LfkQG0jAAAAANTrIkVXKPfSPHyJnt4hYPWqxh0R';
 const HEADLESS_BROWSER_TIMEOUT_MS = 120_000;
+// Bound for the grecaptcha script showing up on hevy.com/login. Deliberately
+// shorter than the navigation timeout: when the script never executes (slow
+// cold start, challenged datacenter IP), waiting the full 120s just parks
+// the /login request past the frontend's own abort. Callers fail fast and
+// the login route backstops the whole flow well under that.
+const RECAPTCHA_SCRIPT_WAIT_MS = 60_000;
 const BROWSER_MAX_AGE_MS = 6 * 60 * 60 * 1000; // 6 hours: bounds leak growth on 512MB instance
 const BROWSER_MAX_USE_COUNT = 100;
 const BROWSER_IDLE_CLOSE_MS = 30 * 60 * 1000; // 30 min idle: keep daytime logins warm, free RAM overnight
@@ -172,7 +178,7 @@ const ensureRecaptchaLoaded = async (p: Page, forceReload = false): Promise<void
 
   await p.goto(HEVY_LOGIN_URL, { waitUntil: 'domcontentloaded', timeout: HEADLESS_BROWSER_TIMEOUT_MS });
   await p.waitForFunction(() => Boolean((window as any).grecaptcha?.enterprise), {
-    timeout: HEADLESS_BROWSER_TIMEOUT_MS,
+    timeout: RECAPTCHA_SCRIPT_WAIT_MS,
   });
 };
 
@@ -259,7 +265,11 @@ const acquirePage = async (
 const releasePage = async (page: Page): Promise<void> => {
   activePages.delete(page);
 
-  if (!standbyPage || standbyPage === page) {
+  // Never park a dead page as standby: a closed page would be skipped by
+  // acquirePage's liveness check but still block the slot until replaced.
+  if (isPageClosed(page)) {
+    if (standbyPage === page) standbyPage = null;
+  } else if (!standbyPage || standbyPage === page) {
     if (!standbyPage) standbyPage = page;
   } else {
     await closePage(page, 'page_release');
@@ -335,7 +345,32 @@ export const warmRecaptchaSession = async (): Promise<void> => {
       return;
     }
 
+    // A standby page exists: actually use it to refresh the token cache.
+    // (Previously this returned "OK" without fetching anything, so the next
+    // real login still paid a full cold start while the logs looked healthy.)
+    // No contention: we bailed above while any page is active or queued, and
+    // MAX_CONCURRENT_PAGES is 1.
     if (standbyPage && !isPageClosed(standbyPage)) {
+      const page = standbyPage;
+      try {
+        activePages.add(page);
+        let token: string;
+        try {
+          token = await executeRecaptcha(page);
+        } catch {
+          await ensureRecaptchaLoaded(page, true);
+          token = await executeRecaptcha(page);
+        }
+        setTokenCache(token);
+        browserUseCount += 1;
+      } catch (err) {
+        // Drop a broken standby page so the next acquire builds a fresh one
+        // (releasePage below no longer parks dead pages).
+        await closePage(page, 'warmup_failed');
+        console.warn(`⚠️ Warmup failed:`, safeErrorMessage(err));
+      } finally {
+        await releasePage(page);
+      }
       scheduleIdleClose();
       return;
     }

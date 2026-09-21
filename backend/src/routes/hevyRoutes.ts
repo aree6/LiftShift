@@ -7,6 +7,25 @@ import { getClientIP, getCountryFromIP } from '../geoLocation';
 
 const formatDuration = (ms: number): string => `${(ms / 1000).toFixed(1)}s`;
 
+// Overall ceiling for the credential-login flow (captcha browser + upstream).
+// Must stay under the frontend's 135s abort so users get a readable error
+// from us instead of a dropped connection. Previously a stuck captcha wait
+// parked this request for 210s+.
+const LOGIN_ROUTE_TIMEOUT_MS = 120_000;
+
+const withTimeout = <T>(promise: Promise<T>, ms: number, message: string, statusCode: number): Promise<T> => {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      const err = new Error(message);
+      (err as any).statusCode = statusCode;
+      reject(err);
+    }, ms);
+    timer.unref();
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+};
+
 export const createHevyRouter = (opts: {
   loginLimiter: express.RequestHandler;
   requireAuthTokenHeader: (req: express.Request) => string;
@@ -26,7 +45,12 @@ export const createHevyRouter = (opts: {
     }
 
     try {
-      const data = await hevyLogin(emailOrUsername, password);
+      const data = await withTimeout(
+        hevyLogin(emailOrUsername, password),
+        LOGIN_ROUTE_TIMEOUT_MS,
+        'Login verification timed out. Please try again.',
+        504,
+      );
       const loginDurationMs = Date.now() - startedAt;
       
       res.json({
