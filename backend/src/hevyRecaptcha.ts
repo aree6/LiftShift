@@ -80,10 +80,18 @@ const scheduleIdleClose = (): void => {
 };
 
 
+// Browser flavor switch. `shell` (chrome-headless-shell) is lighter/faster
+// and the default; `full` keeps the previous full-Chrome behavior
+// (rollback via BROWSER_MODE=full, no redeploy needed). The shell only
+// applies when no explicit executable is provided: Docker self-hosts pin
+// system Chromium via PUPPETEER_EXECUTABLE_PATH, which has no shell build.
+const useHeadlessShell =
+  (process.env.BROWSER_MODE ?? 'shell') === 'shell' && !process.env.PUPPETEER_EXECUTABLE_PATH;
+
 const launchBrowser = async (): Promise<Browser> => {
   const executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
   const launchOptions: Parameters<typeof puppeteer.launch>[0] = {
-    headless: true,
+    headless: useHeadlessShell ? ('shell' as const) : true,
     ...(executablePath ? { executablePath } : {}),
     args: [
       '--no-sandbox',
@@ -107,6 +115,7 @@ const launchBrowser = async (): Promise<Browser> => {
     ],
   };
   const browser = await puppeteer.launch(launchOptions);
+  console.log(`[Puppeteer] Launched ${useHeadlessShell ? 'chrome-headless-shell' : 'full chrome (headless)'}`);
   return browser;
 };
 
