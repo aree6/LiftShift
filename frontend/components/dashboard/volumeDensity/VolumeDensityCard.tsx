@@ -82,6 +82,7 @@ export const VolumeDensityCard = ({
 
         <div className="flex items-center justify-end gap-0.5 sm:gap-1 flex-wrap sm:flex-nowrap overflow-x-auto sm:overflow-visible max-w-full">
           <SegmentControl
+            dataTrack="charttype-volumedensity"
             options={[
               { value: 'area', icon: <AreaChartIcon className="w-3 h-3" />, title: 'Area' },
               { value: 'bar', icon: <BarChart3 className="w-3 h-3" />, title: 'Bar' },
@@ -91,6 +92,7 @@ export const VolumeDensityCard = ({
           />
 
           <SegmentControl
+            dataTrack="timerange-volumedensity"
             options={[
               { value: 'all', icon: <Infinity className="w-3 h-3" />, title: 'All' },
               { value: 'weekly', label: 'lst wk', title: 'Last Week' },

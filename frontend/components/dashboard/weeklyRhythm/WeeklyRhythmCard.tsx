@@ -67,6 +67,7 @@ export const WeeklyRhythmCard = ({
 
         <div className="flex items-center justify-end gap-0.5 sm:gap-1 flex-wrap sm:flex-nowrap overflow-x-auto sm:overflow-visible max-w-full">
           <SegmentControl
+            dataTrack="charttype-weeklyrhythm"
             options={[
               { value: 'radar', icon: <Scan className="w-4 h-4" />, title: 'Radar' },
               { value: 'bar', icon: <BarChart3 className="w-4 h-4" />, title: 'Bar' },

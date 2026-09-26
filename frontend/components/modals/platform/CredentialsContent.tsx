@@ -12,7 +12,7 @@ import {
   getHevyAuthExpiresAt,
   getHevyRefreshToken,
 } from '../../../utils/storage/dataSourceStorage';
-import { hevyBackendWarmupSession } from '../../../utils/api/hevyBackend';
+import { hevyBackendWarmupSession, getLoginRateLimitCooldownSeconds } from '../../../utils/api/hevyBackend';
 
 interface CredentialsContentProps {
   onLogin: (emailOrUsername: string, password: string) => void;
@@ -78,7 +78,10 @@ export function CredentialsContent({
       msg.includes('password');
 
     if (isRateLimited) {
-      setCooldownSeconds(120);
+      // B1: honor the server's Retry-After when a fresh 429 stash exists
+      // (hevyBackend.ts records it from the response header); otherwise keep
+      // the existing 120s ceiling. No new UI — same countdown, server value.
+      setCooldownSeconds(getLoginRateLimitCooldownSeconds(120));
       setFailedAttempts(0);
     } else if (isAuthError) {
       setFailedAttempts((prev) => {

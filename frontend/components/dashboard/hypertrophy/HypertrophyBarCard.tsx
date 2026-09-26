@@ -162,6 +162,7 @@ export const HypertrophyBarCard: React.FC<HypertrophyBarCardProps> = ({
             <p className="text-[10px] sm:text-xs text-slate-500 mt-0.5">Per muscle breakdown</p>
           </div>
           <SegmentControl
+            dataTrack="timerange-hypertrophy-bar"
             options={[
               { value: '7d', label: 'lst wk', title: 'Last 7 days' },
               { value: '30d', label: 'lst mo', title: 'Last 30 days' },
@@ -238,6 +239,7 @@ export const HypertrophyBarCard: React.FC<HypertrophyBarCardProps> = ({
               return (
                 <div key={m.muscleId}
                   className="flex items-center gap-1 rounded py-0.5 group relative cursor-pointer"
+                  data-track={`muscle-card:${m.muscleId}`}
                   onClick={() => { if (window.innerWidth >= 768) onMuscleClick?.(m.muscleId); }}
                   onMouseEnter={(e) => handleMouseEnter(e, m)}
                   onMouseLeave={hideTooltip}>

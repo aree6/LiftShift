@@ -3,7 +3,7 @@ import type {
   HevyLoginResponse,
   HevyPagedWorkoutsResponse,
 } from './types';
-import { clearTokenCache, getRecaptchaToken } from './hevyRecaptcha';
+import { clearTokenCache, getRecaptchaToken, withStage, type RecaptchaTokenOptions } from './hevyRecaptcha';
 import { timeoutSignal } from './abortSignal';
 
 const formatDuration = (ms: number): string => `${(ms / 1000).toFixed(1)}s`;
@@ -22,6 +22,43 @@ const HEVY_REFRESH_PATH = '/auth/refresh_token';
 
 type HevyRequestContext = {
   traceId?: string;
+  // A5: route-timeout signal (120s race in hevyRoutes.ts). Aborts queue waits
+  // and the upstream fetch so stranded work stops instead of holding the
+  // single Puppeteer slot. Never changes the response the user already got.
+  signal?: AbortSignal;
+};
+
+// Merge the per-request timeout with an optional external abort signal.
+// (Manual combine: AbortSignal.any is ES2024, lib here is ES2022.)
+const mergeSignals = (
+  timeoutMs: number,
+  external?: AbortSignal,
+): { signal: AbortSignal | undefined; cleanup: () => void } => {
+  const timeout = timeoutSignal(timeoutMs);
+  if (!external) return { signal: timeout, cleanup: () => undefined };
+  if (external.aborted) return { signal: external, cleanup: () => undefined };
+  if (!timeout) return { signal: external, cleanup: () => undefined };
+  const ctrl = new AbortController();
+  const cancel = (): void => {
+    try {
+      ctrl.abort();
+    } catch {
+      // Silent fail
+    }
+  };
+  if (timeout.aborted) {
+    cancel();
+  } else {
+    timeout.addEventListener('abort', cancel, { once: true });
+  }
+  external.addEventListener('abort', cancel, { once: true });
+  return {
+    signal: ctrl.signal,
+    cleanup: () => {
+      timeout.removeEventListener('abort', cancel);
+      external.removeEventListener('abort', cancel);
+    },
+  };
 };
 
 // Build headers for OAuth2 Bearer token authentication
@@ -66,7 +103,8 @@ export const hevyLogin = async (
   context: HevyRequestContext = {}
 ): Promise<HevyLoginResponse> => {
   const startedAt = Date.now();
-  const tokenResult = await getRecaptchaToken();
+  const tokenOpts: RecaptchaTokenOptions = context.signal ? { signal: context.signal } : {};
+  const tokenResult = await getRecaptchaToken(tokenOpts);
   const { token: recaptchaToken, usedCache } = tokenResult;
   const tokenMs = Date.now() - startedAt;
 
@@ -78,26 +116,32 @@ export const hevyLogin = async (
     const headers = buildHeaders();
     const body = { emailOrUsername, password, recaptchaToken: token, useAuth2_0: true };
 
-    let res: Response;
+    // A5: stranded-work abort — the route's 120s race aborts context.signal,
+    // which aborts this fetch (previously it ran to the 130s fetch timeout
+    // holding nothing but still burning a slot retry afterwards).
+    const { signal: fetchSignal, cleanup } = mergeSignals(HEVY_LOGIN_TIMEOUT_MS, context.signal);
     try {
-      res = await fetch(buildEndpointUrl('/login'), {
+      const res = await fetch(buildEndpointUrl('/login'), {
         method: 'POST',
         headers,
         body: JSON.stringify(body),
-        signal: timeoutSignal(HEVY_LOGIN_TIMEOUT_MS),
+        signal: fetchSignal,
       });
+      return { res, token };
     } catch (err) {
-      throw err;
+      // A1: upstream-login stage attribution (network/timeout leg).
+      throw withStage('upstream-login', err);
+    } finally {
+      cleanup();
     }
-    
-    return { res, token };
   };
 
   const upstreamStart = Date.now();
   let { res } = await attemptLogin(recaptchaToken);
 
-  if (res.status === 400) {
-    const freshResult = await getRecaptchaToken();
+  // A5: no retry for stranded work — the route already answered.
+  if (res.status === 400 && !context.signal?.aborted) {
+    const freshResult = await getRecaptchaToken(tokenOpts);
     const retryResult = await attemptLogin(freshResult.token);
     res = retryResult.res;
     
@@ -110,9 +154,11 @@ export const hevyLogin = async (
   // Stage-split timing: `acquire` covers queue waiting AND browser launch +
   // page load on the cold path (see RecaptchaTokenResult), so a login that
   // queued behind a concurrent warmup shows up here instead of hiding inside
-  // the route total.
+  // the route total. flavor/age/uses added for one-query attribution (A1,
+  // server-log only).
   console.log(
     `🔐 ${emailOrUsername} stages: via=${tokenResult.source} ` +
+    `flavor=${tokenResult.flavor} age=${formatDuration(tokenResult.browserAgeMs)} uses=${tokenResult.useCount} ` +
     `acquire=${formatDuration(tokenResult.acquireMs)} ` +
     `qpos=${tokenResult.queuePosition} exec=${formatDuration(tokenResult.executeMs)} ` +
     `upstream=${formatDuration(upstreamMs)} total=${formatDuration(Date.now() - startedAt)}`
@@ -122,6 +168,9 @@ export const hevyLogin = async (
     const msg = await parseErrorBody(res);
     const err = new Error(msg);
     (err as any).statusCode = res.status;
+    // A1: stage travels on the error object; the route exposes it as an
+    // additive JSON field (401 branch excluded — fast-401 path untouched).
+    withStage('upstream-login', err);
     throw err;
   }
 

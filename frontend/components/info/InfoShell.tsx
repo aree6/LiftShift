@@ -3,6 +3,7 @@ import { Navigation } from '../layout/Navigation';
 import { PopIn } from '../ui/PopIn';
 import { useTheme } from '../theme/ThemeProvider';
 import { assetPath } from '../../constants';
+import { initGA, trackPageView } from '../../utils/integrations/ga';
 import { clientOnly } from 'vike-react/clientOnly';
 import lightBgImage from '../../src/assets/images/misc/light-bg1.avif';
 import darkBgImage from '../../src/assets/images/misc/dark-bg5.avif';
@@ -25,6 +26,15 @@ export const InfoShell: React.FC<InfoShellProps> = ({ activeNav = null, title, s
     const root = document.documentElement;
     root.dataset.showBg = 'true';
     return () => { delete root.dataset.showBg; };
+  }, []);
+
+  // Info/comparison pages previously sent zero analytics (only index + app
+  // initialized it) — the entire SEO engine was invisible in PostHog while
+  // Search Console shows ~1.6k clicks/yr landing here. Pageview-only;
+  // initGA + click capture are double-init guarded. No visual change.
+  React.useEffect(() => {
+    initGA();
+    trackPageView(`${window.location.pathname || '/'}${window.location.search || ''}`);
   }, []);
 
   const platformDockItems = [

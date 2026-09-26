@@ -193,6 +193,7 @@ export const HistorySessionHeaderCard: React.FC<
                 <button
                   type="button"
                   data-no-toggle
+                  data-track="export-copy-workout"
                   onClick={handleCopyWorkout}
                   className="flex items-center gap-1 text-blue-400 hover:text-blue-300 cursor-pointer"
                 >
@@ -308,6 +309,7 @@ export const HistorySessionHeaderCard: React.FC<
           <button
             type="button"
             data-no-toggle
+            data-track="export-copy-workout"
             onClick={handleCopyWorkout}
             className="inline-flex items-center gap-1 whitespace-nowrap text-xs sm:text-sm text-blue-400 hover:text-blue-300 transition-colors ml-2 cursor-pointer"
           >

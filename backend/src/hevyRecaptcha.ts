@@ -1,4 +1,7 @@
 import puppeteer, { type Browser, type Page } from 'puppeteer';
+import { promises as fs } from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
 
 const HEVY_LOGIN_URL = 'https://hevy.com/login';
 const RECAPTCHA_SITE_KEY = '6LfkQG0jAAAAANTrIkVXKPfSPHyJnt4hYPWqxh0R';
@@ -30,6 +33,22 @@ let browserInitInFlight: Promise<void> | null = null;
 let browser: Browser | null = null;
 let browserCreatedAt = 0;
 let browserUseCount = 0;
+// A1: flavor/age/use attribution for the stage-split server log (PostHog goal:
+// every failure attributable in one query). Set on successful launch.
+type BrowserFlavor = 'shell' | 'full';
+let browserFlavor: BrowserFlavor = 'shell';
+// A4: per-generation profile dir (H4: fixed /tmp/chromium-profile left
+// SingletonLock files on the 512MB box, blocking later launches).
+let browserGeneration = 0;
+let currentProfileDir: string | null = null;
+// A4: warmup guard — timestamp of the last real login acquisition so warmup
+// never cold-launches into the single slot right after/before a login (H3:
+// MAX_CONCURRENT_PAGES=1 below).
+let lastLoginAcquiredAt = 0;
+// A4: warmup skips its cold-launch branch when a login ran within this window.
+// Warmup fires on first keystroke (commit 331da8a); type→submit is seconds, so
+// 30s covers the gap without suppressing warmup for genuinely idle browsers.
+const RECENT_LOGIN_GUARD_MS = 30_000;
 let standbyPage: Page | null = null;
 let idleCloseTimer: ReturnType<typeof setTimeout> | null = null;
 const openPages = new Set<Page>();
@@ -58,6 +77,27 @@ const clearTokenCacheInternal = (): void => {
 
 const safeErrorMessage = (err: unknown): string =>
   err instanceof Error ? err.message : String(err);
+
+// A1: structured failure stage. Values queue→execute are stamped where they
+// are thrown below; 'upstream-login' is stamped by hevyApi.ts and
+// 'route-timeout' by hevyRoutes.ts (120s race). Server-log only, plus an
+// additive `stage` field on error JSON — never shown to users (constraint 1;
+// safeError.ts keeps bare-500 bodies generic).
+export type RecaptchaStage =
+  | 'queue'
+  | 'launch'
+  | 'newPage'
+  | 'goto'
+  | 'script-wait'
+  | 'execute'
+  | 'upstream-login'
+  | 'route-timeout';
+
+export const withStage = (stage: RecaptchaStage, err: unknown): Error => {
+  const e = err instanceof Error ? err : new Error(String(err));
+  if ((e as any).stage == null) (e as any).stage = stage;
+  return e;
+};
 
 const clearIdleCloseTimer = (): void => {
   if (!idleCloseTimer) return;
@@ -88,10 +128,10 @@ const scheduleIdleClose = (): void => {
 const useHeadlessShell =
   (process.env.BROWSER_MODE ?? 'shell') === 'shell' && !process.env.PUPPETEER_EXECUTABLE_PATH;
 
-const launchBrowser = async (): Promise<Browser> => {
+const launchBrowserWithFlavor = async (flavor: BrowserFlavor, profileDir: string): Promise<Browser> => {
   const executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
   const launchOptions: Parameters<typeof puppeteer.launch>[0] = {
-    headless: useHeadlessShell ? ('shell' as const) : true,
+    headless: flavor === 'shell' ? ('shell' as const) : true,
     ...(executablePath ? { executablePath } : {}),
     args: [
       '--no-sandbox',
@@ -102,7 +142,9 @@ const launchBrowser = async (): Promise<Browser> => {
       '--disable-crashpad',
       '--disable-crash-reporter',
       '--no-crash-upload',
-      '--user-data-dir=/tmp/chromium-profile',
+      // A4: per-generation dir — a fixed path (H4) left SingletonLock files
+      // behind on the 512MB box, so a later launch threw and became a 500.
+      `--user-data-dir=${profileDir}`,
       '--disable-blink-features=AutomationControlled',
       '--disable-background-timer-throttling',
       '--disable-backgrounding-occluded-windows',
@@ -114,9 +156,18 @@ const launchBrowser = async (): Promise<Browser> => {
       '--disable-sync',
     ],
   };
-  const browser = await puppeteer.launch(launchOptions);
-  console.log(`[Puppeteer] Launched ${useHeadlessShell ? 'chrome-headless-shell' : 'full chrome (headless)'}`);
-  return browser;
+  const launched = await puppeteer.launch(launchOptions);
+  console.log(`[Puppeteer] Launched ${flavor === 'shell' ? 'chrome-headless-shell' : 'full chrome (headless)'} flavor=${flavor} gen=${browserGeneration}`);
+  return launched;
+};
+
+// Best-effort: profile cleanup must never fail the request path.
+const removeDirBestEffort = async (dir: string, reason: string): Promise<void> => {
+  try {
+    await fs.rm(dir, { recursive: true, force: true });
+  } catch (err) {
+    console.warn(`[Puppeteer] Profile cleanup failed (${reason}) ${dir}:`, safeErrorMessage(err));
+  }
 };
 
 const isPageClosed = (p: Page | null): boolean => {
@@ -145,6 +196,10 @@ const closeBrowser = async (reason: string): Promise<void> => {
   clearIdleCloseTimer();
   const activeBrowser = browser;
   const pages = Array.from(openPages);
+  // A4: drop the per-generation profile dir with the browser so stale
+  // SingletonLock files (H4) can never block a later launch.
+  const profileDir = currentProfileDir;
+  currentProfileDir = null;
 
   openPages.clear();
   activePages.clear();
@@ -166,6 +221,10 @@ const closeBrowser = async (reason: string): Promise<void> => {
     }
   }
 
+  if (profileDir) {
+    await removeDirBestEffort(profileDir, reason);
+  }
+
   while (pageWaiters.length > 0) {
     const waiter = pageWaiters.shift();
     if (waiter) waiter();
@@ -185,10 +244,21 @@ const ensureRecaptchaLoaded = async (p: Page, forceReload = false): Promise<void
     return;
   }
 
-  await p.goto(HEVY_LOGIN_URL, { waitUntil: 'domcontentloaded', timeout: HEADLESS_BROWSER_TIMEOUT_MS });
-  await p.waitForFunction(() => Boolean((window as any).grecaptcha?.enterprise), {
-    timeout: RECAPTCHA_SCRIPT_WAIT_MS,
-  });
+  // A1: split goto vs script-wait (H2: the 60s script wait from ed27a41
+  // reclassified former client-aborts into counted 500s — the stage tells
+  // which wait actually failed).
+  try {
+    await p.goto(HEVY_LOGIN_URL, { waitUntil: 'domcontentloaded', timeout: HEADLESS_BROWSER_TIMEOUT_MS });
+  } catch (err) {
+    throw withStage('goto', err);
+  }
+  try {
+    await p.waitForFunction(() => Boolean((window as any).grecaptcha?.enterprise), {
+      timeout: RECAPTCHA_SCRIPT_WAIT_MS,
+    });
+  } catch (err) {
+    throw withStage('script-wait', err);
+  }
 };
 
 const ensureBrowser = async (): Promise<void> => {
@@ -203,7 +273,40 @@ const ensureBrowser = async (): Promise<void> => {
     }
 
     if (!browser || !browser.isConnected()) {
-      browser = await launchBrowser();
+      // A4: shell-with-full fallback (H1: raw launch throws at the old
+      // hevyRecaptcha.ts:206-207 became counted 500s after af5bd7c). Both
+      // attempts are logged with flavor (A1); BROWSER_MODE=full still pins
+      // full-only via useHeadlessShell below.
+      const preferred: BrowserFlavor = useHeadlessShell ? 'shell' : 'full';
+      const fallback: BrowserFlavor = preferred === 'shell' ? 'full' : 'shell';
+      const profileDirFor = (gen: number): string =>
+        path.join(os.tmpdir(), `liftshift-chromium-${process.pid}-${gen}`);
+      let attemptedDir: string | null = null;
+      try {
+        browserGeneration += 1;
+        attemptedDir = profileDirFor(browserGeneration);
+        browser = await launchBrowserWithFlavor(preferred, attemptedDir);
+        browserFlavor = preferred;
+        currentProfileDir = attemptedDir;
+      } catch (launchErr) {
+        console.warn(`[Puppeteer] Launch failed flavor=${preferred} gen=${browserGeneration}:`, safeErrorMessage(launchErr));
+        if (attemptedDir) await removeDirBestEffort(attemptedDir, 'launch_failed');
+        attemptedDir = null;
+        try {
+          browserGeneration += 1;
+          attemptedDir = profileDirFor(browserGeneration);
+          browser = await launchBrowserWithFlavor(fallback, attemptedDir);
+          browserFlavor = fallback;
+          currentProfileDir = attemptedDir;
+          console.log(`[Puppeteer] Fallback launch OK flavor=${fallback} gen=${browserGeneration}`);
+        } catch (fallbackErr) {
+          console.warn(`[Puppeteer] Fallback launch failed flavor=${fallback} gen=${browserGeneration}:`, safeErrorMessage(fallbackErr));
+          if (attemptedDir) await removeDirBestEffort(attemptedDir, 'launch_failed');
+          currentProfileDir = null;
+          // A1: launch-stage attribution for the 500s H1 diagnosed.
+          throw withStage('launch', fallbackErr);
+        }
+      }
       browserCreatedAt = now();
       browserUseCount = 0;
     }
@@ -217,8 +320,14 @@ const ensureBrowser = async (): Promise<void> => {
 };
 
 const createPage = async (): Promise<Page> => {
-  if (!browser) throw new Error('Recaptcha browser not available');
-  const page = await browser.newPage();
+  if (!browser) throw withStage('launch', new Error('Recaptcha browser not available'));
+  // A1: newPage-stage attribution (H1: raw throw at old hevyRecaptcha.ts:220).
+  let page: Page;
+  try {
+    page = await browser.newPage();
+  } catch (err) {
+    throw withStage('newPage', err);
+  }
   await page.setUserAgent(
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
   );
@@ -234,12 +343,22 @@ const createPage = async (): Promise<Page> => {
   return page;
 };
 
+const throwIfAborted = (signal?: AbortSignal): void => {
+  if (signal?.aborted) {
+    throw withStage('queue', new Error('Recaptcha acquisition aborted (route timed out)'));
+  }
+};
+
 const acquirePage = async (
+  signal?: AbortSignal,
 ): Promise<{ page: Page; isStandby: boolean; queueMs: number; queuePosition: number }> => {
   const startTime = now();
   let queuePosition = 0;
 
   while (true) {
+    // A5: stranded-work abort — a login whose route already answered (120s
+    // race in hevyRoutes.ts) stops here instead of holding the single slot.
+    throwIfAborted(signal);
     await ensureBrowser();
 
     if (standbyPage && !activePages.has(standbyPage) && !isPageClosed(standbyPage)) {
@@ -249,15 +368,24 @@ const acquirePage = async (
 
     if ((openPages.size + pageCreationReservations) < MAX_CONCURRENT_PAGES) {
       pageCreationReservations += 1;
-      let created = false;
+      let createdPage: Page | null = null;
+      let acquired = false;
       try {
-        const page = await createPage();
-        created = true;
-        activePages.add(page);
+        createdPage = await createPage();
+        activePages.add(createdPage);
+        throwIfAborted(signal);
+        acquired = true;
+        const page = createdPage;
+        createdPage = null;
         return { page, isStandby: false, queueMs: now() - startTime, queuePosition };
       } finally {
         pageCreationReservations = Math.max(0, pageCreationReservations - 1);
-        if (!created) {
+        if (createdPage) {
+          // A5: aborted after creating but before use — release parks the
+          // page as standby (stays warm) and wakes exactly one waiter, so the
+          // abandoned login never strands the single slot.
+          await releasePage(createdPage);
+        } else if (!acquired) {
           const waiter = pageWaiters.shift();
           if (waiter) waiter();
         }
@@ -265,8 +393,31 @@ const acquirePage = async (
     }
 
     queuePosition = pageWaiters.length + 1;
-    await new Promise<void>((resolve) => {
-      pageWaiters.push(resolve);
+    await new Promise<void>((resolve, reject) => {
+      let settled = false;
+      const waiter = (): void => {
+        if (settled) return;
+        settled = true;
+        signal?.removeEventListener('abort', onAbort);
+        resolve();
+      };
+      const onAbort = (): void => {
+        if (settled) return;
+        settled = true;
+        // A5: leave the queue so abandoned logins don't consume the slot
+        // when the holder releases it.
+        const idx = pageWaiters.indexOf(waiter);
+        if (idx >= 0) pageWaiters.splice(idx, 1);
+        reject(withStage('queue', new Error('Recaptcha queue wait aborted (route timed out)')));
+      };
+      pageWaiters.push(waiter);
+      if (signal) {
+        if (signal.aborted) {
+          onAbort();
+        } else {
+          signal.addEventListener('abort', onAbort, { once: true });
+        }
+      }
     });
   }
 };
@@ -293,14 +444,20 @@ const releasePage = async (page: Page): Promise<void> => {
 };
 
 const executeRecaptcha = async (p: Page): Promise<string> => {
-  const token = await p.evaluate(async (siteKey: string) => {
-    const enterprise = (window as any).grecaptcha?.enterprise;
-    if (!enterprise) return '';
-    return await enterprise.execute(siteKey, { action: 'login' });
-  }, RECAPTCHA_SITE_KEY);
+  // A1: execute-stage attribution for evaluate failures / empty tokens.
+  let token: string;
+  try {
+    token = await p.evaluate(async (siteKey: string) => {
+      const enterprise = (window as any).grecaptcha?.enterprise;
+      if (!enterprise) return '';
+      return await enterprise.execute(siteKey, { action: 'login' });
+    }, RECAPTCHA_SITE_KEY);
+  } catch (err) {
+    throw withStage('execute', err);
+  }
 
   if (!token || typeof token !== 'string') {
-    throw new Error('Failed to retrieve recaptcha token');
+    throw withStage('execute', new Error('Failed to retrieve recaptcha token'));
   }
 
   return token;
@@ -321,43 +478,63 @@ export interface RecaptchaTokenResult {
   queuePosition: number;
   /** Time spent minting the token via page.evaluate (0 on cache hit). */
   executeMs: number;
+  // A1 (additive): browser flavor that minted this token, browser age at
+  // acquisition, and lifetime use count — server-log only.
+  flavor: BrowserFlavor;
+  browserAgeMs: number;
+  useCount: number;
 }
 
-const fetchRecaptchaToken = async (): Promise<RecaptchaTokenResult> => {
-  const { page, isStandby, queueMs, queuePosition } = await acquirePage();
+export interface RecaptchaTokenOptions {
+  /** A5: route-timeout signal — aborts queue waits so stranded logins free the slot. */
+  signal?: AbortSignal;
+}
+
+const tokenResultExtras = (): Pick<RecaptchaTokenResult, 'flavor' | 'browserAgeMs' | 'useCount'> => ({
+  flavor: browserFlavor,
+  browserAgeMs: browser ? Math.max(0, now() - browserCreatedAt) : 0,
+  useCount: browserUseCount,
+});
+
+const fetchRecaptchaToken = async (opts: RecaptchaTokenOptions = {}): Promise<RecaptchaTokenResult> => {
+  const { page, isStandby, queueMs, queuePosition } = await acquirePage(opts.signal);
+  // A4: warmup-guard timestamp — a real login just took (or is taking) the slot.
+  lastLoginAcquiredAt = now();
   const source = isStandby ? 'standby' : 'cold';
 
   try {
+    throwIfAborted(opts.signal);
     if (isTokenCacheValid() && tokenCache) {
-      return { token: tokenCache.token, usedCache: true, source, acquireMs: queueMs, queuePosition, executeMs: 0 };
+      return { token: tokenCache.token, usedCache: true, source, acquireMs: queueMs, queuePosition, executeMs: 0, ...tokenResultExtras() };
     }
     const execStart = now();
     let token: string;
     try {
       token = await executeRecaptcha(page);
     } catch {
+      throwIfAborted(opts.signal);
       await ensureRecaptchaLoaded(page, true);
       token = await executeRecaptcha(page);
     }
     const executeMs = now() - execStart;
 
     browserUseCount += 1;
-    return { token, usedCache: false, source, acquireMs: queueMs, queuePosition, executeMs };
+    return { token, usedCache: false, source, acquireMs: queueMs, queuePosition, executeMs, ...tokenResultExtras() };
   } finally {
     await releasePage(page);
   }
 };
 
-export const getRecaptchaToken = async (): Promise<RecaptchaTokenResult> => {
+export const getRecaptchaToken = async (opts: RecaptchaTokenOptions = {}): Promise<RecaptchaTokenResult> => {
   if (isTokenCacheValid() && tokenCache) {
-    return { token: tokenCache.token, usedCache: true, source: 'cache', acquireMs: 0, queuePosition: 0, executeMs: 0 };
+    return { token: tokenCache.token, usedCache: true, source: 'cache', acquireMs: 0, queuePosition: 0, executeMs: 0, ...tokenResultExtras() };
   }
-  return fetchRecaptchaToken();
+  return fetchRecaptchaToken(opts);
 };
 
 export interface WarmupResult {
   /** What the warmup actually did: fetched on a hot standby page, launched cold, or skipped. */
-  source: 'standby' | 'cold' | 'cache' | 'busy' | 'inflight';
+  source: 'standby' | 'cold' | 'cache' | 'busy' | 'inflight' | 'recent-login';
   /** Time spent minting the token (0 when nothing was fetched). */
   executeMs: number;
 }
@@ -414,6 +591,19 @@ export const warmRecaptchaSession = async (): Promise<WarmupResult> => {
 
     let page: Page | null = null;
     try {
+      // A4 (extends the activePages/pageWaiters guard above — old
+      // hevyRecaptcha.ts:378 — to the cold-launch decision): never
+      // cold-launch from warmup when a login ran recently. The standby branch above already
+      // refreshed the cache on the hot page when one exists; reaching here
+      // means no standby, so a cold launch would hold the single slot
+      // (H3) exactly when the user's submit is likely seconds away (warmup
+      // fires on first keystroke, commit 331da8a). Skip instead — the login
+      // itself will warm the browser.
+      if (now() - lastLoginAcquiredAt < RECENT_LOGIN_GUARD_MS) {
+        result = { source: 'recent-login', executeMs: 0 };
+        scheduleIdleClose();
+        return;
+      }
       const acquired = await acquirePage();
       page = acquired.page;
       const execStart = now();

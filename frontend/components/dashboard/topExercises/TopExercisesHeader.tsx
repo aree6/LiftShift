@@ -25,6 +25,7 @@ export const TopExercisesHeader: React.FC<TopExercisesHeaderProps> = ({
     </h3>
     <div className="flex items-center justify-end gap-1 flex-wrap sm:flex-nowrap overflow-x-auto sm:overflow-visible max-w-full">
       <SegmentControl
+        dataTrack="timerange-topexercises"
         options={[
           { value: 'all', icon: <Infinity className="w-3 h-3" />, title: 'All' },
           { value: 'weekly', label: 'lst wk', title: 'Last Week' },
@@ -36,6 +37,7 @@ export const TopExercisesHeader: React.FC<TopExercisesHeaderProps> = ({
       />
 
       <SegmentControl
+        dataTrack="charttype-topexercises"
         options={[
           { value: 'barh', icon: <ChartBarStacked className="w-3 h-3" />, title: 'Bars' },
           { value: 'area', icon: <AreaChartIcon className="w-3 h-3" />, title: 'Area' },

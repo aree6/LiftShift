@@ -27,6 +27,7 @@ import {
   hevyBackendLogin,
   hevyBackendRefresh,
   hevyBackendValidateProApiKey,
+  isLoginInFlight,
 } from '../../utils/api/hevyBackend';
 import { identifyPersonalRecords } from '../../utils/analysis/core';
 import { hydrateBackendWorkoutSetsWithSource } from '../../app/auth/hydrateBackendWorkoutSets';
@@ -34,6 +35,15 @@ import { reportHistoryTruncation } from '../../app/state/historyTruncation';
 import { getHevyErrorMessage } from '../../app/ui';
 import { trackEvent, identifyUser } from '../../utils/integrations/analytics';
 import type { AppAuthHandlersDeps } from './appAuthTypes';
+
+// B2: one pending credential login per account per tab. The submit button is
+// already disabled while loading and handleHevyLogin checks isAnalyzing, but
+// both need a re-render — this closes the synchronous double-submit gap with
+// zero UI change (cross-tab/reload is covered by the localStorage marker in
+// hevyBackend.ts).
+const pendingCredentialLogins = new Set<string>();
+
+const normalizeAccount = (value: string): string => value.trim().toLowerCase();
 
 export const runHevySyncSaved = (deps: AppAuthHandlersDeps): void => {
   const savedProKey = getHevyProApiKey();
@@ -44,13 +54,15 @@ export const runHevySyncSaved = (deps: AppAuthHandlersDeps): void => {
     const startedAt = deps.startProgress();
 
     hevyBackendGetSetsWithProApiKey<WorkoutSet>(savedProKey)
-      .then((resp) => {
-        reportHistoryTruncation(resp.meta);
-        const sets = resp.sets ?? [];
-        const hydrated = hydrateBackendWorkoutSetsWithSource(sets, 'hevy');
-        const enriched = identifyPersonalRecords(hydrated);
+    .then((resp) => {
+      reportHistoryTruncation(resp.meta);
+      const sets = resp.sets ?? [];
+      const hydrated = hydrateBackendWorkoutSetsWithSource(sets, 'hevy');
+      const enriched = identifyPersonalRecords(hydrated);
 
-        deps.setParsedData(enriched);
+      trackEvent('hevy_sync_success', { method: 'credentials', workouts: resp.meta?.workouts });
+
+      deps.setParsedData(enriched);
         saveLastLoginMethod('hevy', 'apiKey', getHevyUsernameOrEmail() ?? undefined);
         deps.setDataSource('hevy');
         addCombinedDataSource('hevy');
@@ -126,6 +138,11 @@ export const runHevySyncSaved = (deps: AppAuthHandlersDeps): void => {
 
   const attemptCredentialFallback = () => {
     if (!savedUsername || !savedPassword) return Promise.reject(new Error('Missing saved credentials'));
+    // B2: a /login for this account is already running (other tab, or a
+    // reload during a slow login) — the login bucket is 5/min per route, so a
+    // duplicate only risks a self-inflicted 429. The outer catch surfaces the
+    // original error, so no new copy appears.
+    if (isLoginInFlight(savedUsername)) return Promise.reject(new Error('Login already in progress'));
     return hevyBackendLogin(savedUsername, savedPassword)
       .then((r) => {
         if (!r.auth_token) throw new Error('Missing auth token');
@@ -159,7 +176,10 @@ export const runHevySyncSaved = (deps: AppAuthHandlersDeps): void => {
     })
     .catch((err) => {
       const status = (err as any)?.statusCode;
-      if (status && status !== 401) {
+      // B3: retry ONLY on 401. Status-less network failures (TypeError from
+      // fetch, unstamped throws) must surface as errors, not fall through to
+      // refresh→credential retry and burn the shared bucket.
+      if (status !== 401) {
         deps.setHevyLoginError(getHevyErrorMessage(err));
         return undefined;
       }
@@ -228,6 +248,11 @@ export const runHevyApiKeyLogin = (deps: AppAuthHandlersDeps, apiKey: string): v
 };
 
 export const runHevyLogin = (deps: AppAuthHandlersDeps, emailOrUsername: string, password: string): void => {
+  // B2: ignore duplicate submits for an account with a login already pending.
+  const accountKey = normalizeAccount(emailOrUsername);
+  if (pendingCredentialLogins.has(accountKey)) return;
+  pendingCredentialLogins.add(accountKey);
+
   trackEvent('hevy_sync_start', { method: 'credentials' });
   deps.setHevyLoginError(null);
   deps.setLoadingKind('hevy');
@@ -281,6 +306,7 @@ export const runHevyLogin = (deps: AppAuthHandlersDeps, emailOrUsername: string,
       deps.setHevyLoginError(getHevyErrorMessage(err));
     })
     .finally(() => {
+      pendingCredentialLogins.delete(accountKey);
       deps.finishProgress(startedAt);
     });
 };

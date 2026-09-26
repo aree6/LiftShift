@@ -50,7 +50,7 @@ function Page() {
         <section>
           <h2 className="text-lg font-semibold text-white mb-3">What kinds of PRs does LiftShift track?</h2>
           <p className="text-slate-300 leading-relaxed mb-4">
-            Your PRs come in seven types: <strong>weight, 1RM, set volume, session volume, reps, weighted reps, and distance</strong>, across two tiers: <strong>all-time bests</strong> (your strongest performance ever for an exercise) and <strong>1-month bests</strong> (your best in the last month, useful for monitoring recent progress). LiftShift also detects <strong>premature PRs</strong> (when you hit a PR but your volume and rep quality suggest you pushed too far) and flags PR droughts when you haven&rsquo;t set a new record in a while.
+            Your PRs come in seven types: <strong>weight, 1RM, set volume, session volume, reps, weighted reps, and distance</strong>, across two tiers: <strong>all-time bests</strong> (your strongest performance ever for an exercise) and <strong>1-month bests</strong> (your best in the last month, useful for monitoring recent progress). LiftShift also detects <strong>premature PRs</strong> (when you hit a PR but your volume and rep quality suggest you pushed too far) and flags PR droughts when you haven&rsquo;t set a new record in a while. Learn <a href={assetPath('metrics/one-rep-max/')} className="text-emerald-300/80 hover:text-emerald-400 transition-colors duration-200">how 1RM estimates are calculated</a>.
           </p>
         </section>
 

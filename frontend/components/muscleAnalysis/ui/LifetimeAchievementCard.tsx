@@ -567,6 +567,7 @@ export const LifetimeAchievementCard: React.FC<LifetimeAchievementCardProps> = (
                 <div
                   key={m.muscleId}
                   className="flex items-center gap-2 rounded px-1 py-0.5 -mx-1 group relative cursor-pointer"
+                  data-track={`muscle-card:${m.muscleId}`}
                   onClick={() => {
                     if (window.innerWidth >= 768) {
                       onMuscleClick?.(m.muscleId);

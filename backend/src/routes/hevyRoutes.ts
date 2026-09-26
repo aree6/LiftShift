@@ -4,6 +4,7 @@ import { hevyGetAccount, hevyGetWorkoutsPaged, hevyLogin, hevyRefreshToken, hevy
 import { warmRecaptchaSession } from '../hevyRecaptcha';
 import { mapHevyWorkoutsToWorkoutSets } from '../mapToWorkoutSets';
 import { getClientIP, getCountryFromIP } from '../geoLocation';
+import { publicErrorMessage } from '../safeError';
 
 const formatDuration = (ms: number): string => `${(ms / 1000).toFixed(1)}s`;
 
@@ -13,12 +14,17 @@ const formatDuration = (ms: number): string => `${(ms / 1000).toFixed(1)}s`;
 // parked this request for 210s+.
 const LOGIN_ROUTE_TIMEOUT_MS = 120_000;
 
-const withTimeout = <T>(promise: Promise<T>, ms: number, message: string, statusCode: number): Promise<T> => {
+const withTimeout = <T>(promise: Promise<T>, ms: number, message: string, statusCode: number, onTimeout?: () => void): Promise<T> => {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<never>((_, reject) => {
     timer = setTimeout(() => {
       const err = new Error(message);
       (err as any).statusCode = statusCode;
+      try {
+        onTimeout?.();
+      } catch {
+        // Best-effort only — the timeout response must still go out.
+      }
       reject(err);
     }, ms);
     timer.unref();
@@ -45,11 +51,17 @@ export const createHevyRouter = (opts: {
     }
 
     try {
+      // A5: abort stranded Puppeteer/upstream work when the 120s race below
+      // fires — the abandoned hevyLogin stops at its next queue/fetch point
+      // instead of holding the single slot for later logins (H3). The 504 the
+      // user sees is byte-identical to before.
+      const loginAbort = new AbortController();
       const data = await withTimeout(
-        hevyLogin(emailOrUsername, password),
+        hevyLogin(emailOrUsername, password, { signal: loginAbort.signal }),
         LOGIN_ROUTE_TIMEOUT_MS,
         'Login verification timed out. Please try again.',
         504,
+        () => loginAbort.abort(),
       );
       const loginDurationMs = Date.now() - startedAt;
       
@@ -86,7 +98,11 @@ export const createHevyRouter = (opts: {
           error: `${message}.`,
         });
       }
-      res.status(status).json({ error: message });
+      // A1: additive `stage` for one-query attribution (queue/launch/newPage/
+      // goto/script-wait/execute/upstream-login from the stack, route-timeout
+      // when the 120s race above fired). 401 branch above untouched.
+      const stage = (err as any).stage ?? (status === 504 ? 'route-timeout' : 'unknown');
+      res.status(status).json({ error: publicErrorMessage(status, message, 'Login failed'), stage });
     }
   });
 
@@ -107,7 +123,10 @@ export const createHevyRouter = (opts: {
       const status = (err as any).statusCode ?? 500;
       const message = (err as Error).message || 'Session warmup failed';
       console.error(`👤 ${emailOrUsername} ❌ Warmup failed: ${message}`);
-      res.status(status).json({ error: message });
+      // A1: same additive `stage` contract as /login (warmup throws carry
+      // launch/newPage/execute stages from hevyRecaptcha.ts).
+      const stage = (err as any).stage ?? 'unknown';
+      res.status(status).json({ error: publicErrorMessage(status, message, 'Session warmup failed'), stage });
     }
   });
 
@@ -120,7 +139,7 @@ export const createHevyRouter = (opts: {
       res.json({ valid });
     } catch (err) {
       const status = (err as any).statusCode ?? 500;
-      res.status(status).json({ error: (err as Error).message || 'Validate failed' });
+      res.status(status).json({ error: publicErrorMessage(status, (err as Error).message, 'Validate failed') });
     }
   });
 
@@ -173,7 +192,7 @@ export const createHevyRouter = (opts: {
       if (status === 401) {
         return res.status(401).json({ error: message });
       }
-      res.status(status).json({ error: message });
+      res.status(status).json({ error: publicErrorMessage(status, message, 'Refresh failed') });
     }
   });
 
@@ -184,7 +203,7 @@ export const createHevyRouter = (opts: {
       res.json(data);
     } catch (err) {
       const status = (err as any).statusCode ?? 500;
-      res.status(status).json({ error: (err as Error).message || 'Failed to fetch account' });
+      res.status(status).json({ error: publicErrorMessage(status, (err as Error).message, 'Failed to fetch account') });
     }
   });
 
@@ -201,7 +220,7 @@ export const createHevyRouter = (opts: {
       res.json(data);
     } catch (err) {
       const status = (err as any).statusCode ?? 500;
-      res.status(status).json({ error: (err as Error).message || 'Failed to fetch workouts' });
+      res.status(status).json({ error: publicErrorMessage(status, (err as Error).message, 'Failed to fetch workouts') });
     }
   });
 
@@ -302,7 +321,7 @@ export const createHevyRouter = (opts: {
       const status = (err as any).statusCode ?? 500;
       const message = (err as Error).message || 'Failed to fetch sets';
       console.error(`👤 ${username} ❌ Sets failed: ${message}`);
-      res.status(status).json({ error: message });
+      res.status(status).json({ error: publicErrorMessage(status, message, 'Failed to fetch sets') });
     }
   });
 

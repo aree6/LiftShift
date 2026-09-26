@@ -41,6 +41,7 @@ export const SupportLinks: React.FC<{
             href="https://github.com/aree6/LiftShift"
             target="_blank"
             rel="noopener noreferrer"
+            data-track="github-star"
             onClick={(e) => {
               if (e.button === 1 || e.metaKey || e.ctrlKey) {
                 return;
@@ -63,6 +64,7 @@ export const SupportLinks: React.FC<{
             href="https://www.buymeacoffee.com/aree6"
             target="_blank"
             rel="noopener noreferrer"
+            data-track="bmc-support"
             onClick={(e) => {
               if (e.button === 1 || e.metaKey || e.ctrlKey) {
                 return;
@@ -85,6 +87,7 @@ export const SupportLinks: React.FC<{
 
           <a
             href="mailto:mohammadar336@gmail.com"
+            data-track="hire-me"
             onClick={(e) => {
               if (e.button === 1 || e.metaKey || e.ctrlKey) {
                 return;

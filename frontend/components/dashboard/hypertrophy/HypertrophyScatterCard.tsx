@@ -345,6 +345,7 @@ export const HypertrophyScatterCard: React.FC<HypertrophyScatterCardProps> = ({
             <p className="text-[10px] sm:text-xs text-slate-500 mt-0.5">Progress vs Volume per muscle</p>
           </div>
           <SegmentControl
+            dataTrack="timerange-hypertrophy-scatter"
             options={[
               { value: '7d', label: 'lst wk', title: 'Last 7 days' },
               { value: '30d', label: 'lst mo', title: 'Last 30 days' },

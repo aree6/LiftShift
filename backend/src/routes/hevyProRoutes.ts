@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { hevyProGetAllWorkouts, hevyProGetUserInfo, hevyProValidateApiKey } from '../hevyProApi';
 import { mapHevyProWorkoutsToWorkoutSets } from '../mapHevyProWorkoutsToWorkoutSets';
 import { getClientIP, getCountryFromIP } from '../geoLocation';
+import { publicErrorMessage } from '../safeError';
 
 const formatDuration = (ms: number): string => `${(ms / 1000).toFixed(1)}s`;
 
@@ -30,7 +31,7 @@ export const createHevyProRouter = (opts: {
       const status = (err as any).statusCode ?? 500;
       const message = (err as Error).message || 'Validate failed';
       console.error(`❌ Hevy Pro validation failed: ${message}`);
-      res.status(status).json({ error: message });
+      res.status(status).json({ error: publicErrorMessage(status, message, 'Validate failed') });
     }
   });
 
@@ -71,7 +72,7 @@ export const createHevyProRouter = (opts: {
       const message = (err as Error).message || 'Failed to fetch sets';
       const durationMs = Date.now() - startedAt;
       console.error(`❌ Hevy Pro sync failed (${formatDuration(durationMs)}): ${message}`);
-      res.status(status).json({ error: message });
+      res.status(status).json({ error: publicErrorMessage(status, message, 'Failed to fetch sets') });
     }
   });
 

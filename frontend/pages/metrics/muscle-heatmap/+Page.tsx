@@ -63,6 +63,17 @@ function Page() {
         </section>
 
         <section>
+          <h2 className="text-lg font-semibold text-white mb-3">Bench press heatmap: what your bench day really trains</h2>
+          <p className="text-slate-300 leading-relaxed">
+            A bench press heatmap shows your bench press volume distributed across the chest, front deltoids, and triceps.
+            In LiftShift, every bench press set you log is split proportionally across those three muscles, so your heatmap
+            reveals whether your bench days are actually growing your chest or mostly fatiguing your front delts and triceps.
+            If your chest sits in a light zone while your front delts glow, consider close-grip or incline variations —
+            then watch the heatmap shift over the following weeks.
+          </p>
+        </section>
+
+        <section>
           <h2 className="text-lg font-semibold text-white mb-3">Limitations</h2>
           <ul className="list-disc list-inside space-y-1 text-slate-300 leading-relaxed">
             <li>The heatmap reflects <em>volume</em>, not <em>stimulus</em>. Two sets to failure produce a different training effect than two sets with 5 reps in reserve, even though they contribute equal volume. The heatmap treats them the same.</li>

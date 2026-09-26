@@ -8,7 +8,8 @@ import { identifyPersonalRecords } from '../../utils/analysis/core';
 import { getErrorMessage } from '../../app/ui';
 import { parseWorkoutCSVAsyncWithUnit, ParseWorkoutCsvResult } from '../../utils/csv/csvParser';
 import { parseMotraCSV } from '../../utils/csv/motraParser';
-import { trackEvent } from '../../utils/integrations/analytics';
+import { trackEvent, identifyUser } from '../../utils/integrations/analytics';
+import { getAnalyticsClientId } from '../../utils/integrations/analyticsClientId';
 import type { AppAuthHandlersDeps } from './appAuthTypes';
 
 
@@ -72,6 +73,10 @@ export const runCsvImport = (
             sets: result.sets?.length,
             enriched_sets: sourced?.length,
           });
+
+          // CSV users have no login — identify by stable client_id so their
+          // history merges and retention/LTV become measurable (was anonymous).
+          identifyUser(getAnalyticsClientId(), { login_method: 'csv', platform });
 
           deps.setParsedData(sourced);
           clearHistoryTruncation();

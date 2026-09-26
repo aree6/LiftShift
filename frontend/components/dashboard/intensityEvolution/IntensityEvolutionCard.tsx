@@ -90,6 +90,7 @@ export const IntensityEvolutionCard = ({
 
         <div className="flex items-center justify-end gap-0.5 sm:gap-1 flex-wrap sm:flex-nowrap overflow-x-auto sm:overflow-visible max-w-full">
           <SegmentControl
+            dataTrack="timerange-intensity"
             options={[
               { value: 'all', icon: <Infinity className="w-3 h-3" />, title: 'All' },
               { value: 'weekly', label: 'lst wk', title: 'Last Week' },

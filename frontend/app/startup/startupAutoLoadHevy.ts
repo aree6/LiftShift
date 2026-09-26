@@ -5,6 +5,7 @@ import {
   hevyBackendGetSetsWithProApiKey,
   hevyBackendLogin,
   hevyBackendRefresh,
+  isLoginInFlight,
 } from '../../utils/api/hevyBackend';
 import { identifyPersonalRecords } from '../../utils/analysis/core';
 import {
@@ -153,7 +154,9 @@ export const loadHevyFromToken = (
         trackEvent('hevy_sync_error', { method: trackConfig.errorMethod });
       }
       const status = (err as any)?.statusCode;
-      if (status && status !== 401) {
+      // B3: retry ONLY on 401 — see appAuthHevy.ts. Status-less network
+      // failures must not trigger refresh→credential fallback.
+      if (status !== 401) {
         if (shouldResetOnError) {
           saveSetupComplete(false);
           deps.setHevyLoginError(getHevyErrorMessage(err));
@@ -190,6 +193,14 @@ export const loadHevyFromCredentials = async (
   const shouldResetOnError = behavior.resetOnError !== false;
   // Validate password before attempting login
   if (!password || password.trim().length === 0) {
+    return false;
+  }
+
+  // B2: a /login for this account is already running in another tab, or this
+  // is a reload during a slow login — firing a second /login only burns the
+  // 5/min login bucket (backend/src/index.ts createRouteLimiter). Return
+  // false so the caller follows its existing failure path, request-free.
+  if (isLoginInFlight(username)) {
     return false;
   }
 

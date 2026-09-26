@@ -259,6 +259,7 @@ export const TrainingManifestCard: React.FC<TrainingManifestCardProps> = memo(({
             <div className="flex shrink-0 flex-col items-end gap-1.5">
               <SegmentControl
                 tone="paper"
+                dataTrack="timerange-manifest"
                 options={[
                   { value: '7d', label: 'lst wk', title: 'Last 7 days' },
                   { value: '30d', label: 'lst mo', title: 'Last 30 days' },

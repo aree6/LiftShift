@@ -157,10 +157,26 @@ const injectSeoNoscriptPlugin = () => {
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '');
   const backendUrl = stripTrailingApiPath(env.VITE_BACKEND_URL || 'http://localhost:5000');
+  // B5: release identifier for analytics (frontend/utils/integrations/analytics.ts
+  // getRelease() reads VITE_APP_VERSION with an 'unknown' fallback). Explicit
+  // env (e.g. CI-injected commit SHA) wins, then .env files, then package.json
+  // version — so production builds always carry a real value, zero UX change.
+  const pkgVersion = (() => {
+    try {
+      const pkg = JSON.parse(fs.readFileSync(path.resolve(__dirname, 'package.json'), 'utf-8')) as { version?: unknown };
+      return typeof pkg.version === 'string' && pkg.version.trim() ? pkg.version.trim() : 'unknown';
+    } catch {
+      return 'unknown';
+    }
+  })();
+  const appVersion = process.env.VITE_APP_VERSION?.trim() || env.VITE_APP_VERSION?.trim() || pkgVersion;
   return {
     base: normalizeBasePath(env.VITE_BASE_PATH || '/'),
     root: path.resolve(__dirname, 'frontend'),
     envDir: __dirname,
+    define: {
+      'import.meta.env.VITE_APP_VERSION': JSON.stringify(appVersion),
+    },
     server: {
       port: 3000,
       host: '0.0.0.0',

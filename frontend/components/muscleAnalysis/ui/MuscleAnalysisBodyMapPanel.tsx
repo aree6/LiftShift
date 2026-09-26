@@ -74,6 +74,7 @@ export const MuscleAnalysisBodyMapPanel: React.FC<MuscleAnalysisBodyMapPanelProp
     <Reveal className="bg-black/20 rounded-xl border border-slate-700/50 p-4 relative flex flex-col h-full">
       <div className="absolute top-3 left-3 right-3 z-10 flex items-center justify-end gap-2">
         <SegmentControl
+          dataTrack="charttype-muscleanalysis"
           options={[
             { value: 'heatmap', icon: <Grid3X3 className="w-3 h-3" />, title: 'Heatmap' },
             { value: 'radar', icon: <Scan className="w-3 h-3" />, title: 'Radar' },
@@ -83,6 +84,7 @@ export const MuscleAnalysisBodyMapPanel: React.FC<MuscleAnalysisBodyMapPanelProp
         />
 
         <SegmentControl
+          dataTrack="timerange-muscleanalysis"
           options={[
             { value: 'all', icon: <Infinity className="w-2.5 h-2.5" />, title: 'All time' },
             { value: '7d', label: 'lst wk', title: 'Last week' },

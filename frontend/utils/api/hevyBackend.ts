@@ -1,5 +1,5 @@
 import { mergeAnalyticsHeaders } from '../integrations/analyticsClientId';
-import { buildBackendUrl, parseError, type BackendSetsResponse } from './common';
+import { buildBackendUrl, parseError, parseRetryAfterSeconds, type BackendSetsResponse } from './common';
 import { browserCache } from '../storage/browserCache';
 
 export interface BackendLoginResponse {
@@ -11,9 +11,99 @@ export interface BackendLoginResponse {
 }
 
 const throwBackendError = async (res: Response): Promise<never> => {
+  // Clone before parseError() consumes the body so Agent A's ours-marker
+  // (backend/src/index.ts limiter handler stamps source='our-loginLimiter' on
+  // 429s) can be captured best-effort; absent on older deploys → undefined.
+  let rateLimitSource: string | undefined;
+  try {
+    const body = (await res.clone().json()) as { source?: unknown };
+    if (body && typeof body.source === 'string' && body.source) rateLimitSource = body.source;
+  } catch {
+    // Non-JSON body — no marker to capture.
+  }
   const err = new Error(await parseError(res));
   (err as any).statusCode = res.status;
+  if (rateLimitSource) (err as any).rateLimitSource = rateLimitSource;
+  // B1: honor the server's Retry-After when present (the limiter handler
+  // guarantees the header; express-rate-limit v8 also sets it). All
+  // same-origin /api responses are ours by construction, so honor the header
+  // whenever present and keep existing behavior otherwise.
+  const retryAfterSeconds = parseRetryAfterSeconds(
+    typeof res.headers?.get === 'function' ? res.headers.get('retry-after') : null
+  );
+  if (retryAfterSeconds != null) (err as any).retryAfterSeconds = retryAfterSeconds;
+  if (res.status === 429 && retryAfterSeconds != null) {
+    recordLoginRateLimitRetryAfter(retryAfterSeconds);
+  }
   throw err;
+};
+
+// Login 5/min buckets (backend/src/index.ts createRouteLimiter — per-route,
+// brute-force cap unchanged). A 429's Retry-After is stashed here so the login
+// form's existing cooldown countdown can honor it; entries expire naturally
+// (range-checked on read) so a stale stash can never block a later attempt.
+const LOGIN_RETRY_AT_KEY = 'hevy_login_retry_at_ms';
+const MAX_RATE_LIMIT_COOLDOWN_S = 120; // Matches the existing CredentialsContent ceiling.
+
+export const recordLoginRateLimitRetryAfter = (retryAfterSeconds: number): void => {
+  try {
+    if (!Number.isFinite(retryAfterSeconds) || retryAfterSeconds <= 0) return;
+    const capped = Math.min(Math.ceil(retryAfterSeconds), MAX_RATE_LIMIT_COOLDOWN_S);
+    window.localStorage.setItem(LOGIN_RETRY_AT_KEY, String(Date.now() + capped * 1000));
+  } catch {
+    // Storage unavailable — cooldown falls back to the existing default.
+  }
+};
+
+export const getLoginRateLimitCooldownSeconds = (fallbackSeconds: number): number => {
+  try {
+    const raw = window.localStorage.getItem(LOGIN_RETRY_AT_KEY);
+    if (!raw) return fallbackSeconds;
+    const retryAt = Number(raw);
+    if (!Number.isFinite(retryAt)) return fallbackSeconds;
+    const remaining = Math.ceil((retryAt - Date.now()) / 1000);
+    if (remaining < 1 || remaining > MAX_RATE_LIMIT_COOLDOWN_S) return fallbackSeconds;
+    return remaining;
+  } catch {
+    return fallbackSeconds;
+  }
+};
+
+// B2: cross-tab/reload in-flight login marker, one entry per account. Set when
+// a /login request starts, cleared when it settles; a surviving entry means a
+// login is (or was very recently) running in another tab or before a reload.
+// TTL-bounded so a crashed tab can only suppress one auto-retry for ≤135s.
+const LOGIN_INFLIGHT_PREFIX = 'hevy_login_inflight:';
+
+const loginInflightKey = (account: string): string =>
+  `${LOGIN_INFLIGHT_PREFIX}${account.trim().toLowerCase()}`;
+
+export const isLoginInFlight = (account: string, maxAgeMs: number = BACKEND_TIMEOUT_MS): boolean => {
+  try {
+    const raw = window.localStorage.getItem(loginInflightKey(account));
+    if (!raw) return false;
+    const startedAt = Number(raw);
+    if (!Number.isFinite(startedAt)) return false;
+    return Date.now() - startedAt < maxAgeMs;
+  } catch {
+    return false;
+  }
+};
+
+const markLoginInflight = (account: string): void => {
+  try {
+    window.localStorage.setItem(loginInflightKey(account), String(Date.now()));
+  } catch {
+    // ignore — dedup is best-effort
+  }
+};
+
+const clearLoginInflight = (account: string): void => {
+  try {
+    window.localStorage.removeItem(loginInflightKey(account));
+  } catch {
+    // ignore
+  }
 };
 
 const BACKEND_TIMEOUT_MS = (() => {
@@ -78,9 +168,11 @@ export const hevyBackendValidateProApiKey = async (apiKey: string): Promise<bool
     const msg = await parseError(res);
     console.error('Hevy Pro API key validation failed:', { url, status: res.status, msg });
     if (res.status === 404) {
-      throw new Error(
+      const notFound = new Error(
         'Backend returned 404 for Hevy Pro API key validation. Check that VITE_BACKEND_URL is correct (no trailing /api) and that your backend has been redeployed to the latest version.'
       );
+      (notFound as any).statusCode = res.status;
+      throw notFound;
     }
     return false;
   }
@@ -107,11 +199,15 @@ export const hevyBackendGetSetsWithProApiKey = async <TSet>(apiKey: string): Pro
     const msg = await parseError(res);
     console.error('Hevy Pro API key sets fetch failed:', { url, status: res.status, msg });
     if (res.status === 404) {
-      throw new Error(
+      const notFound = new Error(
         'Backend returned 404 for Hevy Pro API key sync. Check that VITE_BACKEND_URL is correct (no trailing /api) and that your backend has been redeployed to the latest version.'
       );
+      (notFound as any).statusCode = res.status;
+      throw notFound;
     }
-    throw new Error(msg);
+    const httpErr = new Error(msg);
+    (httpErr as any).statusCode = res.status;
+    throw httpErr;
   }
   const data = (await res.json()) as BackendSetsResponse<TSet>;
   browserCache.setCache(cacheKey, data);
@@ -121,21 +217,26 @@ export const hevyBackendGetSetsWithProApiKey = async <TSet>(apiKey: string): Pro
 export const hevyBackendLogin = async (emailOrUsername: string, password: string): Promise<BackendLoginResponse> => {
   const cacheKey = browserCache.getCacheKey('hevyLogin', emailOrUsername.toLowerCase());
   browserCache.clearCache('hevyLogin', emailOrUsername.toLowerCase());
-  
-  const res = await fetchWithTimeout(buildBackendUrl('/api/hevy/login'), {
-    method: 'POST',
-    headers: mergeAnalyticsHeaders({ 'content-type': 'application/json' }),
-    body: JSON.stringify({ emailOrUsername, password }),
-  });
 
-  if (!res.ok) return throwBackendError(res);
-  const data = (await res.json()) as BackendLoginResponse;
-  
-  if (data.auth_token) {
-    browserCache.setCache(cacheKey, data);
+  markLoginInflight(emailOrUsername);
+  try {
+    const res = await fetchWithTimeout(buildBackendUrl('/api/hevy/login'), {
+      method: 'POST',
+      headers: mergeAnalyticsHeaders({ 'content-type': 'application/json' }),
+      body: JSON.stringify({ emailOrUsername, password }),
+    });
+
+    if (!res.ok) return throwBackendError(res);
+    const data = (await res.json()) as BackendLoginResponse;
+
+    if (data.auth_token) {
+      browserCache.setCache(cacheKey, data);
+    }
+
+    return data;
+  } finally {
+    clearLoginInflight(emailOrUsername);
   }
-  
-  return data;
 };
 
 export const hevyBackendWarmupSession = async (

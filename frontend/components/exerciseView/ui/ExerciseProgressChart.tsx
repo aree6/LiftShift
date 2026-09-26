@@ -131,6 +131,7 @@ export const ExerciseProgressChart: React.FC<ExerciseProgressChartProps> = ({
         <div className="flex items-center justify-between gap-2">
           <h3 className="text-base font-semibold text-white">{isBodyweightLike ? 'Reps Progression' : 'Strength Progression'}</h3>
           <SegmentControl
+            dataTrack="timerange-exerciseprogress"
             options={[
               { value: 'all', icon: <Infinity className="w-3 h-3" />, title: 'All' },
               { value: 'weekly', label: 'lst wk', title: 'Last Week' },
@@ -254,6 +255,7 @@ export const ExerciseProgressChart: React.FC<ExerciseProgressChartProps> = ({
           )}
 
           <SegmentControl
+            dataTrack="timerange-exerciseprogress"
             options={[
               { value: 'all', icon: <Infinity className="w-3 h-3" />, title: 'All' },
               { value: 'weekly', label: 'lst wk', title: 'Last Week' },

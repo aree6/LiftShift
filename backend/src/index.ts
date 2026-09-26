@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
-import rateLimit from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import { analyticsRequestMiddleware } from './analytics/requestTracking';
 import { shutdownPosthog } from './analytics/posthog';
 import { createPosthogAssetProxy, createPosthogProxy, posthogProxyPath } from './analytics/proxy';
@@ -74,6 +74,16 @@ app.set('trust proxy', 1);
 
 app.disable('x-powered-by');
 app.use(express.json({ limit: '1mb' }));
+
+// Minimal security headers (API backend, no static content).
+// No helmet dependency needed for these three.
+app.use((_req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  next();
+});
+
 app.use(analyticsRequestMiddleware);
 
 const isPrivateLanOrigin = (origin: string): boolean => {
@@ -114,17 +124,61 @@ app.use(
   })
 );
 
-const loginLimiter = rateLimit({
+// A3: per-route buckets. Each route keeps the same 5/min cap (brute-force
+// protection never weakens — constraint 3; /login specifically is unchanged
+// at 5/min), but a burst of fallback-chain retries on one route no longer
+// burns the budget of the others (HANDOFF: 429s likely self-inflicted via
+// one shared bucket + retry amplification; ~6-7 backend requests per action).
+// A2: limiter rejections are stamped source=our-loginLimiter in the JSON body
+// so clients can tell our 429s apart from upstream Hevy 429s. Retry-After is
+// set by the middleware itself (express-rate-limit v8 sets it whenever
+// standardHeaders/legacyHeaders are on); the handler below only backfills it
+// if ever absent.
+let limiterKeyLogged = false;
+const createRouteLimiter = (route: string) => rateLimit({
   windowMs: 60_000,
   limit: 5,
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   message: { error: 'RateLimitExceeded', message: 'Too many login attempts. Please wait 1 minute.' },
+  keyGenerator: (req) => {
+    // A3: verify trust-proxy hop count against the Cloudflare→Render chain.
+    // Log once: resolved req.ip vs the raw X-Forwarded-For chain plus the
+    // configured hop count. Value intentionally NOT changed here (trust
+    // proxy 1 above, set for ERR_ERL_UNEXPECTED_X_FORWARDED_FOR): with 2+
+    // proxies in the chain, changing it on unverified evidence would silently
+    // re-key every bucket.
+    if (!limiterKeyLogged) {
+      limiterKeyLogged = true;
+      const xff = req.headers['x-forwarded-for'];
+      console.log(
+        `[RateLimit:${route}] key=${req.ip} xff=${Array.isArray(xff) ? xff.join(';') : (xff ?? 'none')} ` +
+        `trustProxy=${app.get('trust proxy')} (verify against Cloudflare→Render chain)`,
+      );
+    }
+    // Delegate to the default helper (v8 validates custom keyGenerators that
+    // skip it) — identical bucketing to before, just logged.
+    return ipKeyGenerator(req.ip ?? '');
+  },
+  handler: (req, res, _next, options) => {
+    if (!res.headersSent && !res.getHeader('Retry-After')) {
+      res.setHeader('Retry-After', '60');
+    }
+    res.status(options.statusCode).json({
+      error: 'RateLimitExceeded',
+      message: 'Too many login attempts. Please wait 1 minute.',
+      source: 'our-loginLimiter',
+    });
+  },
   skip: (req) => {
     // Don't rate limit warmup requests
     return req.path === '/api/hevy/recaptcha/session-warmup';
   },
 });
+
+const loginLimiter = createRouteLimiter('hevy-login');
+const hevyProLimiter = createRouteLimiter('hevy-pro');
+const lyftaLimiter = createRouteLimiter('lyfta');
 
 const requireAuthTokenHeader = (req: express.Request): string => {
   const authHeader = req.header('authorization');
@@ -189,14 +243,20 @@ app.use(posthogStaticPath, posthogAssetProxy);
 app.use(posthogProxyPath, posthogProxy);
 
 app.use('/api/hevy', createHevyRouter({ loginLimiter, requireAuthTokenHeader, getCachedResponse }));
-app.use('/api/hevy', createHevyProRouter({ loginLimiter, getCachedResponse }));
-app.use('/api/lyfta', createLyftaRouter({ loginLimiter, getCachedResponse }));
+app.use('/api/hevy', createHevyProRouter({ loginLimiter: hevyProLimiter, getCachedResponse }));
+app.use('/api/lyfta', createLyftaRouter({ loginLimiter: lyftaLimiter, getCachedResponse }));
 
 app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   const message = err instanceof Error ? err.message : 'Internal server error';
   if (message === 'CORS blocked') return res.status(403).json({ error: message });
 
   const status = (err as any)?.statusCode ?? 500;
+  // Never leak internal/dependency error text (Puppeteer paths, upstream HTML,
+  // stack fragments) to clients. 4xx/504 messages are curated for UX and stay.
+  if (status === 500) {
+    console.error('[Server] Internal error:', message);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
   res.status(status).json({ error: message });
 });
 

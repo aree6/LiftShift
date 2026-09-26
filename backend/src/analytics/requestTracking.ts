@@ -4,6 +4,26 @@ import { getClientIP } from '../geoLocation';
 
 const CLIENT_ID_HEADER = 'x-liftshift-client-id';
 
+// Scanner/bot probes for paths the app never defines (WP, PHP, .env, git...).
+// These 404 correctly; they are not product errors and must not pollute
+// api_response_error. api_request keeps them tagged (is_bot) so bot volume
+// stays measurable in one place.
+const BOT_PATH_PATTERNS: RegExp[] = [
+  /\/\.env(\..*)?$/i,
+  /wp-admin|wp-content|wp-includes|wp-json|\/wp(\/|$)/i,
+  /wordpress|blog/i,
+  /\.php$/i,
+  /phpinfo|phpmyadmin/i,
+  /\.git\//i,
+  /\/robots\.txt$/i,
+  /\/\.well-known\//i,
+];
+
+export const isBotProbePath = (path: string): boolean => {
+  if (!path) return false;
+  return BOT_PATH_PATTERNS.some((re) => re.test(path));
+};
+
 export const getAnalyticsDistinctId = (req: express.Request): string => {
   const raw = req.header(CLIENT_ID_HEADER);
   const id = typeof raw === 'string' ? raw.trim() : '';
@@ -39,6 +59,7 @@ export const analyticsRequestMiddleware: express.RequestHandler = (req, res, nex
 
     // Avoid capturing query strings to reduce the chance of sending user identifiers.
     const path = req.path;
+    const isBot = isBotProbePath(path);
 
     const eventProperties: Record<string, unknown> = {
       method: req.method,
@@ -48,6 +69,7 @@ export const analyticsRequestMiddleware: express.RequestHandler = (req, res, nex
       origin_host: getOriginHostname(req.header('origin')),
       ua: req.header('user-agent')?.slice(0, 200),
       has_auth_token: Boolean(req.header('authorization')),
+      is_bot: isBot,
     };
 
     // Pass IP to PostHog for automatic GeoIP resolution
@@ -57,12 +79,19 @@ export const analyticsRequestMiddleware: express.RequestHandler = (req, res, nex
 
     captureBackendEvent(distinctId, 'api_request', eventProperties);
 
+    // Bot probes 404 by design — expected, not a product error. Skip so
+    // api_response_error reflects real failures (cuts ~2/3 of its volume).
+    if (isBot) return;
+
     if (res.statusCode >= 400) {
       captureBackendEvent(distinctId, 'api_response_error', {
         method: req.method,
         path,
         status: res.statusCode,
+        duration_ms: durationMs,
         origin_host: getOriginHostname(req.header('origin')),
+        ua: req.header('user-agent')?.slice(0, 200),
+        is_bot: false,
       });
     }
   });

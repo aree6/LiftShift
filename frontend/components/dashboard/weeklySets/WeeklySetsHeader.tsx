@@ -27,6 +27,7 @@ export const WeeklySetsHeader: React.FC<WeeklySetsHeaderProps> = ({
 
     <div className="flex items-center justify-end gap-1 flex-wrap sm:flex-nowrap overflow-x-auto sm:overflow-visible">
       <SegmentControl
+        dataTrack="charttype-weeklysets"
         options={[
           { value: 'radar', icon: <Scan className="w-3 h-3" />, title: 'Radar' },
           { value: 'heatmap', icon: <Grid3X3 className="w-3 h-3" />, title: 'Heatmap' },
@@ -36,6 +37,7 @@ export const WeeklySetsHeader: React.FC<WeeklySetsHeaderProps> = ({
       />
 
       <SegmentControl
+        dataTrack="timerange-weeklysets"
         options={[
           { value: 'all', icon: <Infinity className="w-3 h-3" />, title: 'All' },
           { value: '7d', label: 'lst wk', title: 'Last week' },

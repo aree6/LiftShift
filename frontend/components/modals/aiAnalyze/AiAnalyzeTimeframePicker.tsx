@@ -29,6 +29,7 @@ export const AiAnalyzeTimeframePicker: React.FC<AiAnalyzeTimeframePickerProps> =
             key={opt.label}
             type="button"
             onClick={() => setMonths(opt.value)}
+            data-track={`export-timeframe:${String(opt.value)}`}
             className={`text-xs px-3 py-2 rounded-lg border transition-colors ${
               selected
                 ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-300'

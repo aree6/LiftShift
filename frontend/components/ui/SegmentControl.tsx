@@ -17,6 +17,13 @@ interface SegmentControlProps<T extends string = string> {
   onChange: (value: T) => void;
   /** 'paper' renders ink-on-paper styling for use inside paper-textured cards. */
   tone?: 'default' | 'paper';
+  /**
+   * Stable tracking prefix for analytics. When set, each option button gets
+   * `data-track="<prefix>:<value>"`, which flows into the global ui_click
+   * capture (analyticsClickCapture.ts). Attribute-only: no visual change, and
+   * controls without it render byte-identical DOM.
+   */
+  dataTrack?: string;
 }
 
 const ACTIVE_CLASS = 'bg-blue-500/20 text-blue-400';
@@ -32,6 +39,7 @@ export function SegmentControl<T extends string = string>({
   value,
   onChange,
   tone = 'default',
+  dataTrack,
 }: SegmentControlProps<T>): React.ReactElement {
   const paper = tone === 'paper';
   return (
@@ -51,6 +59,7 @@ export function SegmentControl<T extends string = string>({
             title={option.title}
             aria-label={option.title}
             aria-pressed={active}
+            data-track={dataTrack ? `${dataTrack}:${option.value}` : undefined}
             className={`h-7 flex items-center justify-center gap-1 rounded-2xl cursor-pointer transition-colors duration-200 ${colorClass} ${
               option.icon ? 'pl-2 pr-1.5 pt-0.5' : 'px-1.5 text-xs font-bold leading-none whitespace-nowrap'
             }`}

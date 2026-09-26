@@ -122,3 +122,23 @@ export const buildBackendUrl = (path: string): string => {
   // This keeps `docker compose up` working without a rebuild.
   return base ? `${base}${path}` : path;
 };
+
+/**
+ * Parse a `Retry-After` header value into seconds.
+ * Handles delta-seconds ("60") and HTTP-date forms; returns null when the
+ * header is absent or unparseable so callers fall back to existing behavior.
+ */
+export const parseRetryAfterSeconds = (value: string | null | undefined): number | null => {
+  if (value == null) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const asNumber = Number(trimmed);
+  if (Number.isFinite(asNumber) && asNumber >= 0) {
+    return Math.floor(asNumber);
+  }
+  const when = Date.parse(trimmed);
+  if (Number.isFinite(when)) {
+    return Math.max(0, Math.floor((when - Date.now()) / 1000));
+  }
+  return null;
+};

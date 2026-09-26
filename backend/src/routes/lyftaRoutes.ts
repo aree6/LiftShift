@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { lyfatGetAllWorkouts, lyfatGetAllWorkoutSummaries, lyfatValidateApiKey } from '../lyfta';
 import { mapLyfataWorkoutsToWorkoutSets } from '../mapLyfataWorkoutsToWorkoutSets';
 import { getClientIP, getCountryFromIP } from '../geoLocation';
+import { publicErrorMessage } from '../safeError';
 
 const formatDuration = (ms: number): string => `${(ms / 1000).toFixed(1)}s`;
 
@@ -27,7 +28,7 @@ export const createLyftaRouter = (opts: {
       const status = (err as any).statusCode ?? 500;
       const message = (err as Error).message || 'Validation failed';
       console.error(`❌ Lyfta validation failed: ${message}`);
-      res.status(status).json({ error: message });
+      res.status(status).json({ error: publicErrorMessage(status, message, 'Validation failed') });
     }
   });
 
@@ -74,7 +75,7 @@ export const createLyftaRouter = (opts: {
       const message = (err as Error).message || 'Failed to fetch sets';
       const durationMs = Date.now() - startedAt;
       console.error(`❌ Lyfta sync failed (${formatDuration(durationMs)}): ${message}`);
-      res.status(status).json({ error: message });
+      res.status(status).json({ error: publicErrorMessage(status, message, 'Failed to fetch sets') });
     }
   });
 

@@ -27,6 +27,7 @@ import { useAppDerivedData } from './app/state';
 import { useDashboardWarmup } from './app/state';
 import { useCalendarSelectionHandlers } from './app/state';
 import { useUpdateFlowHandler } from './app/auth';
+import { trackEvent } from './utils/integrations/analytics';
 import { calculatePRInsights } from './utils/analysis/insights';
 import { computationCache } from './utils/storage/computationCache';
 import { flexCacheKeys } from './utils/storage/cacheKeys';
@@ -738,6 +739,7 @@ const App: React.FC = () => {
         if (elapsed >= 120 * 1000) {
           clearInterval(interval);
           setShowBmcModal(true);
+          trackEvent('bmc_modal_open', { trigger: 'session_120s' });
         }
       } catch {}
     }, 1000);
@@ -861,6 +863,7 @@ const App: React.FC = () => {
         isOpen={showBmcModal}
         onClose={(supporter) => {
           setShowBmcModal(false);
+          trackEvent(supporter ? 'bmc_supporter_confirm' : 'bmc_modal_close', {});
           if (supporter) {
             try { localStorage.setItem('bmc_supporter_cooldown', String(Date.now())); } catch {}
           }

@@ -41,6 +41,7 @@ export const MuscleTrendHeader: React.FC<MuscleTrendHeaderProps> = ({
       />
 
       <SegmentControl
+        dataTrack="timerange-muscletrend"
         options={[
           { value: 'all', icon: <Infinity className="w-3 h-3" />, title: 'All' },
           { value: 'weekly', label: 'lst wk', title: 'Last Week' },
@@ -52,6 +53,7 @@ export const MuscleTrendHeader: React.FC<MuscleTrendHeaderProps> = ({
       />
 
       <SegmentControl
+        dataTrack="charttype-muscletrend"
         options={[
           { value: 'stackedBar', icon: <ChartColumnStacked className="w-3.5 h-3.5" />, title: 'Stacked' },
           { value: 'area', icon: <AreaChartIcon className="w-3.5 h-3.5" />, title: 'Area' },

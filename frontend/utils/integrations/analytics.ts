@@ -177,18 +177,64 @@ export const initAnalytics = (): void => {
   ensurePosthogInitialized();
 
   try {
+    // Per-message flood cap: a single looping user (e.g. 537 M_ID rejections)
+    // must arrive as 1 error + count, not 537 events.
+    const errorCounts = new Map<string, number>();
+    const ERROR_CAP_PER_MESSAGE = 10;
+
+    const isNoise = (text: string): boolean => {
+      return (
+        text.includes('ResizeObserver loop completed') ||
+        text.includes('Failed to connect to MetaMask') ||
+        text.includes('adoptedStyleSheets') ||
+        text === 'Script error.'
+      );
+    };
+
+    const getRelease = (): string => {
+      try {
+        return (import.meta.env.VITE_APP_VERSION as string) || 'unknown';
+      } catch {
+        return 'unknown';
+      }
+    };
+
+    const shouldCapture = (key: string, text: string): boolean => {
+      if (!text || isNoise(text)) return false;
+      const n = (errorCounts.get(key) ?? 0) + 1;
+      errorCounts.set(key, n);
+      return n <= ERROR_CAP_PER_MESSAGE;
+    };
+
+    const currentRoute = (): string => {
+      try {
+        return `${window.location.pathname || '/'}${window.location.search || ''}`.slice(0, 200);
+      } catch {
+        return 'unknown';
+      }
+    };
+
     window.addEventListener('error', (e) => {
+      const message = String((e as any)?.message ?? '');
+      if (!shouldCapture(`err:${message.slice(0, 120)}`, message)) return;
       trackEvent('frontend_error', {
-        message: (e as any)?.message,
+        message,
         filename: (e as any)?.filename,
         lineno: (e as any)?.lineno,
         colno: (e as any)?.colno,
+        stack: String((e as any)?.error?.stack ?? '').slice(0, 2000),
+        route: currentRoute(),
+        release: getRelease(),
       });
     });
 
     window.addEventListener('unhandledrejection', (e) => {
+      const reason = String((e as any)?.reason ?? '');
+      if (!shouldCapture(`rej:${reason.slice(0, 120)}`, reason)) return;
       trackEvent('frontend_unhandled_rejection', {
-        reason: String((e as any)?.reason ?? ''),
+        reason: reason.slice(0, 2000),
+        route: currentRoute(),
+        release: getRelease(),
       });
     });
   } catch {
