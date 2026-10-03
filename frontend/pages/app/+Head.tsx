@@ -9,7 +9,7 @@ function Head() {
   return (
     <>
       <CommonHead />
-      <SeoHead canonicalPath="/app/" isLanding={false} title={config.title} description={config.description} />
+      <SeoHead isLanding={false} title={config.title} description={config.description} />
     </>
   );
 }

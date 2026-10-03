@@ -266,7 +266,8 @@ function MarqueeRow({
         role="button"
         tabIndex={untabbable ? -1 : 0}
         aria-hidden={isClone || undefined}
-        aria-label={`Expand review from ${review.username}`}
+        // Accessible name must contain the visible text (card shows the quote).
+        aria-label={`${review.username}: ${review.quote}`}
         onClickCapture={(e) => {
           e.stopPropagation();
           expandFromTarget(e.currentTarget, review);

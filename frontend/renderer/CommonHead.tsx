@@ -1,4 +1,5 @@
 import React from 'react';
+import { usePageContext } from 'vike-react/usePageContext';
 
 // Single combined Google Fonts request so the hero fancy font starts loading
 // with HTML parse (in parallel with the JS bundle) instead of after React renders.
@@ -11,8 +12,26 @@ export function CommonHead() {
   const base = typeof baseUrl === 'string' ? baseUrl : '/';
   const withBase = (path: string) => `${base}${path.replace(/^\/+/, '')}`;
 
+  // Single self-referencing canonical for every page. usePageContext works in
+  // SSR and client hydration. Previously each nested +Head rendered SeoHead's
+  // canonical, so /metrics/* and /supported-apps/* shipped 2+ conflicting
+  // canonical tags (Lighthouse SEO fail + diluted signal).
+  let pathname = '/';
+  try {
+    const pageContext = usePageContext() as { urlPathname?: string };
+    if (typeof pageContext?.urlPathname === 'string' && pageContext.urlPathname) {
+      pathname = pageContext.urlPathname;
+    }
+  } catch {
+    // ignore — fall back to site root
+  }
+  // Trailing-slash convention matches sitemap.xml and legacy canonicals.
+  if (pathname !== '/' && !pathname.endsWith('/')) pathname += '/';
+  const canonical = `https://liftshift.app${pathname}`;
+
   return (
     <>
+      <link rel="canonical" href={canonical} />
       <link rel="icon" href={withBase('favicon.ico')} />
       <link rel="icon" href={withBase('favicon.png')} type="image/png" sizes="48x48" />
       <link rel="shortcut icon" href={withBase('favicon.ico')} />

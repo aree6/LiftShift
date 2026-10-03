@@ -281,18 +281,27 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
             <span className="text-[11px] sm:text-xs font-semibold leading-none mt-1">Calendar</span>
 
             {hasActiveCalendarFilter && !calendarOpen ? (
-              <button
-                type="button"
+              // span, not button: a <button> cannot be nested inside the
+              // Calendar toggle <button> (invalid HTML + hydration error).
+              <span
+                role="button"
+                tabIndex={0}
                 onClick={(e) => {
                   e.stopPropagation();
                   onClearCalendarFilter();
                 }}
-                className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 border border-slate-700/50 grid place-items-center hover:bg-black/20 cursor-pointer"
+                onKeyDown={(e) => {
+                  if (e.key !== 'Enter' && e.key !== ' ') return;
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onClearCalendarFilter();
+                }}
+                className="absolute top-0.5 right-0.5 w-6 h-6 rounded-full bg-black/60 border border-slate-700/50 grid place-items-center hover:bg-black/20 cursor-pointer after:absolute after:-inset-1.5 after:content-['']"
                 aria-label="Clear calendar filter"
                 title="Clear"
               >
                 <X className="w-3 h-3" />
-              </button>
+              </span>
             ) : null}
           </button>
         </nav>

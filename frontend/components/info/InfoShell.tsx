@@ -174,7 +174,7 @@ export const InfoShell: React.FC<InfoShellProps> = ({ activeNav = null, title, s
             </p>
           </div>
         </div>
-        <div className={`max-w-6xl mx-auto mt-8 pt-6 border-t text-center text-xs ${isLight ? 'border-black/5 text-slate-500' : 'border-white/5 text-slate-600'}`}>
+        <div className={`max-w-6xl mx-auto mt-8 pt-6 border-t text-center text-xs ${isLight ? 'border-black/5 text-slate-500' : 'border-white/5 text-slate-400'}`}>
           &copy; {new Date().getFullYear()} LiftShift. Open source under AGPL-3.0.
         </div>
       </footer>

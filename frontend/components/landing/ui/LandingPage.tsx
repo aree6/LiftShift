@@ -161,6 +161,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSelectPlatform, onTr
         />
       </div>
 
+      <main>
       {/* ========== HERO SECTION ========== */}
           <section className="relative z-10 flex flex-col pt-2 mb-8 sm:mb-12">
             <div className="max-w-6xl mx-auto w-full">
@@ -410,6 +411,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSelectPlatform, onTr
 
           {/* ========== PLATFORM DOCK ========== */}
           <PlatformDock items={platformDockItems} />
+      </main>
 
       {/* ========== FOOTER ========== */}
       <footer className={`relative z-10 border-t mt-16 px-4 sm:px-6 lg:px-8 py-10 ${isLight ? 'border-black/10' : 'border-white/10'}`}>
@@ -452,7 +454,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSelectPlatform, onTr
             </p>
           </div>
         </div>
-        <div className={`max-w-6xl mx-auto mt-8 pt-6 border-t text-center text-xs ${isLight ? 'border-black/5 text-slate-500' : 'border-white/5 text-slate-600'}`}>
+        <div className={`max-w-6xl mx-auto mt-8 pt-6 border-t text-center text-xs ${isLight ? 'border-black/5 text-slate-500' : 'border-white/5 text-slate-400'}`}>
           &copy; {new Date().getFullYear()} LiftShift. Open source under AGPL-3.0.
         </div>
       </footer>

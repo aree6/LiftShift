@@ -204,7 +204,7 @@ function AnimatedSVG({
         <path id={outId} d={outputPath} />
 
         {/* Dark‑mode input icons: invert + brighten (works on iOS Safari) */}
-        <filter id={filterInId} color-interpolation-filters="sRGB">
+        <filter id={filterInId} colorInterpolationFilters="sRGB">
           <feColorMatrix
             type="matrix"
             values="-1 0 0 0 1.5
@@ -215,7 +215,7 @@ function AnimatedSVG({
         </filter>
 
         {/* Golden output — light mode: rich golden amber */}
-        <filter id={filterGoldLightId} color-interpolation-filters="sRGB">
+        <filter id={filterGoldLightId} colorInterpolationFilters="sRGB">
           <feColorMatrix
             type="matrix"
             values="0 0 0 0 0.90
@@ -226,7 +226,7 @@ function AnimatedSVG({
         </filter>
 
         {/* Golden output — dark mode: invert + golden */}
-        <filter id={filterGoldDarkId} color-interpolation-filters="sRGB">
+        <filter id={filterGoldDarkId} colorInterpolationFilters="sRGB">
           <feColorMatrix
             type="matrix"
             result="inv"

@@ -1,7 +1,6 @@
-LiftShift
-https://liftshift.app/
+# LiftShift
 
-LiftShift is a free and open source workout analytics tool that tells you what your training data actually means. Connect Hevy, Strong, or Lyfta in seconds. All analysis runs locally in your browser — no server-side storage. Source code: https://github.com/aree6/LiftShift (AGPL-3.0).
+Free and open source workout analytics ([liftshift.app](https://liftshift.app/)). Connect Hevy, Strong, or Lyfta in seconds. All analysis runs locally in your browser — no server-side storage. Source code: [GitHub](https://github.com/aree6/LiftShift) (AGPL-3.0).
 
 Perfect for lifters who want:
 - Interactive muscle heatmaps with rolling 7-day windows and per-exercise drill-down
@@ -33,20 +32,20 @@ What LiftShift does not do:
 - It is not a replacement for workout logging apps (it enhances them)
 
 Key pages:
-- https://liftshift.app/ - Landing page and interactive web app
-- https://liftshift.app/about/ - About LiftShift (open source, free)
-- https://liftshift.app/how-it-works/ - How the analytics work
-- https://liftshift.app/privacy/ - Privacy model
-- https://liftshift.app/faq/ - FAQ
-- https://liftshift.app/supported-apps/ - Supported apps (Hevy, Strong, Lyfta)
-- https://liftshift.app/metrics/ - Metrics glossary
-- https://liftshift.app/ai/ - AI reference (structured definition for AI assistants)
-- https://liftshift.app/hevy-vs-lyfta/ - Hevy vs Lyfta vs Strong vs LiftShift comparison
-- https://liftshift.app/hevy-vs-strong/ - Hevy vs Strong comparison
-- https://liftshift.app/lyfta-vs-strong/ - Lyfta vs Strong comparison
-- https://liftshift.app/hevy-vs-liftshift/ - Hevy vs LiftShift comparison
-- https://liftshift.app/lyfta-vs-liftshift/ - Lyfta vs LiftShift comparison
-- https://liftshift.app/strong-vs-liftshift/ - Strong vs LiftShift comparison
+- [Landing page and interactive web app](https://liftshift.app/)
+- [About LiftShift](https://liftshift.app/about/) (open source, free)
+- [How the analytics work](https://liftshift.app/how-it-works/)
+- [Privacy model](https://liftshift.app/privacy/)
+- [FAQ](https://liftshift.app/faq/)
+- [Supported apps](https://liftshift.app/supported-apps/) (Hevy, Strong, Lyfta)
+- [Metrics glossary](https://liftshift.app/metrics/)
+- [AI reference](https://liftshift.app/ai/) (structured definition for AI assistants)
+- [Hevy vs Lyfta vs Strong comparison](https://liftshift.app/hevy-vs-lyfta/)
+- [Hevy vs Strong comparison](https://liftshift.app/hevy-vs-strong/)
+- [Lyfta vs Strong comparison](https://liftshift.app/lyfta-vs-strong/)
+- [Hevy vs LiftShift comparison](https://liftshift.app/hevy-vs-liftshift/)
+- [Lyfta vs LiftShift comparison](https://liftshift.app/lyfta-vs-liftshift/)
+- [Strong vs LiftShift comparison](https://liftshift.app/strong-vs-liftshift/)
 
 Supported apps:
 - Hevy: API sync or CSV import

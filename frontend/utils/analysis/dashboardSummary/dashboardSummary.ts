@@ -378,11 +378,12 @@ const pushStreakCandidates = (input: DashboardSummaryInput, candidates: SummaryC
 
   if (streakInfo.currentStreak >= 2) {
     const tone = streakInfo.currentStreak >= 6 ? 'incredible' : streakInfo.currentStreak >= 4 ? 'solid' : 'strong';
+    const article = tone === 'incredible' ? 'an' : 'a';
     candidates.push({
       category: 'streak',
       priority: streakInfo.currentStreak >= 4 ? 90 : 76,
-      text: `You're on a ${tone} ${streakInfo.currentStreak}-week training streak with ${streakInfo.consistencyScore}% consistency. Keep this chain alive.`,
-      segments: [segText(`You're on a ${tone} ${streakInfo.currentStreak}-week training streak with ${streakInfo.consistencyScore}% consistency. Keep this chain alive.`)],
+      text: `You're on ${article} ${tone} ${streakInfo.currentStreak}-week training streak with ${streakInfo.consistencyScore}% consistency. Keep this chain alive.`,
+      segments: [segText(`You're on ${article} ${tone} ${streakInfo.currentStreak}-week training streak with ${streakInfo.consistencyScore}% consistency. Keep this chain alive.`)],
     });
   } else if (streakInfo.workoutsThisWeek > 0) {
     candidates.push({

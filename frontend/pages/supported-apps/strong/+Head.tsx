@@ -1,7 +1,6 @@
 export { Head };
 
 import React from 'react';
-import { CommonHead } from '../../../renderer/CommonHead';
 import { SeoHead } from '../../../renderer/SeoHead';
 import config from './+config';
 
@@ -15,8 +14,7 @@ const SCHEMA = JSON.stringify({
 function Head() {
   return (
     <>
-      <CommonHead />
-      <SeoHead canonicalPath="/supported-apps/strong/" isLanding={false} title={config.title} description={config.description} />
+      <SeoHead isLanding={false} title={config.title} description={config.description} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: SCHEMA }} />
     </>
   );

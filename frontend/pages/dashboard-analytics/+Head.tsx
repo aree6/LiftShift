@@ -20,7 +20,7 @@ function Head() {
   return (
     <>
       <CommonHead />
-      <SeoHead canonicalPath="/dashboard-analytics/" isLanding={false} title={config.title} description={config.description} />
+      <SeoHead isLanding={false} title={config.title} description={config.description} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: SCHEMA }} />
     </>
   );

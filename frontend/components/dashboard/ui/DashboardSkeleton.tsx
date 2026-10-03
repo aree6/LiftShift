@@ -23,16 +23,6 @@ const MiniStatCard: React.FC = () => (
   </div>
 );
 
-const MiniCard: React.FC<{ className?: string }> = ({ className = '' }) => (
-  <div
-    className={`rounded-lg p-3 animate-pulse flex-1 ${className}`}
-    style={{ backgroundColor: 'rgb(var(--panel-rgb) / 0.4)' }}
-  >
-    <div className="h-2.5 w-1/2 rounded mb-2" style={{ backgroundColor: 'rgb(var(--border-rgb) / 0.15)' }} />
-    <div className="h-4 w-1/3 rounded" style={{ backgroundColor: 'rgb(var(--border-rgb) / 0.2)' }} />
-  </div>
-);
-
 export const DashboardSkeleton: React.FC = () => (
   <div className="space-y-2 pb-2">
     {/* Stats header bar */}
@@ -55,12 +45,34 @@ export const DashboardSkeleton: React.FC = () => (
       </div>
     </div>
 
-    {/* Insights row */}
-    <div className="flex gap-2">
-      <MiniCard />
-      <MiniCard />
-      <MiniCard />
-      <MiniCard />
+    {/* Insights row — geometry mirrors InsightsPanel (grid-cols-2 lg:grid-cols-3,
+        KPICard rounded-xl p-4 + ~60px sparkline) so resolving data doesn't shift
+        content below. Middle card hidden below lg like the Volume KPI. */}
+    <div className="grid gap-2 grid-cols-2 lg:grid-cols-3">
+      <div
+        className="rounded-xl p-4 animate-pulse min-h-[148px]"
+        style={{ backgroundColor: 'rgb(var(--panel-rgb) / 0.4)' }}
+      >
+        <div className="h-3 w-16 rounded mb-3" style={{ backgroundColor: 'rgb(var(--border-rgb) / 0.15)' }} />
+        <div className="h-7 w-20 rounded mb-2" style={{ backgroundColor: 'rgb(var(--border-rgb) / 0.2)' }} />
+        <div className="h-[60px] rounded" style={{ backgroundColor: 'rgb(var(--border-rgb) / 0.1)' }} />
+      </div>
+      <div
+        className="rounded-xl p-4 animate-pulse min-h-[148px] hidden lg:block"
+        style={{ backgroundColor: 'rgb(var(--panel-rgb) / 0.4)' }}
+      >
+        <div className="h-3 w-16 rounded mb-3" style={{ backgroundColor: 'rgb(var(--border-rgb) / 0.15)' }} />
+        <div className="h-7 w-20 rounded mb-2" style={{ backgroundColor: 'rgb(var(--border-rgb) / 0.2)' }} />
+        <div className="h-[60px] rounded" style={{ backgroundColor: 'rgb(var(--border-rgb) / 0.1)' }} />
+      </div>
+      <div
+        className="rounded-xl p-4 animate-pulse min-h-[148px]"
+        style={{ backgroundColor: 'rgb(var(--panel-rgb) / 0.4)' }}
+      >
+        <div className="h-3 w-16 rounded mb-3" style={{ backgroundColor: 'rgb(var(--border-rgb) / 0.15)' }} />
+        <div className="h-7 w-20 rounded mb-2" style={{ backgroundColor: 'rgb(var(--border-rgb) / 0.2)' }} />
+        <div className="h-[60px] rounded" style={{ backgroundColor: 'rgb(var(--border-rgb) / 0.1)' }} />
+      </div>
     </div>
 
     {/* PR panel + Plateau + Timeline placeholders */}

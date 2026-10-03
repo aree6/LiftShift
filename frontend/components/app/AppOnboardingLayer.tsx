@@ -60,7 +60,10 @@ export const AppOnboardingLayer: React.FC<AppOnboardingLayerProps> = ({
 }) => {
   if (!onboarding) return null;
 
+  // Single <main> landmark for the no-data state (the dashboard renders its
+  // own <main> once data exists, and this layer returns null then).
   return (
+    <main>
     <AppOnboardingSteps
       onboarding={onboarding}
       dataSource={null}
@@ -86,5 +89,6 @@ export const AppOnboardingLayer: React.FC<AppOnboardingLayerProps> = ({
       onLyfatLogin={onLyfatLogin}
       onLyfatSyncSaved={onLyfatSyncSaved}
     />
+    </main>
   );
 };

@@ -17,7 +17,7 @@ function Head() {
   return (
     <>
       <CommonHead />
-      <SeoHead canonicalPath="/about/" isLanding={false} title={config.title} description={config.description} />
+      <SeoHead isLanding={false} title={config.title} description={config.description} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: SCHEMA }} />
     </>
   );
