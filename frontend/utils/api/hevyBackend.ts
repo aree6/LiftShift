@@ -15,15 +15,20 @@ const throwBackendError = async (res: Response): Promise<never> => {
   // (backend/src/index.ts limiter handler stamps source='our-loginLimiter' on
   // 429s) can be captured best-effort; absent on older deploys → undefined.
   let rateLimitSource: string | undefined;
+  let errorStage: string | undefined;
   try {
-    const body = (await res.clone().json()) as { source?: unknown };
+    const body = (await res.clone().json()) as { source?: unknown; stage?: unknown };
     if (body && typeof body.source === 'string' && body.source) rateLimitSource = body.source;
+    // Backend stamps failure stage on non-401 error JSON (route-timeout,
+    // captcha substages). Forward it so hevy_sync_error props carry the stage.
+    if (body && typeof body.stage === 'string' && body.stage) errorStage = body.stage;
   } catch {
     // Non-JSON body — no marker to capture.
   }
   const err = new Error(await parseError(res));
   (err as any).statusCode = res.status;
   if (rateLimitSource) (err as any).rateLimitSource = rateLimitSource;
+  if (errorStage) (err as any).errorStage = errorStage;
   // B1: honor the server's Retry-After when present (the limiter handler
   // guarantees the header; express-rate-limit v8 also sets it). All
   // same-origin /api responses are ours by construction, so honor the header
@@ -36,6 +41,13 @@ const throwBackendError = async (res: Response): Promise<never> => {
     recordLoginRateLimitRetryAfter(retryAfterSeconds);
   }
   throw err;
+};
+
+// Backend failure stage forwarded from error JSON (route-timeout, captcha
+// substages). Returns undefined when absent so call sites can omit the prop.
+export const errorStageOf = (err: unknown): string | undefined => {
+  const stage = (err as any)?.errorStage;
+  return typeof stage === 'string' && stage ? stage : undefined;
 };
 
 // Login 5/min buckets (backend/src/index.ts createRouteLimiter — per-route,

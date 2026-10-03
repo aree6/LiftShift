@@ -2,8 +2,8 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
-import { analyticsRequestMiddleware } from './analytics/requestTracking';
-import { shutdownPosthog } from './analytics/posthog';
+import { analyticsRequestMiddleware, getAnalyticsDistinctId, isBotProbePath } from './analytics/requestTracking';
+import { captureBackendEvent, shutdownPosthog } from './analytics/posthog';
 import { createPosthogAssetProxy, createPosthogProxy, posthogProxyPath } from './analytics/proxy';
 import { shutdownRecaptchaSession, warmRecaptchaSession } from './hevyRecaptcha';
 import { createHevyRouter } from './routes/hevyRoutes';
@@ -246,11 +246,28 @@ app.use('/api/hevy', createHevyRouter({ loginLimiter, requireAuthTokenHeader, ge
 app.use('/api/hevy', createHevyProRouter({ loginLimiter: hevyProLimiter, getCachedResponse }));
 app.use('/api/lyfta', createLyftaRouter({ loginLimiter: lyftaLimiter, getCachedResponse }));
 
-app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+app.use((err: unknown, req: express.Request, res: express.Response, _next: express.NextFunction) => {
   const message = err instanceof Error ? err.message : 'Internal server error';
   if (message === 'CORS blocked') return res.status(403).json({ error: message });
 
   const status = (err as any)?.statusCode ?? 500;
+  // Queryable server-side record (Render logs aren't). Sanitized client reply
+  // below stays; this event carries the real message + stage for diagnosis.
+  // Skips bot probes — they 404 by design and would drown the signal.
+  try {
+    const path = req.path || '';
+    if (!isBotProbePath(path)) {
+      captureBackendEvent(getAnalyticsDistinctId(req), 'backend_exception', {
+        method: req.method,
+        path,
+        status,
+        stage: typeof (err as any)?.stage === 'string' ? (err as any).stage : undefined,
+        message: String(message).slice(0, 500),
+      });
+    }
+  } catch {
+    // ignore — error reporting must never break error handling
+  }
   // Never leak internal/dependency error text (Puppeteer paths, upstream HTML,
   // stack fragments) to clients. 4xx/504 messages are curated for UX and stay.
   if (status === 500) {

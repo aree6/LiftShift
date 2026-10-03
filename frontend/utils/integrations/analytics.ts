@@ -214,6 +214,25 @@ export const initAnalytics = (): void => {
       }
     };
 
+    // Native $exception events (PostHog Error Tracking grouping, issue list,
+    // replay linkage). captureException ships in posthog-js core — no external
+    // dependency, unlike session replay. Best-effort: custom frontend_error
+    // events above remain the primary record.
+    const captureNativeException = (err: unknown, extra?: AnalyticsProperties): void => {
+      try {
+        if (!posthogClient?.captureException) return;
+        const wrapped = err instanceof Error ? err : new Error(String(err ?? 'unknown error').slice(0, 500));
+        posthogClient.captureException(wrapped, {
+          ...getCommonProperties(),
+          route: currentRoute(),
+          release: getRelease(),
+          ...(extra || {}),
+        });
+      } catch {
+        // ignore — error reporting must never throw
+      }
+    };
+
     window.addEventListener('error', (e) => {
       const message = String((e as any)?.message ?? '');
       if (!shouldCapture(`err:${message.slice(0, 120)}`, message)) return;
@@ -226,6 +245,7 @@ export const initAnalytics = (): void => {
         route: currentRoute(),
         release: getRelease(),
       });
+      captureNativeException((e as any)?.error ?? message, { source: 'window.onerror' });
     });
 
     window.addEventListener('unhandledrejection', (e) => {
@@ -236,7 +256,47 @@ export const initAnalytics = (): void => {
         route: currentRoute(),
         release: getRelease(),
       });
+      captureNativeException((e as any)?.reason ?? reason, { source: 'unhandledrejection' });
     });
+
+    // Console-error bridge: developer-logged errors (fetch failures, validation
+    // fallbacks) never reach window.onerror. Forward them through the same
+    // caps + noise filter. Re-entrancy guarded: our own pipeline never logs.
+    try {
+      const origConsoleError = console.error.bind(console);
+      let inBridge = false;
+      (console as any).error = (...args: unknown[]) => {
+        try {
+          origConsoleError(...args);
+        } catch {
+          // ignore
+        }
+        if (inBridge) return;
+        try {
+          inBridge = true;
+          const firstErr = args.find((a) => a instanceof Error) as Error | undefined;
+          const text = args
+            .map((a) => (a instanceof Error ? `${a.name}: ${a.message}` : String(a)))
+            .join(' ')
+            .slice(0, 500);
+          if (!shouldCapture(`con:${text.slice(0, 120)}`, text)) return;
+          trackEvent('frontend_error', {
+            message: text,
+            source: 'console.error',
+            stack: String(firstErr?.stack ?? '').slice(0, 2000),
+            route: currentRoute(),
+            release: getRelease(),
+          });
+          captureNativeException(firstErr ?? text, { source: 'console.error' });
+        } catch {
+          // ignore
+        } finally {
+          inBridge = false;
+        }
+      };
+    } catch {
+      // ignore — console wrapping must never break logging
+    }
   } catch {
     // ignore
   }
