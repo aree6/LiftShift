@@ -6,6 +6,7 @@ import {
   hevyBackendLogin,
   hevyBackendRefresh,
   isLoginInFlight,
+  errorStageOf,
 } from '../../utils/api/hevyBackend';
 import { identifyPersonalRecords } from '../../utils/analysis/core';
 import {
@@ -151,7 +152,8 @@ export const loadHevyFromToken = (
     })
     .catch((err) => {
       if (trackConfig) {
-        trackEvent('hevy_sync_error', { method: trackConfig.errorMethod });
+        const stage = errorStageOf(err);
+        trackEvent('hevy_sync_error', stage ? { method: trackConfig.errorMethod, stage } : { method: trackConfig.errorMethod });
       }
       const status = (err as any)?.statusCode;
       // B3: retry ONLY on 401 — see appAuthHevy.ts. Status-less network
@@ -249,7 +251,8 @@ export const loadHevyFromCredentials = async (
     deps.finishProgress(startedAt);
     return true;
   } catch (err) {
-    trackEvent('hevy_sync_error', { method: 'auto_credentials_reload' });
+    const stage = errorStageOf(err);
+    trackEvent('hevy_sync_error', stage ? { method: 'auto_credentials_reload', stage } : { method: 'auto_credentials_reload' });
     if (shouldResetOnError) {
       saveSetupComplete(false);
       deps.setHevyLoginError(getHevyErrorMessage(err));

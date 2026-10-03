@@ -28,6 +28,7 @@ import {
   hevyBackendRefresh,
   hevyBackendValidateProApiKey,
   isLoginInFlight,
+  errorStageOf,
 } from '../../utils/api/hevyBackend';
 import { identifyPersonalRecords } from '../../utils/analysis/core';
 import { hydrateBackendWorkoutSetsWithSource } from '../../app/auth/hydrateBackendWorkoutSets';
@@ -239,7 +240,8 @@ export const runHevyApiKeyLogin = (deps: AppAuthHandlersDeps, apiKey: string): v
       }
     })
     .catch((err) => {
-      trackEvent('hevy_sync_error', { method: 'pro_api_key' });
+      const stage = errorStageOf(err);
+      trackEvent('hevy_sync_error', stage ? { method: 'pro_api_key', stage } : { method: 'pro_api_key' });
       deps.setHevyLoginError(getHevyErrorMessage(err));
     })
     .finally(() => {
@@ -302,7 +304,8 @@ export const runHevyLogin = (deps: AppAuthHandlersDeps, emailOrUsername: string,
       console.log(`[Frontend] ✅ Hevy login flow complete (${(totalMs / 1000).toFixed(1)}s)`);
     })
     .catch((err) => {
-      trackEvent('hevy_sync_error', { method: 'credentials' });
+      const stage = errorStageOf(err);
+      trackEvent('hevy_sync_error', stage ? { method: 'credentials', stage } : { method: 'credentials' });
       deps.setHevyLoginError(getHevyErrorMessage(err));
     })
     .finally(() => {
