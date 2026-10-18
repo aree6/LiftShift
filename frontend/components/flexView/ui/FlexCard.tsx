@@ -27,7 +27,12 @@ export const FlexCard: React.FC<FlexCardProps> = ({ children, theme, className =
     : 'shadow-[0_28px_60px_rgba(13,71,88,0.14)]';
 
   return (
-    <Reveal className={`relative isolate overflow-hidden rounded-3xl h-full ${cardShadow} transition-shadow duration-500`}>
+    // animate={false}: these cards live in a horizontally scrolling carousel,
+    // so a per-card whileInView entrance never fires for a slide that is off
+    // to the side — it sits at opacity 0 until you drag it in, which reads as
+    // blank/misaligned cards while you swipe. The carousel itself animates in
+    // once (see FlexCarousel), which is the entrance this view wants.
+    <Reveal animate={false} className={`relative isolate overflow-hidden rounded-3xl h-full ${cardShadow} transition-shadow duration-500`}>
       <div className={`absolute inset-0 ${cardBgClass}`} style={cardBgStyle} />
       {isDark && <div className="absolute inset-0 bg-black/50" />}
       <div className={`relative z-10 w-full ${className}`}>
