@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 
 import { LazyRender } from '../../ui/LazyRender';
+import { Reveal } from '../../ui/Reveal';
 import type { FlexCardId } from '../utils/flexViewConstants';
 
 interface FlexCarouselProps {
@@ -93,7 +94,10 @@ export const FlexCarousel: React.FC<FlexCarouselProps> = ({ cards, onSelectCard,
   }, []);
 
   return (
-    <div className="relative w-full mt-10">
+    // One entrance for the whole strip. The slides themselves render static
+    // (FlexCard passes animate={false}) — a per-card whileInView cannot work
+    // here, since off-screen slides never intersect the viewport.
+    <Reveal className="relative w-full mt-10">
       <div
         ref={scrollRef}
         className="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide gap-3 pb-20 px-3 cursor-grab active:cursor-grabbing select-none items-stretch"
@@ -102,7 +106,10 @@ export const FlexCarousel: React.FC<FlexCarouselProps> = ({ cards, onSelectCard,
         {cards.map((card) => (
           <div
             key={card.id}
-            className="flex-shrink-0 w-[calc(100%-2rem)] max-w-md snap-center mx-auto cursor-pointer self-stretch flex flex-col"
+            // `calc(100% - 2rem)` needs the spaces — written as calc(100%-2rem)
+            // it is invalid CSS, the utility is never emitted, and the slide
+            // falls back to a content-derived width, so slides end up ragged.
+            className="flex-shrink-0 w-[calc(100%_-_2rem)] max-w-md snap-center mx-auto cursor-pointer self-stretch flex flex-col"
             onClick={() => onSelectCard(card.id)}
           >
             <LazyRender className="w-full h-full flex-1" placeholder={<FlexCarouselPlaceholder />} rootMargin="600px 0px">
@@ -111,6 +118,6 @@ export const FlexCarousel: React.FC<FlexCarouselProps> = ({ cards, onSelectCard,
           </div>
         ))}
       </div>
-    </div>
+    </Reveal>
   );
 };

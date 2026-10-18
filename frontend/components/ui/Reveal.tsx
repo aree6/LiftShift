@@ -18,6 +18,16 @@ interface RevealProps {
    * For marketing surfaces like the landing page.
    */
   variant?: RevealVariant;
+  /**
+   * Set false to render the children immediately, with no entrance.
+   *
+   * Required for anything inside a HORIZONTAL scroll container (the flex card
+   * carousel): `whileInView` measures against the viewport, so a slide parked
+   * off to the left/right never intersects and stays at `opacity: 0` until you
+   * drag it in — which reads as blank cards while you swipe. Animate the
+   * scroller once instead and leave the slides static.
+   */
+  animate?: boolean;
 }
 
 /**
@@ -33,11 +43,11 @@ interface RevealProps {
  * - Tune values in ./revealTuning.ts (REVEAL_TUNING).
  */
 
-export const Reveal: React.FC<RevealProps> = ({ className, children, delay = 0, style, id, onClick, variant = 'subtle' }) => {
+export const Reveal: React.FC<RevealProps> = ({ className, children, delay = 0, style, id, onClick, variant = 'subtle', animate = true }) => {
   const reduceMotion = useReducedMotion();
   const preset = REVEAL_TUNING[variant];
 
-  if (reduceMotion) {
+  if (reduceMotion || !animate) {
     return (
       <div className={className} style={style} id={id} onClick={onClick}>
         {children}

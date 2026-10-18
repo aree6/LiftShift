@@ -337,7 +337,12 @@ export const HypertrophyScatterCard: React.FC<HypertrophyScatterCardProps> = ({
 
 
   return (
-    <Reveal className="bg-black/20 rounded-xl border border-slate-700/50 overflow-hidden min-h-[450px] sm:min-h-[650px] lg:min-h-0 lg:h-full flex flex-col" style={{ backgroundColor: 'rgb(var(--panel-rgb) / 0.5)' }}>
+    // h-[450px]/h-[650px] must stay a definite `height`, never `min-h-*`: the
+    // ResponsiveContainer below is `height="100%"`, and a flex container sized
+    // only by `min-height` is indefinite, so that percentage resolves to 0 and
+    // Recharts renders a 0x0 chart (blank card) at every width below lg, where
+    // `lg:h-full` is the only thing making the height definite.
+    <Reveal className="bg-black/20 rounded-xl border border-slate-700/50 overflow-hidden h-[450px] sm:h-[650px] lg:h-full flex flex-col" style={{ backgroundColor: 'rgb(var(--panel-rgb) / 0.5)' }}>
       <div className="p-3 flex-shrink-0">
         <div className="flex items-center justify-between">
           <div>
