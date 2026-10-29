@@ -1,4 +1,5 @@
 import type { ExerciseAsset } from '../../data/exerciseAssets';
+import { FULL_BODY_TARGET_GROUPS } from '../mapping/muscleGroupMappings';
 import { normalizeMuscleGroup, type NormalizedMuscleGroup } from './muscleNormalization';
 
 export interface MuscleContribution {
@@ -92,10 +93,11 @@ export const getMuscleContributionsFromAsset = (
   // Check if any primary is Full Body
   const hasFullBody = primaryParts.some(p => /full[\s-]*body/i.test(p));
   if (hasFullBody) {
-    if (useGroups) {
-      for (const grp of FULL_BODY_GROUPS) {
-        contributions.push({ muscle: grp, sets: 1.0 });
-      }
+    // Full Body targets every muscle group. Use the same CSV-level list as
+    // `getExerciseMuscleVolumes` so grouped and detailed views agree.
+    const targets = useGroups ? FULL_BODY_GROUPS : FULL_BODY_TARGET_GROUPS;
+    for (const muscle of targets) {
+      contributions.push({ muscle, sets: 1.0 });
     }
     return contributions;
   }
