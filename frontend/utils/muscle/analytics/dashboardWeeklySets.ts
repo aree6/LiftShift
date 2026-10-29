@@ -4,7 +4,6 @@ import type { ExerciseAsset } from '../../data/exerciseAssets';
 import { MUSCLE_GROUP_TO_SVG_IDS, SVG_TO_MUSCLE_GROUP, MUSCLE_ID_TO_DETAILED_SVG_IDS } from '../mapping/muscleMappingConstants';
 import { getSvgIdsForCsvMuscleName } from '../mapping/muscleMapping';
 import { getMuscleContributionsFromAsset } from './muscleContributions';
-import { normalizeMuscleGroup } from './muscleNormalization';
 import { isWarmupSet, getWeeklyVolumeSetWeight } from '../../analysis/classification';
 import { createExerciseAssetLookup } from '../../exercise/exerciseAssetLookup';
 import { DETAILED_SVG_ID_TO_MUSCLE_ID } from '../mapping/muscleSvgMappings';
@@ -86,8 +85,9 @@ export const computeWeeklySetsDashboardData = (
     const asset = lookup.getAsset(name);
     if (!asset) continue;
 
-    const primaryGroup = normalizeMuscleGroup(asset.primary_muscle);
-    const useGroups = grouping === 'groups' || primaryGroup === 'Full Body';
+    // Full Body expands inside `getMuscleContributionsFromAsset` for both
+    // modes, so the grouping alone decides the shape of the contributions.
+    const useGroups = grouping === 'groups';
     const contributions = getMuscleContributionsFromAsset(asset, useGroups, { secondarySetMultiplier });
     if (contributions.length === 0) continue;
 

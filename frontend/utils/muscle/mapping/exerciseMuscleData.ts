@@ -1,5 +1,6 @@
 import { createExerciseNameResolver, type ExerciseNameResolver } from '../../exercise/exerciseNameResolver';
 import { stripExerciseSourceLabel } from '../../exercise/exerciseSourceLabel';
+import { loadExerciseCatalog } from '../../exercise/exerciseCatalog';
 
 export interface ExerciseMuscleData {
   name: string;
@@ -14,26 +15,22 @@ export const loadExerciseMuscleData = async (): Promise<Map<string, ExerciseMusc
   if (exerciseMuscleCache) return exerciseMuscleCache;
 
   try {
-    const response = await fetch(`${import.meta.env.BASE_URL}exercises_muscles_and_thumbnail_data.csv`);
-    const text = await response.text();
-    const lines = text.split('\n');
+    const catalog = await loadExerciseCatalog();
     const map = new Map<string, ExerciseMuscleData>();
 
-    // Skip header
-    for (let i = 1; i < lines.length; i++) {
-      const line = lines[i].trim();
-      if (!line) continue;
+    for (const row of catalog.rows) {
+      const data: ExerciseMuscleData = {
+        name: row.name,
+        equipment: row.equipment ?? '',
+        primary_muscle: row.primary_muscle ?? '',
+        secondary_muscle: row.secondary_muscle ?? '',
+      };
 
-      // Parse CSV line (handling commas in values)
-      const parts = parseCSVLine(line);
-      if (parts.length >= 4) {
-        const name = parts[0].trim();
-        map.set(name.toLowerCase(), {
-          name,
-          equipment: parts[1] || '',
-          primary_muscle: parts[2] || '',
-          secondary_muscle: parts[3] || '',
-        });
+      // Keys are lowercase; register the normalized key and every observed
+      // spelling so exact lookups resolve to the same canonical entry.
+      map.set(row.key, data);
+      for (const alias of row.aliases) {
+        map.set(alias.toLowerCase(), data);
       }
     }
 
@@ -54,7 +51,7 @@ const getExerciseResolver = (muscleData: Map<string, ExerciseMuscleData>): Exerc
     return exerciseResolverCache;
   }
   // Create resolver from the canonical names (values, not keys which are lowercased)
-  const canonicalNames = Array.from(muscleData.values()).map((d) => d.name);
+  const canonicalNames = Array.from(new Set(Array.from(muscleData.values()).map((d) => d.name)));
   exerciseResolverCache = createExerciseNameResolver(canonicalNames);
   exerciseResolverRef = muscleData;
   return exerciseResolverCache;
@@ -86,23 +83,3 @@ export const lookupExerciseMuscleData = (
 
   return undefined;
 };
-
-function parseCSVLine(line: string): string[] {
-  const result: string[] = [];
-  let current = '';
-  let inQuotes = false;
-
-  for (let i = 0; i < line.length; i++) {
-    const char = line[i];
-    if (char === '"') {
-      inQuotes = !inQuotes;
-    } else if (char === ',' && !inQuotes) {
-      result.push(current);
-      current = '';
-    } else {
-      current += char;
-    }
-  }
-  result.push(current);
-  return result;
-}
