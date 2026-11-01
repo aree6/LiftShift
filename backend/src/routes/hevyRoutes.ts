@@ -117,6 +117,15 @@ export const createHevyRouter = (opts: {
     try {
       const warmup = await warmRecaptchaSession();
       const warmupDurationMs = Date.now() - warmupStartedAt;
+      if (warmup.source === 'failed') {
+        console.warn(
+          `👤 ${emailOrUsername} ⚠️ Warmup failed (${formatDuration(warmupDurationMs)}) ` +
+          `exec=${formatDuration(warmup.executeMs)}: ${warmup.error ?? 'unknown error'}`,
+        );
+        // Warmup is best-effort: report the miss without turning it into a
+        // 5xx (the login itself still owns its own timeout and error path).
+        return res.json({ warmed: false });
+      }
       console.log(`👤 ${emailOrUsername} 🔥 Warmup OK (${formatDuration(warmupDurationMs)}) via=${warmup.source} exec=${formatDuration(warmup.executeMs)}`);
       res.json({ warmed: true });
     } catch (err) {

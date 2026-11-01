@@ -140,7 +140,10 @@ export function CredentialsContent({
     // case login falls through to a cold captcha browser and times out.
     // The warmup endpoint is rate-limit-exempt and cheap.
     warmupTriggeredRef.current = true;
-    void hevyBackendWarmupSession(emailOrUsername.trim() || ' warmup');
+    void hevyBackendWarmupSession(emailOrUsername.trim() || ' warmup').catch(() => {
+      // Warmup is best-effort and this request has its own short client
+      // timeout; an abort here must not surface as an unhandled rejection.
+    });
   };
 
   const handleSubmit = (e: React.FormEvent) => {

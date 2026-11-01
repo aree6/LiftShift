@@ -17,6 +17,11 @@ const BROWSER_MAX_USE_COUNT = 100;
 const BROWSER_IDLE_CLOSE_MS = 30 * 60 * 1000; // 30 min idle: keep daytime logins warm, free RAM overnight
 const MAX_CONCURRENT_PAGES = 1;
 const RECAPTCHA_TOKEN_CACHE_MS = 100_000;
+// Hard ceiling for a warmup attempt. Warmup is fire-and-forget (the frontend
+// aborts its request after 20s), so it must never hold the single page slot
+// long enough to starve a real login. A healthy cold warmup takes ~25-35s;
+// anything past this is stuck and should hand the slot back.
+const WARMUP_TIMEOUT_MS = 45_000;
 
 type TokenCache = {
   token: string;
@@ -55,7 +60,7 @@ const openPages = new Set<Page>();
 const activePages = new Set<Page>();
 const pageWaiters: Array<() => void> = [];
 let pageCreationReservations = 0;
-let sessionWarmupInFlight: Promise<void> | null = null;
+let sessionWarmupInFlight: Promise<WarmupResult> | null = null;
 
 const now = (): number => Date.now();
 
@@ -238,8 +243,32 @@ const needsBrowserRecycle = (): boolean => {
   return now() - browserCreatedAt >= BROWSER_MAX_AGE_MS;
 };
 
-const ensureRecaptchaLoaded = async (p: Page, forceReload = false): Promise<void> => {
-  const ready = await p.evaluate(() => Boolean((window as any).grecaptcha?.enterprise));
+// Some Puppeteer calls (page.evaluate) have no AbortSignal support. Race them
+// against the warmup deadline so a wedged renderer cannot pin the single page
+// slot forever; the caller closes the page when the signal fires.
+const raceWithAbort = async <T>(promise: Promise<T>, signal?: AbortSignal, message = 'Operation aborted'): Promise<T> => {
+  if (!signal) return promise;
+  if (signal.aborted) throw new Error(message);
+
+  let onAbort: (() => void) | undefined;
+  const aborted = new Promise<never>((_, reject) => {
+    onAbort = () => reject(new Error(message));
+    signal.addEventListener('abort', onAbort, { once: true });
+  });
+
+  try {
+    return await Promise.race([promise, aborted]);
+  } finally {
+    if (onAbort) signal.removeEventListener('abort', onAbort);
+  }
+};
+
+const ensureRecaptchaLoaded = async (p: Page, forceReload = false, signal?: AbortSignal): Promise<void> => {
+  const ready = await raceWithAbort(
+    p.evaluate(() => Boolean((window as any).grecaptcha?.enterprise)),
+    signal,
+    'Recaptcha load aborted',
+  );
   if (ready && !forceReload) {
     return;
   }
@@ -248,13 +277,14 @@ const ensureRecaptchaLoaded = async (p: Page, forceReload = false): Promise<void
   // reclassified former client-aborts into counted 500s — the stage tells
   // which wait actually failed).
   try {
-    await p.goto(HEVY_LOGIN_URL, { waitUntil: 'domcontentloaded', timeout: HEADLESS_BROWSER_TIMEOUT_MS });
+    await p.goto(HEVY_LOGIN_URL, { waitUntil: 'domcontentloaded', timeout: HEADLESS_BROWSER_TIMEOUT_MS, signal });
   } catch (err) {
     throw withStage('goto', err);
   }
   try {
     await p.waitForFunction(() => Boolean((window as any).grecaptcha?.enterprise), {
       timeout: RECAPTCHA_SCRIPT_WAIT_MS,
+      signal,
     });
   } catch (err) {
     throw withStage('script-wait', err);
@@ -319,7 +349,7 @@ const ensureBrowser = async (): Promise<void> => {
   }
 };
 
-const createPage = async (): Promise<Page> => {
+const createPage = async (signal?: AbortSignal): Promise<Page> => {
   if (!browser) throw withStage('launch', new Error('Recaptcha browser not available'));
   // A1: newPage-stage attribution (H1: raw throw at old hevyRecaptcha.ts:220).
   let page: Page;
@@ -339,7 +369,15 @@ const createPage = async (): Promise<Page> => {
     activePages.delete(page);
     if (standbyPage === page) standbyPage = null;
   });
-  await ensureRecaptchaLoaded(page);
+  try {
+    await ensureRecaptchaLoaded(page, false, signal);
+  } catch (err) {
+    // A page that never became usable must not stay in openPages: with
+    // MAX_CONCURRENT_PAGES=1 it would occupy the only slot and make every
+    // later login queue until the browser is recycled.
+    await closePage(page, 'load_failed');
+    throw err;
+  }
   return page;
 };
 
@@ -371,7 +409,7 @@ const acquirePage = async (
       let createdPage: Page | null = null;
       let acquired = false;
       try {
-        createdPage = await createPage();
+        createdPage = await createPage(signal);
         activePages.add(createdPage);
         throwIfAborted(signal);
         acquired = true;
@@ -443,15 +481,19 @@ const releasePage = async (page: Page): Promise<void> => {
   if (waiter) waiter();
 };
 
-const executeRecaptcha = async (p: Page): Promise<string> => {
+const executeRecaptcha = async (p: Page, signal?: AbortSignal): Promise<string> => {
   // A1: execute-stage attribution for evaluate failures / empty tokens.
   let token: string;
   try {
-    token = await p.evaluate(async (siteKey: string) => {
-      const enterprise = (window as any).grecaptcha?.enterprise;
-      if (!enterprise) return '';
-      return await enterprise.execute(siteKey, { action: 'login' });
-    }, RECAPTCHA_SITE_KEY);
+    token = await raceWithAbort(
+      p.evaluate(async (siteKey: string) => {
+        const enterprise = (window as any).grecaptcha?.enterprise;
+        if (!enterprise) return '';
+        return await enterprise.execute(siteKey, { action: 'login' });
+      }, RECAPTCHA_SITE_KEY),
+      signal,
+      'Recaptcha execution aborted',
+    );
   } catch (err) {
     throw withStage('execute', err);
   }
@@ -533,99 +575,134 @@ export const getRecaptchaToken = async (opts: RecaptchaTokenOptions = {}): Promi
 };
 
 export interface WarmupResult {
-  /** What the warmup actually did: fetched on a hot standby page, launched cold, or skipped. */
-  source: 'standby' | 'cold' | 'cache' | 'busy' | 'inflight' | 'recent-login';
+  /** What the warmup actually did: fetched on a hot standby page, launched cold, skipped, or failed. */
+  source: 'standby' | 'cold' | 'cache' | 'busy' | 'inflight' | 'recent-login' | 'failed';
   /** Time spent minting the token (0 when nothing was fetched). */
   executeMs: number;
+  /** Failure detail for server logs only; never sent to clients. */
+  error?: string;
 }
 
 export const warmRecaptchaSession = async (): Promise<WarmupResult> => {
   if (sessionWarmupInFlight) {
-    await sessionWarmupInFlight;
-    return { source: 'inflight', executeMs: 0 };
+    const shared = await sessionWarmupInFlight;
+    // Never turn a failed shared warmup into an "inflight" success: the
+    // second caller must see the same failure the first one did.
+    return shared.source === 'failed' ? shared : { source: 'inflight', executeMs: shared.executeMs };
   }
 
   if (isTokenCacheValid()) {
     return { source: 'cache', executeMs: 0 };
   }
 
-  let result: WarmupResult = { source: 'busy', executeMs: 0 };
+  // Bound the whole attempt so a wedged page/navigation can never hold the
+  // single MAX_CONCURRENT_PAGES slot long enough to starve a real login.
+  const controller = new AbortController();
+  let timedOut = false;
+  const timeout = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, WARMUP_TIMEOUT_MS);
+  timeout.unref();
 
-  sessionWarmupInFlight = (async () => {
-    if (activePages.size > 0 || pageWaiters.length > 0) {
-      scheduleIdleClose();
-      return;
-    }
+  const failure = (err: unknown): WarmupResult => ({
+    source: 'failed',
+    executeMs: 0,
+    error: timedOut ? `Warmup timed out after ${WARMUP_TIMEOUT_MS}ms` : safeErrorMessage(err),
+  });
 
-    // A standby page exists: actually use it to refresh the token cache.
-    // (Previously this returned "OK" without fetching anything, so the next
-    // real login still paid a full cold start while the logs looked healthy.)
-    // No contention: we bailed above while any page is active or queued, and
-    // MAX_CONCURRENT_PAGES is 1.
-    if (standbyPage && !isPageClosed(standbyPage)) {
-      const page = standbyPage;
-      try {
-        activePages.add(page);
-        let token: string;
-        const execStart = now();
+  const run = async (): Promise<WarmupResult> => {
+    try {
+      if (activePages.size > 0 || pageWaiters.length > 0) {
+        scheduleIdleClose();
+        return { source: 'busy', executeMs: 0 };
+      }
+
+      // A standby page exists: actually use it to refresh the token cache.
+      // (Previously this returned "OK" without fetching anything, so the next
+      // real login still paid a full cold start while the logs looked healthy.)
+      // No contention: we bailed above while any page is active or queued, and
+      // MAX_CONCURRENT_PAGES is 1.
+      if (standbyPage && !isPageClosed(standbyPage)) {
+        const page = standbyPage;
         try {
-          token = await executeRecaptcha(page);
-        } catch {
-          await ensureRecaptchaLoaded(page, true);
-          token = await executeRecaptcha(page);
+          activePages.add(page);
+          let token: string;
+          const execStart = now();
+          try {
+            token = await executeRecaptcha(page, controller.signal);
+          } catch (err) {
+            if (controller.signal.aborted) throw err;
+            // A queued login outranks a warmup retry: don't make it wait
+            // behind a full reload that can take another minute. Drop this
+            // page and let the login build a fresh one.
+            if (pageWaiters.length > 0) throw err;
+            await ensureRecaptchaLoaded(page, true, controller.signal);
+            token = await executeRecaptcha(page, controller.signal);
+          }
+          if (controller.signal.aborted) {
+            throw new Error('Warmup aborted');
+          }
+          setTokenCache(token);
+          browserUseCount += 1;
+          return { source: 'standby', executeMs: now() - execStart };
+        } catch (err) {
+          // Drop a broken standby page so the next acquire builds a fresh one
+          // (releasePage below no longer parks dead pages).
+          await closePage(page, 'warmup_failed');
+          return failure(err);
+        } finally {
+          await releasePage(page);
+          scheduleIdleClose();
         }
-        result = { source: 'standby', executeMs: now() - execStart };
+      }
+
+      let page: Page | null = null;
+      try {
+        // A4 (extends the activePages/pageWaiters guard above — old
+        // hevyRecaptcha.ts:378 — to the cold-launch decision): never
+        // cold-launch from warmup when a login ran recently. The standby branch above already
+        // refreshed the cache on the hot page when one exists; reaching here
+        // means no standby, so a cold launch would hold the single slot
+        // (H3) exactly when the user's submit is likely seconds away (warmup
+        // fires on first keystroke, commit 331da8a). Skip instead — the login
+        // itself will warm the browser.
+        if (now() - lastLoginAcquiredAt < RECENT_LOGIN_GUARD_MS) {
+          scheduleIdleClose();
+          return { source: 'recent-login', executeMs: 0 };
+        }
+        const acquired = await acquirePage(controller.signal);
+        page = acquired.page;
+        const execStart = now();
+        const token = await executeRecaptcha(page, controller.signal);
+        if (controller.signal.aborted) {
+          throw new Error('Warmup aborted');
+        }
         setTokenCache(token);
         browserUseCount += 1;
+        return { source: acquired.isStandby ? 'standby' : 'cold', executeMs: now() - execStart };
       } catch (err) {
-        // Drop a broken standby page so the next acquire builds a fresh one
-        // (releasePage below no longer parks dead pages).
-        await closePage(page, 'warmup_failed');
-        console.warn(`⚠️ Warmup failed:`, safeErrorMessage(err));
+        return failure(err);
       } finally {
-        await releasePage(page);
-      }
-      scheduleIdleClose();
-      return;
-    }
-
-    let page: Page | null = null;
-    try {
-      // A4 (extends the activePages/pageWaiters guard above — old
-      // hevyRecaptcha.ts:378 — to the cold-launch decision): never
-      // cold-launch from warmup when a login ran recently. The standby branch above already
-      // refreshed the cache on the hot page when one exists; reaching here
-      // means no standby, so a cold launch would hold the single slot
-      // (H3) exactly when the user's submit is likely seconds away (warmup
-      // fires on first keystroke, commit 331da8a). Skip instead — the login
-      // itself will warm the browser.
-      if (now() - lastLoginAcquiredAt < RECENT_LOGIN_GUARD_MS) {
-        result = { source: 'recent-login', executeMs: 0 };
+        if (page) {
+          // An aborted page may still have a hung evaluate/navigation in
+          // flight; close it rather than parking it as standby.
+          if (controller.signal.aborted) await closePage(page, 'warmup_aborted');
+          await releasePage(page);
+        }
         scheduleIdleClose();
-        return;
       }
-      const acquired = await acquirePage();
-      page = acquired.page;
-      const execStart = now();
-      const token = await executeRecaptcha(page);
-      result = { source: acquired.isStandby ? 'standby' : 'cold', executeMs: now() - execStart };
-      setTokenCache(token);
-    } catch (err) {
-      console.warn(`⚠️ Warmup failed:`, safeErrorMessage(err));
     } finally {
-      if (page) {
-        await releasePage(page);
-      }
-      scheduleIdleClose();
+      clearTimeout(timeout);
     }
-  })();
+  };
 
+  sessionWarmupInFlight = run();
   try {
-    await sessionWarmupInFlight;
+    return await sessionWarmupInFlight;
   } finally {
     sessionWarmupInFlight = null;
   }
-  return result;
 };
 
 export const shutdownRecaptchaSession = async (): Promise<void> => {

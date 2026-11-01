@@ -283,7 +283,11 @@ const server = app.listen(PORT, () => {
   if (STARTUP_RECAPTCHA_WARMUP_ENABLED) {
     const warmupTimer = setTimeout(() => {
       warmRecaptchaSession()
-        .then(() => {
+        .then((result) => {
+          if (result.source === 'failed') {
+            console.warn('[Puppeteer] Startup warmup failed:', result.error ?? 'unknown error');
+            return;
+          }
           console.log('[Puppeteer] Startup warmup complete');
         })
         .catch((err) => {
