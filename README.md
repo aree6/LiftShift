@@ -78,6 +78,7 @@ Everything runs locally in your browser. No account needed. Sync your data throu
 | **Strong** | CSV upload |
 | **Lyfta** | API key or CSV |
 | **Motra** | Excel or CSV upload |
+| **Anneal** | CSV upload (choose Other; the export format is documented at [anneal.fit/import/anneal-csv](https://anneal.fit/import/anneal-csv/)) |
 | **Other** | Generic CSV (auto-detects columns) |
 
 More details at [liftshift.app/supported-apps](https://liftshift.app/supported-apps).

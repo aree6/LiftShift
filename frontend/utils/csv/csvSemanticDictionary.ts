@@ -109,6 +109,7 @@ export const SEMANTIC_DICTIONARY: Record<SemanticField, SemanticConfig> = {
   setType: {
     synonyms: [
       'set type', 'type', 'kind', 'category', 'set category', 'set kind',
+      'warmup', 'is warmup', 'warm up', 'iswarmup', 'is_warmup',
       'settype', 'setkind', 'setcategory',
       'set_type', 'set_kind', 'set_category',
     ],

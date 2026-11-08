@@ -167,8 +167,9 @@ export const normalizeSetType = (value: unknown): string => {
 
   if (!s || s === 'normalset' || s === 'normal' || s === 'working' || s === 'work' || s === 'regular' || s === 'standard') return 'normal';
 
-  // Warmup variations
-  if (s.includes('warm') || s === 'w' || s === 'warmupset') return 'warmup';
+  // Warmup variations, including a Yes/No or true/false warm-up column (Anneal, Fitbod).
+  if (s.includes('warm') || s === 'w' || s === 'warmupset' || s === 'yes' || s === 'true' || s === '1') return 'warmup';
+  if (s === 'no' || s === 'false' || s === '0') return 'normal';
 
   // Unilateral (left/right)
   if (s === 'left' || s === 'leftset' || s === 'l' || (s.includes('left') && s.includes('set'))) return 'left';
