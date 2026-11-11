@@ -72,6 +72,8 @@ export const CSV_TO_SVG_MUSCLE_MAP: Record<string, string[]> = {
   gastrocnemius: ['gastrocnemius'],
   soleus: ['soleus'],
   tibialis_anterior: ['tibialis'],
+  // The Lyfta/Gymvisual rows spell the tibialis group as "tibias".
+  tibias: ['tibialis'],
   hip_adductors: ['gluteus-maximus', 'gluteus-medius'],
   hip_abductors: ['gluteus-medius'],
   sartorius: ['inner-quadricep'],
