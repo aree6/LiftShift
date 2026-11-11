@@ -1,4 +1,8 @@
-import { createExerciseNameResolver, type ExerciseNameResolver } from '../../exercise/exerciseNameResolver';
+import {
+  createExerciseNameResolver,
+  type ExerciseNameMuscleInfo,
+  type ExerciseNameResolver,
+} from '../../exercise/exerciseNameResolver';
 import { stripExerciseSourceLabel } from '../../exercise/exerciseSourceLabel';
 import { loadExerciseCatalog } from '../../exercise/exerciseCatalog';
 
@@ -52,7 +56,15 @@ const getExerciseResolver = (muscleData: Map<string, ExerciseMuscleData>): Exerc
   }
   // Create resolver from the canonical names (values, not keys which are lowercased)
   const canonicalNames = Array.from(new Set(Array.from(muscleData.values()).map((d) => d.name)));
-  exerciseResolverCache = createExerciseNameResolver(canonicalNames);
+  const candidateMuscles = new Map<string, ExerciseNameMuscleInfo>();
+  for (const data of muscleData.values()) {
+    candidateMuscles.set(data.name, {
+      primary_muscle: data.primary_muscle,
+      secondary_muscle: data.secondary_muscle,
+    });
+  }
+
+  exerciseResolverCache = createExerciseNameResolver(canonicalNames, { candidateMuscles });
   exerciseResolverRef = muscleData;
   return exerciseResolverCache;
 };
