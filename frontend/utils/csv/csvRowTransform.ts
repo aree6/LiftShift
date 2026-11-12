@@ -23,7 +23,10 @@ const FEET_TO_KM = 0.0003048;
 export const toKg = (weight: number, rowUnit: string | undefined, headerUnit: string | undefined, userUnit: 'kg' | 'lbs'): number => {
   if (!Number.isFinite(weight) || weight < 0) return 0;
 
-  const unit = normalize(rowUnit ?? '') || normalize(headerUnit ?? '') || userUnit;
+  // A weight column that names its unit (weight_kg, Weight_LBS) outranks a separate unit column:
+  // Anneal writes Weight_LBS beside Unit_Entered (the unit the lifter typed), and reading the
+  // pounds as that unit scaled every kg user's loads by 2.2.
+  const unit = normalize(headerUnit ?? '') || normalize(rowUnit ?? '') || userUnit;
 
   if (unit.startsWith('kg') || unit === 'kilogram' || unit === 'kilograms') return weight;
   if (unit.startsWith('lb') || unit === 'pound' || unit === 'pounds') return weight * LBS_TO_KG;
