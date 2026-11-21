@@ -4,5 +4,6 @@ export { DashboardHeaderBar } from './DashboardHeaderBar';
 export { DashboardInsightsSection } from './DashboardInsightsSection';
 export { DashboardAIAnalysisCard } from './DashboardAIAnalysisCard';
 export { DashboardLayout } from './DashboardLayout';
+export { DashboardPaperSection } from './DashboardPaperSection';
 export { DashboardPrimaryCharts } from './DashboardPrimaryCharts';
 export { DashboardSecondaryCharts } from './DashboardSecondaryCharts';
