@@ -10,6 +10,7 @@ import { DashboardHeaderBar } from './DashboardHeaderBar';
 import { DashboardInsightsSection } from './DashboardInsightsSection';
 import { DashboardPrimaryCharts } from './DashboardPrimaryCharts';
 import { DashboardSecondaryCharts } from './DashboardSecondaryCharts';
+import { DashboardPaperSection } from './DashboardPaperSection';
 
 interface DashboardLayoutProps {
   filtersSlot?: React.ReactNode;
@@ -194,9 +195,6 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = (props) => {
           assetsMap={assetsMap}
           assetsLowerMap={assetsLowerMap}
           dailyData={dailyData}
-          fullData={fullData}
-          bodyMapGender={bodyMapGender}
-          secondarySetMultiplier={secondarySetMultiplier}
           timelineProgress={timelineProgress}
           weeklySetsDashboard={weeklySetsDashboard}
           weeklySetsDashboard30d={weeklySetsDashboard30d}
@@ -269,6 +267,22 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = (props) => {
           onExerciseClick={onExerciseClick}
           assetsMap={assetsMap}
           assetsLowerMap={assetsLowerMap}
+        />
+      </div>
+
+      {/* Paper pair closes the dashboard: it is the most decorative, least
+          glanceable content, so it stays below the working charts. */}
+      <div className="space-y-2 pt-2 pb-2">
+        <DashboardPaperSection
+          fullData={fullData}
+          dailyData={dailyData}
+          weightUnit={weightUnit}
+          effectiveNow={effectiveNow}
+          onExerciseClick={onExerciseClick}
+          assetsMap={assetsMap ?? null}
+          bodyMapGender={bodyMapGender}
+          secondarySetMultiplier={secondarySetMultiplier}
+          streakWeeks={dashboardInsights?.streakInfo?.currentStreak ?? 0}
         />
       </div>
     </>
